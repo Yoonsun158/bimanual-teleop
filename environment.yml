@@ -1,0 +1,13 @@
+name: bimanual-teleop
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - tk
+  - pip:
+      - numpy==1.26.4
+      - matplotlib==3.10.9
+      - -e .[visualization,validation,wuji]
+variables:
+  PIP_USER: "false"
