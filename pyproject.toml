@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Modular Quest, Wuji Glove, Tianji, and Hand2 teleoperation"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["PyYAML>=6,<7"]
 
 [project.optional-dependencies]
 visualization = ["matplotlib>=3.10,<4", "numpy>=1.23"]

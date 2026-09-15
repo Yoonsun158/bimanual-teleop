@@ -1,6 +1,6 @@
 # 双臂机器人遥操作
 
-Quest 手柄控制天机机械臂，Wuji Glove 控制 Hand2。控制命令只有添加 `--enable-motion` 才会运动；省略时只读或预览。
+Quest 手柄控制天机机械臂，Wuji Glove 控制 Hand2。运动程序启动后先提示检查周围环境，按回车键确认后才进入运动流程。
 
 ## 准备
 
@@ -23,26 +23,24 @@ cmake -S tianji_bridge -B tianji_bridge/build -DCMAKE_BUILD_TYPE=Release -DPytho
 cmake --build tianji_bridge/build -j4
 ```
 
-Quest 查看和遥操作命令会启动采集应用。佩戴头显并保持应用在前台；连接多个 Quest 时，用 `--serial SERIAL` 选择设备。
+Quest 查看和遥操作命令会启动采集应用。佩戴头显并保持应用在前台。
 
-手动关闭头显上正在运行的采集应用（Quest Capture）：
+手动关闭头显上正在运行的采集应用（Quest Capture），当头显上还有残余的采集应用时（通常由于程序意外终止产生），新的采集程序会无法启动：
 
 ```bash
 adb shell am force-stop org.bimanual.questcapture
 ```
 
-连接多个 ADB 设备时，使用 `adb -s SERIAL shell am force-stop org.bimanual.questcapture`，将 `SERIAL` 替换为 `adb devices -l` 中对应头显的序列号。
-
 ## 配置
 
-- `configs/tianji_teleop.json`：填写 `controller_ip`；`profile` 是机械臂运动参数，`ready_pose` 是回位目标，`quest.coordinate_frame` 选择手柄参考系。
-- `configs/wuji_teleop.json`：填写左右 `devices` 地址和已有标定用户名 `sdk_user_name`；空用户名使用 SDK 默认用户。查看和单独手部控制可用 `--user-name NAME` 临时覆盖。
+- `configs/tianji_teleop.yaml`：填写 `controller_ip`；`profile` 是机械臂运动参数，`ready_pose` 是回位目标，`quest.coordinate_frame` 选择手柄参考系。
+- `configs/wuji_teleop.yaml`：填写左右 `devices` 地址和已有标定用户名 `sdk_user_name`；空用户名使用 SDK 默认用户。查看、手部遥操作和联合遥操作可用 `--user-name NAME` 临时覆盖。
 
-参数含义和数组顺序见配置内注释。配置支持 `//` 和 `/* */` 注释，不支持尾逗号；修改后重启程序生效。
+参数含义和数组顺序见配置内注释。配置使用 YAML 格式，以空格缩进，支持 `#` 注释；修改后重启程序生效。
 
 ```bash
-# 天机入口默认读取 configs/tianji_teleop.json；仅自定义路径时加 --tianji-config PATH
-# Wuji 入口默认读取 configs/wuji_teleop.json；仅自定义路径时加 --wuji-config PATH
+# 天机入口默认读取 configs/tianji_teleop.yaml；仅自定义路径时加 --tianji-config PATH
+# Wuji 入口默认读取 configs/wuji_teleop.yaml；仅自定义路径时加 --wuji-config PATH
 # 联合遥操作同时读取上述两份配置
 ```
 
@@ -55,43 +53,45 @@ python scripts/view_quest.py
 # 左手套骨架、接触位置与压力；右手改为 --side right
 python scripts/view_wuji_glove.py --side left
 
-# 右臂六维力，默认读取 10 帧；加 --count 0 持续读取，Ctrl+C 退出
+# 持续读取右臂六维力，Ctrl+C 退出
 python scripts/read_tianji_right_force.py
 ```
 
 手套颜色表示相对压力，黑框表示 SDK 检测到接触，压力值不是牛顿。`CONTACT UNKNOWN` 表示缺少有效接触模型或接触流；此时仅显示压力。触觉来自手套，Hand2 Beta2 没有触觉反馈。
 
-六维力输出单位为 N、N·m。读取另需天机 Python SDK，默认位于项目旁的 `../TJ_FX_ROBOT_CONTRL_SDK`，可用 `--sdk-root PATH` 指定。运行前先退出其他天机程序，避免占用同一连接。
+六维力持续输出，采样输出间隔约 0.2 秒；单位为 N、N·m。读取另需天机 Python SDK，默认位于项目旁的 `../TJ_FX_ROBOT_CONTRL_SDK`，可用 `--sdk-root PATH` 指定。运行前先退出其他天机程序，避免占用同一连接。
 
 ## 控制与回位
 
 ```bash
 # 双臂双手联合遥操作，默认读取天机和 Wuji 两份配置
-python scripts/teleop_quest_tianji.py --enable-motion
+python scripts/teleop_quest_tianji.py
 
 # 只用 Quest 控制双臂；单臂再加 --side left 或 --side right
-python scripts/teleop_quest_tianji.py --arms-only --enable-motion --side left
+python scripts/teleop_quest_tianji.py --arms-only
 
 # 手套控制左侧 Hand2；右侧改为 right，双手改为 both
-python scripts/teleop_wuji_hand2.py --enable-motion --side left
+python scripts/teleop_wuji_hand2.py --side left
 
-# 键盘点动左臂：启动先回初始位姿，到位后按 Enter 开始点动
-python scripts/jog_tianji.py --enable-motion --side left
+# 键盘点动左臂：确认安全后先回初始位姿，到位后按 Enter 开始点动
+python scripts/jog_tianji.py --side left
 
 # 天机双臂回配置 ready_pose；只回一侧时加 --side left 或 --side right
-python scripts/home_tianji.py --enable-motion
+python scripts/home_tianji.py
 
-# 左侧 Hand2 回到 20 个关节零角，默认 3 秒到位并保持，Q 退出
-python scripts/home_wuji_hand2.py --enable-motion
+# 双侧 Hand2 依次回到 20 个关节零角，每侧默认 3 秒，全部完成后退出
+python scripts/home_wuji_hand2.py --side both
 ```
 
-双手回零使用 `--side both`：先左手，确认到位并去使能后再回右手，全部完成后退出；中止或失败时不继续下一侧：
+所有运动命令都需要交互终端，启动时提示：
 
-```bash
-python scripts/home_wuji_hand2.py --enable-motion --side both 
-```
+> 设备即将运动。请确认机械臂和灵巧手周围无人员、障碍物，运动范围内无碰撞风险，并做好随时急停的准备。
 
-Quest 遥操作启用运动后也会先将所选机械臂移到初始位姿，再等待接合。遥操作和点动的准备阶段可用 Space、Q 或 Ctrl+C 中止；单独运行天机回位命令时用 Ctrl+C。
+确认安全后按回车键继续，Q 或 Ctrl+C 取消。Quest 遥操作和点动先将所选机械臂移到初始位姿，再等待 Enter 接合；联合遥操作也可通过双手 V 手势接合。手部遥操作在确认后连接设备，就绪后再按 Enter 开始跟随。回位命令在确认后直接开始回位。
+
+Hand2 双侧回零按先左后右执行，每侧确认到位并去使能后才继续，失败或中止时不继续下一侧。单侧使用 `--side left` 或 `--side right`，到位后保持零角，Q 退出。
+
+遥操作和点动的准备阶段可用 Space、Q 或 Ctrl+C 中止；单独运行天机回位命令时用 Ctrl+C。
 
 | 操作 | 按键或手势 |
 | --- | --- |
@@ -103,9 +103,18 @@ Quest 遥操作启用运动后也会先将所选机械臂移到初始位姿，�
 | 键盘点动平移 | W/S、A/D、R/F：原生基座 X/Y/Z 正负方向，默认每键 5 mm |
 | 键盘点动旋转 | I/K、J/L、U/O：绕原生基座 X/Y/Z 正负方向，默认每键 2° |
 
-遥操作设备未就绪时按 Enter，会等待就绪后自动接合，Space 可取消。追踪、反馈或 IK 异常会暂停，恢复后需重新接合。同一设备一次只运行一个入口；需要详细状态时加 `--verbose`。
+遥操作设备未就绪时按 Enter，会等待就绪后自动接合，Space 可取消。追踪、反馈或 IK 异常会暂停，恢复后需重新接合。同一设备一次只运行一个入口。
 
 ### Quest 参考系与左右对应
+
+编辑 `configs/tianji_teleop.yaml` 中的 `quest.coordinate_frame`，保存后重启遥操作程序：
+
+```yaml
+quest:
+  coordinate_frame: headset
+```
+
+设为 `"headset"` 使用头显参考系，设为 `"world"` 使用世界参考系。这是配置文件中的片段，其余配置保持原有结构。`view_quest.py` 始终显示 Quest LOCAL 世界坐标中的位姿，不读取这个遥操作设置。
 
 左手柄控制右臂，右手柄控制左臂。`--side` 表示机器人侧，例如 `--arms-only --side left` 使用右手柄控制左臂；Wuji 仍是左手套控制左 Hand2、右手套控制右 Hand2。
 
@@ -116,10 +125,10 @@ Quest 遥操作启用运动后也会先将所选机械臂移到初始位姿，�
 
 ## 手套标定
 
-左右手分别执行，按终端提示完成动作。把命令中的 `yuchen` 换成你的用户名；首次标定会创建用户，后续使用同名用户更新模型，完成后将用户名写入配置的 `sdk_user_name`。
+左右手分别执行，按终端提示完成动作。把命令中的 `yuchen` 换成你的用户名；首次标定会创建用户，后续使用同名用户更新模型，完成后将用户名写入配置的 `sdk_user_name`。用户名须唯一；出现同名用户时，先在 Wuji 用户管理中改为唯一名称。显示和遥操作仅选择已有用户，不会创建用户。
 
 ```bash
-# 使用 configs/wuji_teleop.json 中对应侧的手套地址
+# 使用 configs/wuji_teleop.yaml 中对应侧的手套地址
 python scripts/calibrate_wuji_glove.py --kind joints --side left --user-name yuchen
 python scripts/calibrate_wuji_glove.py --kind tactile --side left --user-name yuchen
 ```

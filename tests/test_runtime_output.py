@@ -2,7 +2,6 @@
 
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 import io
-import json
 import logging
 import os
 from pathlib import Path
@@ -10,6 +9,8 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
+
+import yaml
 
 from bimanual_teleop.common.console import (
     LiveProgress, StatusConsole, configure_runtime_logging, format_message,
@@ -80,18 +81,29 @@ class ConsoleBehaviorTests(unittest.TestCase):
         LiveProgress(stream=redirected).update("不应输出")
         self.assertEqual(redirected.getvalue(), "")
 
-    def test_default_wuji_sdk_logging_keeps_warnings_and_verbose_enables_info(self):
+    def test_wuji_sdk_logging_keeps_warnings(self):
         sdk = SimpleNamespace(set_log_level=Mock())
         with patch.dict("sys.modules", {"wuji_sdk": sdk}):
             configure_runtime_logging(wuji=True)
-            configure_runtime_logging(wuji=True, verbose=True)
+            configure_runtime_logging(wuji=True)
         self.assertEqual([call.args[0] for call in sdk.set_log_level.call_args_list],
-                         ["warn", "info"])
+                         ["warn", "warn"])
         logger = logging.getLogger("bimanual_teleop")
         self.assertEqual(len(logger.handlers), 1)
 
 
 class EntryBehaviorTests(unittest.TestCase):
+    def setUp(self):
+        from bimanual_teleop.cli import prepare_tianji_teleop, teleop_quest_tianji, teleop_wuji_hand2
+        from bimanual_teleop.control.arm import jog
+        from bimanual_teleop.control.hand import home
+        for module in (prepare_tianji_teleop, teleop_quest_tianji, teleop_wuji_hand2, jog, home):
+            for name in ("NonblockingTerminal", "confirm_motion"):
+                options = {"return_value": True} if name == "confirm_motion" else {}
+                patcher = patch.object(module, name, **options)
+                patcher.start()
+                self.addCleanup(patcher.stop)
+
     def test_retained_entry_help_has_no_runtime_output_option(self):
         from bimanual_teleop.cli import (
             calibrate_wuji_glove, teleop_wuji_hand2, teleop_quest_tianji,
@@ -125,7 +137,7 @@ class EntryBehaviorTests(unittest.TestCase):
             ("Quest 可视化", view_quest.main, []),
             ("手套可视化", view_wuji_glove.main, ["--side", "left"]),
             ("手套标定", calibrate_wuji_glove.main,
-             ["--side", "left", "--kind", "joints", "--user-id", "named"]),
+             ["--side", "left", "--kind", "joints", "--user-name", "named"]),
             ("单手控制", teleop_wuji_hand2.main, []),
             ("机械臂遥操作", teleop_quest_tianji.main, []),
             ("机械臂点动", jog.main, ["--side", "left", "--ip", "192.0.2.1"]),
@@ -140,16 +152,17 @@ class EntryBehaviorTests(unittest.TestCase):
                 ready_parser().parse_args(["--output", "run.jsonl"])
         self.assertEqual(result.exception.code, 2)
 
-    def test_ready_pose_preview_and_failure_do_not_create_runtime_records(self):
+    def test_ready_pose_cancellation_and_failure_do_not_create_runtime_records(self):
         from bimanual_teleop.cli import prepare_tianji_teleop as ready
 
         with temporary_working_directory() as directory, redirect_stderr(io.StringIO()):
-            self.assertEqual(ready.run(ready.parser().parse_args([])), 0)
-            bad = ready.parser().parse_args(["--config", str(directory / "absent.json")])
+            with patch.object(ready, "confirm_motion", return_value=False):
+                self.assertEqual(ready.run(ready.parser().parse_args([])), 0)
+            bad = ready.parser().parse_args(["--config", str(directory / "absent.yaml")])
             self.assertEqual(ready.run(bad), 1)
             self.assertEqual(list(directory.rglob("*")), [])
 
-    def test_quest_teleop_preview_and_start_failure_do_not_create_runtime_records(self):
+    def test_quest_teleop_and_start_failure_do_not_create_runtime_records(self):
         from bimanual_teleop.cli import teleop_quest_tianji as teleop
 
         with temporary_working_directory() as directory, redirect_stderr(io.StringIO()):
@@ -162,14 +175,12 @@ class EntryBehaviorTests(unittest.TestCase):
                 self.assertEqual(teleop.main(["--arms-only"]), 0)
                 self.assertTrue(terminal.called)
                 self.assertTrue(runtime.close.called)
-                prepare.assert_not_called()
-                self.assertEqual(teleop.main(["--arms-only", "--enable-motion"]), 0)
                 prepare.assert_called_once()
                 runtime.start.side_effect = RuntimeError("模拟断流")
                 self.assertEqual(teleop.main(["--arms-only"]), 1)
             self.assertEqual(list(directory.rglob("*")), [])
 
-    def test_jog_and_home_preview_motion_stub_and_failure_leave_no_records(self):
+    def test_jog_and_home_motion_stub_and_failure_leave_no_records(self):
         from bimanual_teleop.control.arm import jog
         from bimanual_teleop.control.hand import home
 
@@ -182,13 +193,10 @@ class EntryBehaviorTests(unittest.TestCase):
                     patch.object(jog, "run_jog") as run_jog:
                 args = ["--side", "left", "--ip", "192.0.2.1"]
                 self.assertEqual(jog.main(args), 0)
-                self.assertFalse(run_jog.call_args.kwargs["enable_motion"])
-                prepare.assert_not_called()
-                self.assertEqual(jog.main(args + ["--enable-motion"]), 0)
                 self.assertTrue(run_jog.call_args.kwargs["enable_motion"])
                 prepare.assert_called_once()
                 run_jog.side_effect = RuntimeError("模拟越限")
-                self.assertEqual(jog.main(args + ["--enable-motion"]), 1)
+                self.assertEqual(jog.main(args), 1)
             self.assertEqual(list(directory.rglob("*")), [])
 
             hand = SimpleNamespace(
@@ -202,14 +210,12 @@ class EntryBehaviorTests(unittest.TestCase):
                     patch.object(home, "run_home") as run_home:
                 args = ["--side", "left"]
                 self.assertEqual(home.main(args), 0)
-                run_home.assert_not_called()
-                self.assertEqual(home.main(args + ["--enable-motion"]), 0)
                 run_home.assert_called_once()
                 run_home.side_effect = RuntimeError("模拟反馈错误")
-                self.assertEqual(home.main(args + ["--enable-motion"]), 1)
+                self.assertEqual(home.main(args), 1)
             self.assertEqual(list(directory.rglob("*")), [])
 
-    def test_single_hand_preview_and_failure_leave_no_records(self):
+    def test_single_hand_motion_and_failure_leave_no_records(self):
         from bimanual_teleop.cli import teleop_wuji_hand2
         from bimanual_teleop.control.hand import follow
 
@@ -221,17 +227,11 @@ class EntryBehaviorTests(unittest.TestCase):
                     patch.object(follow, "preflight"), \
                     patch.object(follow, "create_wuji_teleop", return_value=runtime) as create:
                 self.assertEqual(teleop_wuji_hand2.main(["--side", "left"]), 0)
-                self.assertFalse(create.call_args.kwargs["enable_motion"])
-                self.assertEqual(teleop_wuji_hand2.main(["--side", "left", "--enable-motion"]), 0)
                 self.assertTrue(create.call_args.kwargs["enable_motion"])
-                with patch.object(follow, "load_config", return_value={"sdk_user_id": "old"}):
+                with patch.object(follow, "load_config", return_value={"sdk_user_name": "old"}):
                     self.assertEqual(teleop_wuji_hand2.main(
                         ["--side", "left", "--user-name", "yuchen"]), 0)
                     self.assertEqual(create.call_args.args[0], {"sdk_user_name": "yuchen"})
-                with patch.object(follow, "load_config", return_value={"sdk_user_name": "yuchen"}):
-                    self.assertEqual(teleop_wuji_hand2.main(
-                        ["--side", "left", "--sdk-user-id", "old"]), 0)
-                    self.assertEqual(create.call_args.args[0], {"sdk_user_id": "old"})
                 runtime.start.side_effect = RuntimeError("模拟手套断流")
                 self.assertEqual(teleop_wuji_hand2.main(["--side", "left"]), 1)
             self.assertEqual(list(directory.rglob("*")), [])
@@ -265,7 +265,7 @@ class EntryBehaviorTests(unittest.TestCase):
                 self.assertEqual(view_wuji_glove.main(
                     ["--side", "left", "--user-name", "named"]), 0)
                 self.assertEqual(view_session.call_args.kwargs,
-                                 {"user_name": "named", "user_id": ""})
+                                 {"user_name": "named"})
                 self.assertEqual(glove_source.call_args.kwargs["streams"],
                                  ("skeleton", "tactile", "contact"))
                 source.start.side_effect = RuntimeError("模拟设备异常")
@@ -274,7 +274,7 @@ class EntryBehaviorTests(unittest.TestCase):
             result = {"sdk_user": {"user_id": "id", "display_name": "named"},
                       "model": "WujiGlove"}
             with patch.object(calibrate_wuji_glove, "calibrate_glove", return_value=result) as guided:
-                args = ["--side", "left", "--kind", "joints", "--user-id", "id"]
+                args = ["--side", "left", "--kind", "joints", "--user-name", "named"]
                 self.assertEqual(calibrate_wuji_glove.main(args), 0)
                 guided.side_effect = RuntimeError("模拟标定失败")
                 self.assertEqual(calibrate_wuji_glove.main(args), 1)
@@ -299,19 +299,17 @@ class EntryBehaviorTests(unittest.TestCase):
         from bimanual_teleop.devices.wuji.config import glove_settings
 
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "wuji.json"
-            for selection in ({"sdk_user_name": "yuchen"}, {"sdk_user_id": "legacy"}, {}):
-                path.write_text(json.dumps({"devices": {"left": {"glove": "test"}}, **selection}))
+            path = Path(directory) / "wuji.yaml"
+            for selection in ({"sdk_user_name": "yuchen"}, {}):
+                path.write_text(yaml.safe_dump({"devices": {"left": {"glove": "test"}}, **selection}))
                 self.assertEqual(glove_settings(path, "left"), ("test", {
-                    "user_name": selection.get("sdk_user_name", ""),
-                    "user_id": selection.get("sdk_user_id", "")}))
+                    "user_name": selection.get("sdk_user_name", "")}))
                 self.assertEqual(glove_settings(path, "left", user_name="Alice")[1],
-                                 {"user_name": "Alice", "user_id": ""})
-                self.assertEqual(glove_settings(path, "left", sdk_user_id="other")[1],
-                                 {"user_name": "", "user_id": "other"})
+                                 {"user_name": "Alice"})
             for selection in ({"sdk_user_name": "yuchen", "sdk_user_id": "legacy"},
+                              {"sdk_user_id": "legacy"},
                               {"sdk_user_name": 123}, {"sdk_user_name": " "}):
-                path.write_text(json.dumps({"devices": {"left": {"glove": "test"}}, **selection}))
+                path.write_text(yaml.safe_dump({"devices": {"left": {"glove": "test"}}, **selection}))
                 with self.assertRaises(ValueError):
                     glove_settings(path, "left")
 

@@ -26,7 +26,7 @@ def require_tactile_744(source, *, timeout_s=5.0, clock=time.monotonic):
     raise TimeoutError("no Wuji tactile frame arrived before calibration")
 
 
-def calibrate_glove(side, address, *, kind, user_id=None, user_name=None,
+def calibrate_glove(side, address, *, kind, user_name,
                     on_feedback=None, on_pose_prompt=None, sdk=None, manager=None,
                     tactile_wait_s=5.0):
     """Run the SDK's guided flow with an isolated glove and restore prior user."""
@@ -34,8 +34,8 @@ def calibrate_glove(side, address, *, kind, user_id=None, user_name=None,
         raise ValueError("calibration kind must be joints or tactile")
     sdk = sdk or _sdk_module()
     manager = manager or sdk.SdkManager.instance()
-    selected_id = resolve_user_id(manager, user_id=user_id, user_name=user_name, create=True)
-    session = WujiSdkSession(user_id=selected_id, manager=manager, sdk=sdk)
+    resolve_user_id(manager, user_name=user_name, create=True)
+    session = WujiSdkSession(user_name=user_name, manager=manager, sdk=sdk)
     source = WujiGloveSource(side, address, manager=manager, sdk=sdk,
                              streams=("tactile",) if kind == "tactile" else ())
     try:

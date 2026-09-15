@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import math
 import time
 
@@ -12,23 +12,22 @@ from bimanual_teleop.types import HandSkeleton
 
 _ROCK = ("bent", "straight", "bent", "bent", "straight")
 _V = ("bent", "straight", "straight", "bent", "bent")
-_V_HINTS = ("拇指需收拢", "食指需伸直", "中指需伸直", "无名指需收拢", "小指需收拢")
 
 
 def _geometry(skeleton):
     if (not isinstance(skeleton, HandSkeleton) or skeleton.joint_names != SKELETON_NAMES
             or len(skeleton.positions_m) != 21 or len(skeleton.confidences) != 21
             or any(len(p) != 3 or not all(map(math.isfinite, p)) for p in skeleton.positions_m)):
-        return None, "骨架数据无效"
+        return None
     if any(not math.isfinite(c) or not .5 <= c <= 1. for c in skeleton.confidences):
-        return None, "骨架置信度低"
+        return None
     bends, reaches = [], [None]
     for finger, start in enumerate((1, 5, 9, 13, 17)):
         points = skeleton.positions_m[start:start + 4]
         bones = [tuple(b - a for a, b in zip(p, q)) for p, q in zip(points, points[1:])]
         lengths = [math.sqrt(sum(x * x for x in bone)) for bone in bones]
         if any(not math.isfinite(length) or length < 1e-6 for length in lengths):
-            return None, "骨架骨长无效"
+            return None
         cosines = [sum(a * b for a, b in zip(bones[i], bones[i + 1]))
                    / (lengths[i] * lengths[i + 1]) for i in (0, 1)]
         bends.append(sum(math.degrees(math.acos(max(-1., min(1., c)))) for c in cosines))
@@ -36,10 +35,10 @@ def _geometry(skeleton):
             axis = tuple(a - b for a, b in zip(points[0], skeleton.positions_m[0]))
             distance = math.sqrt(sum(x * x for x in axis))
             if not math.isfinite(distance) or distance < 1e-6:
-                return None, "骨架掌指方向无效"
+                return None
             reaches.append(sum((tip - base) * x for tip, base, x in zip(points[-1], points[0], axis))
                            / (distance * sum(lengths)))
-    return {"bend_deg": bends, "reach": reaches}, ""
+    return {"bend_deg": bends, "reach": reaches}
 
 
 def _bend_poses(bends):
@@ -49,7 +48,7 @@ def _bend_poses(bends):
 
 def _finger_poses(skeleton):
     """Legacy inter-bone classification retained for verified rock gestures."""
-    features, _ = _geometry(skeleton)
+    features = _geometry(skeleton)
     return None if features is None else _bend_poses(features["bend_deg"])
 
 
@@ -62,18 +61,16 @@ def _matches(fingers, expected):
 
 
 def _classify(skeleton):
-    features, problem = _geometry(skeleton)
+    features = _geometry(skeleton)
     if features is None:
-        return (None, None), problem, {}
+        return None, None
     fingers = _bend_poses(features["bend_deg"])
     rock = _matches(fingers, _ROCK)
     # Projection includes MCP flexion, which inter-bone angles alone omit.
     v_fingers = [fingers[0]] + ["straight" if reach >= .75 else "bent" if reach <= .5
                               else "uncertain" for reach in features["reach"][1:]]
     v = False if rock is True else _matches(v_fingers, _V)
-    detail = ("摇滚已识别" if rock is True else "V已识别" if v is True else
-              "、".join(hint for pose, expected, hint in zip(v_fingers, _V, _V_HINTS) if pose != expected))
-    return (rock, v), detail, features
+    return rock, v
 
 
 def rock_gesture(skeleton: HandSkeleton) -> bool | None:
@@ -83,7 +80,7 @@ def rock_gesture(skeleton: HandSkeleton) -> bool | None:
 
 def v_gesture(skeleton: HandSkeleton) -> bool | None:
     """True when only the index and middle fingers extend away from the palm."""
-    return _classify(skeleton)[0][1]
+    return _classify(skeleton)[1]
 
 
 @dataclass
@@ -93,12 +90,9 @@ class _Hand:
     poses: tuple = (None, None)
     since: tuple = (None, None)
     rock_armed: bool = True
-    detail: str = "尚无骨架样本"
-    features: dict = field(default_factory=dict)
 
-    def invalidate(self, reason):
+    def invalidate(self):
         self.poses = self.since = (None, None)
-        self.detail, self.features = reason, {}
 
 
 class GestureCommands:
@@ -130,12 +124,12 @@ class GestureCommands:
         for side, sample in samples.items():
             hand = self._hands[side]
             if sample is None or not sample.header.valid:
-                hand.invalidate("尚无有效骨架样本")
+                hand.invalidate()
                 continue
             header = sample.header
             age = now_ns - header.received_monotonic_ns
             if not 0 <= age < self.timeout_ns:
-                hand.invalidate("样本过期" if age >= 0 else "样本时间戳超前")
+                hand.invalidate()
                 continue
             identity = (header.ref.epoch, header.source_sequence
                         if header.source_sequence is not None else header.ref.sequence)
@@ -144,16 +138,16 @@ class GestureCommands:
             previous = hand.identity
             if (previous is not None and previous[0] == identity[0]
                     and not 0 < (identity[1] - previous[1]) % (1 << 32) < (1 << 31)):
-                hand.invalidate("帧序号回退")
+                hand.invalidate()
                 continue
             hand.identity = identity
             received = header.received_monotonic_ns
             if hand.received_ns is not None and received <= hand.received_ns:
-                hand.invalidate("样本时间戳回退")
+                hand.invalidate()
                 continue
             continuous = (previous is not None and previous[0] == identity[0]
                           and received - hand.received_ns < self.timeout_ns)
-            poses, hand.detail, hand.features = _classify(sample.payload)
+            poses = _classify(sample.payload)
             hand.since = tuple(None if pose is not True else
                                since if continuous and old is True and since is not None else received
                                for pose, old, since in zip(poses, hand.poses, hand.since))
@@ -185,19 +179,3 @@ class GestureCommands:
             return 0
         return max(0, min(h.received_ns for h in self._hands.values())
                    - max(h.since[1] for h in self._hands.values()))
-
-    def status(self, now_ns):
-        """Describe cached recognition without reading samples or advancing dwell."""
-        hands = {}
-        for side, hand in self._hands.items():
-            rock, v = hand.poses
-            detail = hand.detail
-            if hand.received_ns is not None:
-                age = now_ns - hand.received_ns
-                if not 0 <= age < self.timeout_ns:
-                    rock = v = None
-                    detail = "样本过期" if age >= 0 else "样本时间戳超前"
-            hands[side] = {"v": v, "rock": rock, "detail": detail,
-                           "features": {key: list(value) for key, value in hand.features.items()}}
-        return {"hands": hands, "start_armed": self._start_armed,
-                "hold_ms": self._v_hold_ns(now_ns) / 1e6, "required_hold_ms": self.hold_ns / 1e6}

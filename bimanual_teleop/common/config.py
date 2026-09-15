@@ -1,19 +1,16 @@
-"""Read JSON configuration with // line comments and /* block comments */."""
+"""Read YAML configuration shared by device entry points."""
 
-import json
 from pathlib import Path
-import re
 
 
-_TOKENS = re.compile(r'"(?:[^"\\]|\\.)*"|//[^\r\n]*|/\*[\s\S]*?\*/')
+def load_yaml_config(path: str | Path) -> dict:
+    import yaml
 
-
-def load_json_config(path: str | Path):
-    text = Path(path).read_text(encoding="utf-8")
-
-    def strip_comment(match):
-        token = match.group()
-        # Preserve strings, including URLs, and error line/column positions.
-        return token if token.startswith('"') else re.sub(r"[^\r\n]", " ", token)
-
-    return json.loads(_TOKENS.sub(strip_comment, text))
+    with Path(path).open(encoding="utf-8") as stream:
+        try:
+            config = yaml.safe_load(stream)
+        except yaml.YAMLError as error:
+            raise ValueError(f"Invalid YAML configuration {path}: {error}") from error
+    if not isinstance(config, dict):
+        raise ValueError(f"Configuration must be a mapping: {path}")
+    return config

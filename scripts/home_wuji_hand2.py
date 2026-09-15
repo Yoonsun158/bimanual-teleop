@@ -1,4 +1,4 @@
-"""Preview or home the left, right, or both Wuji Hand2 hands."""
+"""Home the left, right, or both Wuji Hand2 hands after confirmation."""
 
 from bimanual_teleop.control.hand.home import main
 

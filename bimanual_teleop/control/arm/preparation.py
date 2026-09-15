@@ -37,16 +37,16 @@ def stop_preparation(process):
             continue
 
 
-def prepare_initial_pose(*, config, ip, terminal, side="both", library=None, model=None,
-                         verbose=False):
+def prepare_initial_pose(*, config, ip, terminal, side="both", library=None, model=None):
+    """Run after the caller has received the operator's motion confirmation."""
     config = Path(config).resolve()
-    command = [sys.executable, str(ROOT / "scripts/prepare_tianji_teleop.py"), "--enable-motion",
+    worker = ("from bimanual_teleop.cli.prepare_tianji_teleop import parser, run; "
+              "raise SystemExit(run(parser().parse_args(), confirmed=True))")
+    command = [sys.executable, "-c", worker,
                "--ip", ip, "--tianji-config", str(config), "--side", side]
     for flag, path in (("--library", library), ("--model", model)):
         if path is not None:
             command += [flag, str(Path(path).resolve())]
-    if verbose:
-        command += ["--verbose"]
     check_preparation_input(terminal)
     label = "双臂" if side == "both" else "左臂" if side == "left" else "右臂"
     print_message(f"先将{label}移到初始位姿；Space / Q / Ctrl+C 可中止。")

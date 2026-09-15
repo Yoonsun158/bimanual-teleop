@@ -1,4 +1,4 @@
-"""Preview, inspect, or prepare the Tianji initial pose."""
+"""Inspect Tianji joints, or confirm with Enter to prepare the initial pose."""
 
 from bimanual_teleop.cli.prepare_tianji_teleop import parser, run
 

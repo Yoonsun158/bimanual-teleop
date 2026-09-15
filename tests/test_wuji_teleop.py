@@ -472,9 +472,8 @@ class RetargetTests(unittest.TestCase):
                           {"sdk_user_id": "ambiguous"}):
             with self.assertRaises(ValueError):
                 create_wuji_teleop({**config, **selection}, sides=("left",))
-        legacy = create_wuji_teleop({**config, "sdk_user_name": "", "sdk_user_id": "old"},
-                                   sides=("left",))
-        self.assertEqual(legacy.session.user_id, "old")
+        with self.assertRaisesRegex(ValueError, "sdk_user_name"):
+            create_wuji_teleop({**config, "sdk_user_name": "", "sdk_user_id": "old"}, sides=("left",))
 
 
 if __name__ == "__main__":

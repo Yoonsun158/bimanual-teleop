@@ -8,7 +8,7 @@ import math
 from pathlib import Path
 import time
 
-from bimanual_teleop.common.terminal import NonblockingTerminal
+from bimanual_teleop.common.terminal import NonblockingTerminal, confirm_motion
 from bimanual_teleop.common.console import LiveProgress, StatusConsole, configure_runtime_logging, print_message
 from bimanual_teleop.devices.tianji.driver import TianjiDriver
 from bimanual_teleop.devices.tianji.config import DEFAULT_CONFIG, load_config
@@ -260,36 +260,34 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--side", choices=("left", "right"), required=True)
     parser.add_argument("--tianji-config", "--config", dest="config", type=Path, default=DEFAULT_CONFIG,
-                        help="天机统一配置 JSON；默认 configs/tianji_teleop.json")
+                        help="天机统一配置 YAML；默认 configs/tianji_teleop.yaml")
     parser.add_argument("--ip", help="临时覆盖设备配置中的天机控制器 IP")
     parser.add_argument("--model", type=Path)
     parser.add_argument("--library", type=Path)
-    parser.add_argument("--enable-motion", action="store_true", help="先回到初始位姿，再允许 Enter 接合点动")
     parser.add_argument("--step-mm", type=float, default=5., help="单次平移，默认 5 mm")
     parser.add_argument("--step-deg", type=float, default=2., help="单次旋转，默认 2°")
     parser.add_argument("--transition-s", type=float, default=.25, help="点动平滑时间，默认 0.25 s")
-    parser.add_argument("--verbose", action="store_true", help="显示详细设备状态")
     args = parser.parse_args(argv)
     driver = None
     error = None
     try:
-        configure_runtime_logging(verbose=args.verbose)
+        configure_runtime_logging()
         settings = load_config(args.config, args.ip)
         controller_ip = settings["controller_ip"]
         translation_m = _positive(args.step_mm, "--step-mm") / 1000
         rotation_rad = math.radians(_positive(args.step_deg, "--step-deg"))
         transition_s = _positive(args.transition_s, "--transition-s")
         profile = select_side_profile(ControlProfile(**settings["profile"]), args.side, model_path=args.model)
-        if args.enable_motion:
-            with NonblockingTerminal() as terminal:
-                prepare_initial_pose(config=args.config, ip=controller_ip, side=args.side,
-                                     library=args.library, model=args.model,
-                                     verbose=args.verbose, terminal=terminal)
+        with NonblockingTerminal() as terminal:
+            if not confirm_motion(terminal, "开始初始回位，完成后等待点动接合"):
+                return 0
+            prepare_initial_pose(config=args.config, ip=controller_ip, side=args.side,
+                                 library=args.library, model=args.model, terminal=terminal)
         kinematics = TianjiKinematics(args.library, args.model)
         driver = TianjiDriver(controller_ip, args.library, model_path=args.model)
         driver.start()
         run_jog(driver, kinematics, profile, side=args.side,
-                enable_motion=args.enable_motion, translation_m=translation_m,
+                enable_motion=True, translation_m=translation_m,
                 rotation_rad=rotation_rad, transition_s=transition_s)
     except KeyboardInterrupt:
         pass

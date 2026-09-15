@@ -451,15 +451,21 @@ class EntryPointTests(unittest.TestCase):
         self.patch_module = patch.dict(sys.modules, {self.module.__name__: self.module})
         self.patch_module.start()
         self.addCleanup(self.patch_module.stop)
+        prepare = patch.object(cli, "prepare_initial_pose")
+        prepare.start()
+        self.addCleanup(prepare.stop)
         for entry in (cli, hand_cli):
+            confirm = patch.object(entry, "confirm_motion", return_value=True)
+            confirm.start()
+            self.addCleanup(confirm.stop)
             logging = patch.object(entry, "configure_runtime_logging")
             logging.start()
             self.addCleanup(logging.stop)
 
     def test_arm_only_factory_does_not_import_wuji_or_construct_hand_runtime(self):
         args = SimpleNamespace(serial=None, robot_ip="unused", library=None,
-                               enable_motion=False, arms_only=True,
-                               wuji_config=Path("absent-wuji.json"), coordinate_frame="headset")
+                               arms_only=True,
+                               wuji_config=Path("absent-wuji.yaml"), coordinate_frame="headset")
         original_import = builtins.__import__
 
         def guarded_import(name, *args, **kwargs):
@@ -480,7 +486,7 @@ class EntryPointTests(unittest.TestCase):
 
     def test_combined_factory_constructs_both_arm_and_hand_runtimes(self):
         args = SimpleNamespace(serial=None, robot_ip="unused", library=None, side="both",
-                               enable_motion=False, arms_only=False, wuji_config=cli.DEFAULT_WUJI_CONFIG,
+                               arms_only=False, wuji_config=cli.DEFAULT_WUJI_CONFIG,
                                wuji_settings=self.config, coordinate_frame="headset")
         with ExitStack() as stack:
             for name in ("devices.quest.adapter.QuestSource", "devices.tianji.driver.TianjiDriver",
@@ -490,7 +496,7 @@ class EntryPointTests(unittest.TestCase):
             arms = stack.enter_context(patch.object(arm_runtime, "QuestTianjiTeleop"))
             combined = stack.enter_context(patch("bimanual_teleop.control.combined.QuestTianjiWujiTeleop"))
             self.assertIs(cli.create_runtime(args, None, None), combined.return_value)
-        self.module.create_wuji_teleop.assert_called_once_with(self.config, sink=None, enable_motion=False)
+        self.module.create_wuji_teleop.assert_called_once_with(self.config, sink=None, enable_motion=True)
         self.assertEqual(arms.call_args.kwargs["side"], "both")
         combined.assert_called_once_with(arms.return_value, self.runtime)
 
@@ -500,7 +506,7 @@ class EntryPointTests(unittest.TestCase):
                 patch.object(cli, "create_runtime", return_value=self.runtime) as create, \
                 patch.object(cli, "run_loop", return_value={"elapsed_s": .1, "motion_pauses": 0}) as loop, \
                 redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            absent = Path(directory) / "absent-wuji.json"
+            absent = Path(directory) / "absent-wuji.yaml"
             self.assertEqual(cli.main(["--arms-only", "--wuji-config", str(absent)]), 0)
         args = create.call_args.args[0]
         self.assertTrue(args.arms_only)
@@ -509,7 +515,7 @@ class EntryPointTests(unittest.TestCase):
         self.module.load_config.assert_not_called()
         self.module.preflight.assert_not_called()
         self.module.create_wuji_teleop.assert_not_called()
-        cli.configure_runtime_logging.assert_called_once_with(verbose=False, wuji=False)
+        cli.configure_runtime_logging.assert_called_once_with(wuji=False)
 
     def test_combined_single_arm_selection_fails_before_configuration_or_devices(self):
         for side in ("left", "right"):
@@ -530,7 +536,7 @@ class EntryPointTests(unittest.TestCase):
              patch.object(cli, "NonblockingTerminal") as terminal, \
              patch.object(cli, "create_runtime") as create, \
              redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            code = cli.main(["--enable-motion", "--wuji-config", "unused.json"])
+            code = cli.main(["--wuji-config", "unused.yaml"])
         self.assertEqual(code, 1)
         prepare.assert_not_called()
         terminal.assert_not_called()
@@ -541,7 +547,7 @@ class EntryPointTests(unittest.TestCase):
         with patch.object(cli, "prepare_initial_pose") as prepare, \
              patch.object(cli, "NonblockingTerminal") as terminal, \
              redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            self.assertEqual(cli.main(["--enable-motion", "--wuji-config", "unused.json"]), 1)
+            self.assertEqual(cli.main(["--wuji-config", "unused.yaml"]), 1)
         prepare.assert_not_called()
         terminal.assert_not_called()
         self.module.preflight.assert_not_called()
@@ -551,12 +557,12 @@ class EntryPointTests(unittest.TestCase):
         with patch.object(cli, "prepare_initial_pose") as prepare, \
              patch.object(cli, "NonblockingTerminal") as terminal, \
              redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as output:
-            self.assertEqual(cli.main(["--enable-motion", "--wuji-config", "unused.json"]), 1)
+            self.assertEqual(cli.main(["--wuji-config", "unused.yaml"]), 1)
         prepare.assert_not_called()
         terminal.assert_not_called()
         self.assertIn("wuji_sdk", output.getvalue())
 
-    def test_default_combined_entry_loads_both_configs_and_constructs_gesture_in_preview(self):
+    def test_default_combined_entry_prepares_and_waits_for_gesture_or_enter(self):
         gloves = {side: Mock() for side in ("left", "right")}
         self.runtime.hands = SimpleNamespace(gloves=gloves, glove_timeout_ns=250_000_000)
         with patch.object(cli, "NonblockingTerminal"), \
@@ -573,14 +579,14 @@ class EntryPointTests(unittest.TestCase):
         self.assertEqual(create.call_args.args[0].wuji_config, cli.DEFAULT_WUJI_CONFIG)
         self.assertFalse(create.call_args.args[0].arms_only)
         self.assertIs(create.call_args.args[0].wuji_settings, self.config)
-        prepare.assert_not_called()
+        prepare.assert_called_once()
         ui = loop.call_args.args[1]
-        self.assertFalse(ui.enable_motion)
+        self.assertTrue(ui.enable_motion)
         self.assertTrue(ui.background_engage)
         self.assertEqual(ui.gesture.sources, {side: glove.get_latest for side, glove in gloves.items()})
         self.assertNotIn("runtime.engage", self.runtime.calls)
 
-    def test_combined_entry_forwards_explicit_config_paths(self):
+    def test_combined_entry_forwards_explicit_config_paths_and_user_name(self):
         settings = cli.load_config(cli.DEFAULT_CONFIG)
         self.runtime.hands = SimpleNamespace(gloves={side: Mock() for side in ("left", "right")},
                                              glove_timeout_ns=250_000_000)
@@ -589,12 +595,22 @@ class EntryPointTests(unittest.TestCase):
                 patch.object(cli, "load_config", return_value=settings) as tianji_load, \
                 patch.object(cli, "run_loop", return_value={"elapsed_s": .1, "motion_pauses": 0}), \
                 redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            self.assertEqual(cli.main(["--tianji-config", "custom-tianji.json",
-                                       "--wuji-config", "custom-wuji.json"]), 0)
-        tianji_load.assert_called_once_with(Path("custom-tianji.json"), None)
-        self.module.load_config.assert_called_once_with(Path("custom-wuji.json"))
-        self.assertEqual(create.call_args.args[0].config, Path("custom-tianji.json"))
-        self.assertEqual(create.call_args.args[0].wuji_config, Path("custom-wuji.json"))
+            self.assertEqual(cli.main(["--tianji-config", "custom-tianji.yaml",
+                                       "--wuji-config", "custom-wuji.yaml", "--user-name", "Alice"]), 0)
+        tianji_load.assert_called_once_with(Path("custom-tianji.yaml"), None)
+        self.module.load_config.assert_called_once_with(Path("custom-wuji.yaml"))
+        self.assertEqual(create.call_args.args[0].config, Path("custom-tianji.yaml"))
+        self.assertEqual(create.call_args.args[0].wuji_config, Path("custom-wuji.yaml"))
+        self.assertEqual(create.call_args.args[0].wuji_settings["sdk_user_name"], "Alice")
+
+    def test_blank_user_name_is_rejected_before_motion_confirmation(self):
+        for entry in (cli, hand_cli):
+            with self.subTest(entry=entry.__name__), \
+                    patch.object(entry, "confirm_motion") as confirm, \
+                    redirect_stderr(io.StringIO()):
+                self.assertEqual(entry.main(["--user-name", " "]), 1)
+                confirm.assert_not_called()
+                self.module.create_wuji_teleop.assert_not_called()
 
     def run_hand_cli(self, arguments, *, start_error=None):
         if start_error:
@@ -606,24 +622,23 @@ class EntryPointTests(unittest.TestCase):
             code = hand_cli.main(arguments)
         return code, loop
 
-    def test_standalone_defaults_to_read_only_both_hands_at_120_hz(self):
+    def test_standalone_waits_for_engagement_with_both_hands_at_120_hz(self):
         code, loop = self.run_hand_cli([])
         self.assertEqual(code, 0)
         self.module.create_wuji_teleop.assert_called_once_with(
-            self.config, sides=("left", "right"), sink=None, enable_motion=False)
+            self.config, sides=("left", "right"), sink=None, enable_motion=True)
         self.assertEqual(loop.call_args.kwargs["period_ns"], round(1e9 / 120))
-        self.assertIsNone(loop.call_args.kwargs["status_reporter"])
         self.assertEqual(self.runtime.calls, ["runtime.start", "runtime.close"])
 
     def test_standalone_accepts_named_wuji_config_and_legacy_alias(self):
         for flag in ("--wuji-config", "--config"):
             with self.subTest(flag=flag):
                 self.module.load_config.reset_mock()
-                self.assertEqual(self.run_hand_cli([flag, "custom-wuji.json"])[0], 0)
-                self.module.load_config.assert_called_once_with(Path("custom-wuji.json"))
+                self.assertEqual(self.run_hand_cli([flag, "custom-wuji.yaml"])[0], 0)
+                self.module.load_config.assert_called_once_with(Path("custom-wuji.yaml"))
 
-    def test_standalone_side_and_motion_flag_do_not_implicitly_engage(self):
-        code, _ = self.run_hand_cli(["--side", "right", "--enable-motion"])
+    def test_standalone_confirmation_does_not_implicitly_engage(self):
+        code, _ = self.run_hand_cli(["--side", "right"])
         self.assertEqual(code, 0)
         self.module.create_wuji_teleop.assert_called_once_with(
             self.config, sides=("right",), sink=None, enable_motion=True)
@@ -635,13 +650,12 @@ class EntryPointTests(unittest.TestCase):
         loop.assert_not_called()
         self.assertEqual(self.runtime.calls, ["runtime.start", "runtime.close"])
 
-    def test_preview_motion_stub_and_failure_create_no_runtime_files(self):
+    def test_motion_stub_and_failure_create_no_runtime_files(self):
         original = Path.cwd()
         with tempfile.TemporaryDirectory() as temporary:
             os.chdir(temporary)
             try:
                 self.assertEqual(self.run_hand_cli([])[0], 0)
-                self.assertEqual(self.run_hand_cli(["--enable-motion"])[0], 0)
                 self.runtime.start_hook = lambda: fail("模拟断流")
                 self.assertEqual(self.run_hand_cli([])[0], 1)
                 self.assertEqual(list(Path(temporary).rglob("*")), [])
@@ -671,12 +685,6 @@ class EntryPointTests(unittest.TestCase):
         self.assertIn("WujiException: Connection timeout", message)
         self.assertEqual(self.runtime.calls[-1], "runtime.close")
 
-    def test_rate_display_handles_first_cycle_without_a_frequency(self):
-        status = {"gloves": {"left": {"statistics": {}}},
-                  "hands": {"left": {"statistics": {}}}, "control_hz_actual": None}
-        with patch.object(hand_cli, "print_message") as output:
-            hand_cli.report_rates(status)
-        self.assertIn("等待样本", output.call_args.args[0])
 
 
 if __name__ == "__main__":

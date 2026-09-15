@@ -43,21 +43,13 @@ def _sdk_module():
     return wuji_sdk
 
 
-def resolve_user_id(manager, *, user_name=None, user_id=None, create=False):
+def resolve_user_id(manager, *, user_name, create=False):
     """Resolve a unique SDK user; only calibration may create a missing name."""
-    if bool(user_id) == bool(user_name):
-        raise ValueError("specify exactly one of user_name or user_id")
-    if user_id:
-        matches = [user for user in manager.list_users() if user["user_id"] == user_id]
-        if len(matches) != 1 or matches[0].get("is_default", False):
-            raise ValueError(f"未找到 SDK 用户 ID {user_id!r}；首次标定请用 --user-name 创建用户，"
-                             "已有用户请填写创建后显示的实际 ID。")
-        return user_id
     if not isinstance(user_name, str) or not user_name.strip():
         raise ValueError("SDK 用户名不能为空")
     matches = [user for user in manager.list_users() if user.get("display_name") == user_name]
     if len(matches) > 1:
-        raise ValueError(f"SDK 用户名 {user_name!r} 对应多个用户；请改用 --user-id。")
+        raise ValueError(f"SDK 用户名 {user_name!r} 对应多个用户；请先在 Wuji 用户管理中将用户名改为唯一名称。")
     if matches:
         if create and matches[0].get("is_default", False):
             raise ValueError("calibration requires a named SDK user")
@@ -70,19 +62,15 @@ def resolve_user_id(manager, *, user_name=None, user_id=None, create=False):
 class WujiSdkSession:
     """Own the SDK user selection; close after all devices are disconnected."""
 
-    def __init__(self, *, user_name: str = "", user_id: str = "", manager=None, sdk=None):
+    def __init__(self, *, user_name: str = "", manager=None, sdk=None):
         if not isinstance(user_name, str) or (user_name and not user_name.strip()):
             raise ValueError("SDK user name must be a nonblank string")
-        if not isinstance(user_id, str):
-            raise ValueError("SDK user ID must be a string")
-        if user_name and user_id:
-            raise ValueError("specify only one of user_name or user_id")
         self.user_name = user_name
-        self.user_id = user_id
+        self.user_id = ""
         self.manager, self.sdk = manager, sdk
         self._previous_user = None
         self.metadata = {"sdk_version": SDK_VERSION, "sdk_user_name": user_name,
-                         "sdk_user_id": user_id}
+                         "sdk_user_id": ""}
 
     def open(self):
         if self._previous_user is not None:

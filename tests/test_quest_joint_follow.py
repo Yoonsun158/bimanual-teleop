@@ -114,7 +114,7 @@ class JointFollowTests(unittest.TestCase):
         # and the actual motion profile are used; no robot connection is made.
         fx = RuntimeFixture()
         self.addCleanup(fx.runtime.close)
-        config = load_config(ROOT / "configs/tianji_teleop.json")
+        config = load_config(ROOT / "configs/tianji_teleop.yaml")
         profile = ControlProfile(**config["profile"])
         parsed = MotionProfile.from_control_profile(profile)
         ready = config["ready_pose"]["target_deg"]

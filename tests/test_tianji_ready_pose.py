@@ -3,11 +3,12 @@
 from contextlib import redirect_stderr
 from dataclasses import dataclass, field
 import io
-import json
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+
+import yaml
 
 from bimanual_teleop.cli import prepare_tianji_teleop as ready
 
@@ -72,28 +73,30 @@ class ReadyPoseTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        self.target = self.root / "config.json"
-        self.settings = ready.load_config(ROOT / "configs/tianji_teleop.json")
+        self.target = self.root / "config.yaml"
+        self.settings = ready.load_config(ROOT / "configs/tianji_teleop.yaml")
         self.source = self.settings["ready_pose"]
         self.driver = Driver()
 
     def invoke(self, *flags):
-        self.target.write_text(json.dumps(self.settings))
+        self.target.write_text(yaml.safe_dump(self.settings))
         before = {path.relative_to(self.root) for path in self.root.rglob("*") if path.is_file()}
         args = ready.parser().parse_args(["--tianji-config", str(self.target), *flags])
         output = io.StringIO()
         with patch.object(ready, "TianjiDriver", return_value=self.driver) as factory, \
-             patch.object(ready, "configure_runtime_logging"), redirect_stderr(output):
+             patch.object(ready, "configure_runtime_logging"), \
+             patch.object(ready, "NonblockingTerminal"), \
+             patch.object(ready, "confirm_motion", return_value=True), redirect_stderr(output):
             code = ready.run(args)
         after = {path.relative_to(self.root) for path in self.root.rglob("*") if path.is_file()}
         self.assertEqual(after, before)
         return code, output.getvalue(), factory
 
-    def test_preview_does_not_connect_or_write(self):
+    def test_default_moves_after_confirmation_without_writing_records(self):
         code, output, factory = self.invoke()
         self.assertEqual(code, 0)
-        factory.assert_not_called()
-        self.assertIn("初始关节目标已加载", output)
+        factory.assert_called_once()
+        self.assertIn("准备完成", output)
 
     def test_inspect_reads_without_motion(self):
         code, output, factory = self.invoke("--inspect")
@@ -109,14 +112,14 @@ class ReadyPoseTests(unittest.TestCase):
         factory.assert_called_once_with("192.0.2.8", None, model_path=None)
 
     def test_ip_override_preserves_ready_pose_from_shared_config(self):
-        code, _, factory = self.invoke("--execute", "--ip", "192.0.2.9")
+        code, _, factory = self.invoke("--ip", "192.0.2.9")
         self.assertEqual(code, 0)
         factory.assert_called_once_with("192.0.2.9", None, model_path=None)
         self.assertEqual(self.driver.profile.parameters["arms"]["left"]["velocity_ratio"], 25)
 
-    def test_enable_motion_uses_selected_target_and_custom_model(self):
+    def test_motion_uses_selected_target_and_custom_model(self):
         library, model = self.root / "custom.so", self.root / "model.MvKDCfg"
-        code, _, factory = self.invoke("--enable-motion", "--side", "right",
+        code, _, factory = self.invoke("--side", "right",
                                        "--library", str(library), "--model", str(model))
         self.assertEqual(code, 0)
         factory.assert_called_once_with(self.settings["controller_ip"], library, model_path=model)
@@ -128,7 +131,7 @@ class ReadyPoseTests(unittest.TestCase):
 
     def test_execute_moves_selected_arms_in_order_and_closes(self):
         self.source["order"] = ["right", "left"]
-        code, output, _ = self.invoke("--execute")
+        code, output, _ = self.invoke()
         self.assertEqual(code, 0)
         self.assertEqual(self.driver.calls[0:2], ["start", "configure"])
         self.assertEqual([call[0] for call in self.driver.calls if isinstance(call, tuple)], ["right", "left"])
@@ -137,14 +140,14 @@ class ReadyPoseTests(unittest.TestCase):
 
     def test_single_side_does_not_require_other_arm_target(self):
         self.source["target_deg"] = {"left": self.source["target_deg"]["left"]}
-        code, _, _ = self.invoke("--execute", "--side", "left")
+        code, _, _ = self.invoke("--side", "left")
         self.assertEqual(code, 0)
         self.assertEqual(self.driver.profile.parameters["active_arms"], ["left"])
         self.assertEqual([call[0] for call in self.driver.calls if isinstance(call, tuple)], ["left"])
 
     def test_failure_blocks_next_arm_and_reports_error_without_record(self):
         self.driver.failure = "left"
-        code, output, _ = self.invoke("--execute")
+        code, output, _ = self.invoke()
         self.assertEqual(code, 1)
         self.assertEqual([call[0] for call in self.driver.calls if isinstance(call, tuple)], ["left"])
         self.assertEqual(self.driver.calls[-1], "close")
@@ -152,19 +155,19 @@ class ReadyPoseTests(unittest.TestCase):
 
     def test_close_failure_changes_exit_code(self):
         self.driver.close_error = "SDK release failed"
-        code, output, _ = self.invoke("--execute")
+        code, output, _ = self.invoke()
         self.assertEqual(code, 1)
         self.assertIn("SDK release failed", output)
 
     def test_reset_is_explicit_and_precedes_motion(self):
         self.driver.sample.payload.arms["left"].error = 13
-        code, _, _ = self.invoke("--execute", "--reset")
+        code, _, _ = self.invoke("--reset")
         self.assertEqual(code, 0)
         self.assertEqual(self.driver.calls[:3], ["start", "reset", "configure"])
 
     def test_invalid_target_rejected_before_connection(self):
         self.source["target_deg"]["right"] = [0] * 6
-        code, output, factory = self.invoke("--execute")
+        code, output, factory = self.invoke()
         self.assertEqual(code, 1)
         factory.assert_not_called()
         self.assertIn("seven finite", output)

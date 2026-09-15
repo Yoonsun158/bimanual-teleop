@@ -7,15 +7,14 @@ import math
 from pathlib import Path
 import time
 
-from bimanual_teleop.common.terminal import NonblockingTerminal
+from bimanual_teleop.common.terminal import NonblockingTerminal, confirm_motion
 from bimanual_teleop.common.console import configure_runtime_logging, print_message
 from bimanual_teleop.devices.wuji.adapter import JOINT_LIMITS_RAD, JOINT_NAMES, WujiHandDriver
+from bimanual_teleop.devices.wuji.config import DEFAULT_CONFIG
 from bimanual_teleop.control.hand.follow import load_config
 from bimanual_teleop.types import ControlProfile, DeviceCommand, JointTarget
-from bimanual_teleop.paths import PROJECT_ROOT
 
 
-DEFAULT_CONFIG = PROJECT_ROOT / "configs/wuji_teleop.json"
 CONTROL_HZ = 120
 PERIOD_NS = round(1e9 / CONTROL_HZ)
 COMMAND_TTL_NS = 50_000_000
@@ -120,22 +119,23 @@ def main(argv=None) -> int:
     parser.add_argument("--side", choices=("left", "right", "both"), required=True,
                         help="选择左手、右手；both 按先左后右顺序回零")
     parser.add_argument("--wuji-config", "--config", dest="config", type=Path, default=DEFAULT_CONFIG,
-                        help="Wuji 配置；默认 configs/wuji_teleop.json")
-    parser.add_argument("--enable-motion", action="store_true", help="允许 Hand2 接合并回零")
+                        help="Wuji 配置；默认 configs/wuji_teleop.yaml")
     parser.add_argument("--duration-s", type=float, default=3., help="每只手平滑回零时间，默认 3 秒")
     parser.add_argument("--tolerance-deg", type=float, default=5., help="到位反馈容差，默认 5°")
     parser.add_argument("--settle-timeout-s", type=float, default=2., help="末端反馈等待时间，默认 2 秒")
-    parser.add_argument("--verbose", action="store_true", help="显示详细设备状态和 SDK 信息")
     args = parser.parse_args(argv)
     error = None
     try:
-        configure_runtime_logging(verbose=args.verbose, wuji=True)
+        configure_runtime_logging(wuji=True)
         duration_s = _positive(args.duration_s, "--duration-s")
         tolerance_rad = math.radians(_positive(args.tolerance_deg, "--tolerance-deg"))
         settle_timeout_s = _positive(args.settle_timeout_s, "--settle-timeout-s")
         config = load_config(args.config)
         profile = ControlProfile(config["profile_id"], config.get("mode", "mit"), config["parameters"])
         sides = ("left", "right") if args.side == "both" else (args.side,)
+        with NonblockingTerminal() as terminal:
+            if not confirm_motion(terminal, "开始灵巧手回零"):
+                return 0
         for side in sides:
             hand = WujiHandDriver(side, config["devices"][side]["hand"],
                                   timeout_s=config.get("hand_timeout_s", .5))
@@ -154,12 +154,9 @@ def main(argv=None) -> int:
                 home_target(start, 0, duration_s)
                 print_message(f"{side} Hand2 当前最大零位偏差 {math.degrees(max(abs(q) for q in start)):.1f}°；"
                               f"硬件版本 {hand.metadata.get('hardware_version')}")
-                if args.enable_motion:
-                    if not run_home(hand, profile, duration_s=duration_s, tolerance_rad=tolerance_rad,
-                                    settle_timeout_s=settle_timeout_s, hold_at_zero=args.side != "both"):
-                        break
-                else:
-                    print_message("只读预览。加 --enable-motion 后才会使能并回零。", "ready")
+                if not run_home(hand, profile, duration_s=duration_s, tolerance_rad=tolerance_rad,
+                                settle_timeout_s=settle_timeout_s, hold_at_zero=args.side != "both"):
+                    break
             finally:
                 hand.close()
     except KeyboardInterrupt:

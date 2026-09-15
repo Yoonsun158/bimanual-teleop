@@ -6,16 +6,14 @@ import ipaddress
 from pathlib import Path
 
 from bimanual_teleop.paths import PROJECT_ROOT
-from bimanual_teleop.common.config import load_json_config
+from bimanual_teleop.common.config import load_yaml_config
 
 
-DEFAULT_CONFIG = PROJECT_ROOT / "configs/tianji_teleop.json"
+DEFAULT_CONFIG = PROJECT_ROOT / "configs/tianji_teleop.yaml"
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG, override: str | None = None) -> dict:
-    source = load_json_config(path)
-    if not isinstance(source, dict):
-        raise ValueError("Tianji configuration must be an object")
+    source = load_yaml_config(path)
     address = source.get("controller_ip") if override is None else override
     if not isinstance(address, str):
         raise ValueError("Tianji controller_ip must be an IPv4 address")

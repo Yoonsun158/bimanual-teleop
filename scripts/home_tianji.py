@@ -1,4 +1,4 @@
-"""Return Tianji arms to the configured initial pose with --enable-motion."""
+"""Return Tianji arms to the configured initial pose after an Enter confirmation."""
 
 from bimanual_teleop.cli.prepare_tianji_teleop import parser, run
 

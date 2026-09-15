@@ -104,11 +104,10 @@ class _ConciseLogHandler(logging.Handler):
             self.console.state(message)
 
 
-def configure_runtime_logging(*, verbose=False, wuji=False):
+def configure_runtime_logging(*, wuji=False):
     """Configure concise Python/optional SDK diagnostics before device creation."""
-    level = logging.INFO if verbose else logging.WARNING
     logger = logging.getLogger("bimanual_teleop")
-    logger.setLevel(level)
+    logger.setLevel(logging.WARNING)
     for handler in list(logger.handlers):
         if isinstance(handler, _ConciseLogHandler):
             logger.removeHandler(handler)
@@ -116,4 +115,4 @@ def configure_runtime_logging(*, verbose=False, wuji=False):
     logger.propagate = False
     if wuji:
         import wuji_sdk
-        wuji_sdk.set_log_level("info" if verbose else "warn")
+        wuji_sdk.set_log_level("warn")

@@ -12,18 +12,15 @@ from bimanual_teleop.devices.tianji.config import DEFAULT_CONFIG, load_config
 
 CHANNEL_RIGHT_6FT = 216
 RAW_SCALE = 10_000.0
+SAMPLE_INTERVAL_S = 0.2
 
 
-def main() -> int:
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tianji-config", "--config", dest="config", type=Path, default=DEFAULT_CONFIG,
-                        help="天机配置；默认 configs/tianji_teleop.json")
+                        help="天机配置；默认 configs/tianji_teleop.yaml")
     parser.add_argument("--sdk-root", type=Path, default=ROOT.parent / "TJ_FX_ROBOT_CONTRL_SDK")
-    parser.add_argument("--count", type=int, default=10, help="samples to print; 0 runs until Ctrl-C")
-    parser.add_argument("--interval", type=float, default=0.2, help="seconds between samples")
-    args = parser.parse_args()
-    if args.count < 0 or args.interval <= 0:
-        parser.error("--count must be nonnegative and --interval must be positive")
+    args = parser.parse_args(argv)
 
     controller_ip = load_config(args.config)["controller_ip"]
     if not (args.sdk_root / "SDK_PYTHON/fx_robot.py").is_file():
@@ -42,9 +39,9 @@ def main() -> int:
 
         dcss = DCSS()
         previous_frame = None
-        samples = 0
         deadline = time.monotonic() + 3.0
-        while args.count == 0 or samples < args.count:
+        print("持续读取右臂六维力；按 Ctrl+C 退出。", file=sys.stderr, flush=True)
+        while True:
             data = robot.subscribe(dcss)
             right = data["outputs"][1]
             frame = right["frame_serial"]
@@ -65,9 +62,8 @@ def main() -> int:
                 flush=True,
             )
             previous_frame = frame
-            samples += 1
             deadline = time.monotonic() + 3.0
-            time.sleep(args.interval)
+            time.sleep(SAMPLE_INTERVAL_S)
     except KeyboardInterrupt:
         return 0
     except (OSError, KeyError, RuntimeError, ValueError) as exc:

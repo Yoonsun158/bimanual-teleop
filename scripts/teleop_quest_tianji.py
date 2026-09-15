@@ -1,4 +1,4 @@
-"""Preview or run Quest arm following, optionally with Wuji hands."""
+"""Run Quest arm following after confirmation, optionally with Wuji hands."""
 
 from bimanual_teleop.cli.teleop_quest_tianji import main
 

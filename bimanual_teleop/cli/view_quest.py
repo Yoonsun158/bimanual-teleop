@@ -12,9 +12,8 @@ from bimanual_teleop.devices.quest.adapter import QuestSource
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--serial", help="USB ADB serial; auto-selects a single Quest")
-    parser.add_argument("--verbose", action="store_true", help="显示详细设备状态")
     args = parser.parse_args(argv)
-    configure_runtime_logging(verbose=args.verbose)
+    configure_runtime_logging()
     try:
         import matplotlib.pyplot as plt
         from bimanual_teleop.visualization.quest import QuestPoseView

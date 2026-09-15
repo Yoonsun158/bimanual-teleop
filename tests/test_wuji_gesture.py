@@ -290,28 +290,6 @@ class CommandTests(unittest.TestCase):
         self.assertEqual([self.feed(V, ROCK, start_ready=False) for _ in range(4)],
                          [None, None, None, ("pause", ("right",))])
 
-    def test_status_reports_cached_features_without_reading_or_advancing(self):
-        self.hold(V, V, count=3)
-        with patch.dict(self.commands.sources, {s: lambda: self.fail("status read input")
-                                               for s in self.samples}):
-            status = self.commands.status(self.now + 100_000_000)
-            self.assertTrue(status["hands"]["left"]["v"])
-            self.assertEqual(status["hands"]["left"]["detail"], "V已识别")
-            self.assertEqual(status["hold_ms"], 200.)
-            self.assertEqual(status["required_hold_ms"], 300.)
-            status["hands"]["left"]["features"]["reach"][1] = -1
-            self.assertGreater(self.commands.status(self.now)["hands"]["left"]["features"]["reach"][1], .75)
-            self.assertEqual(self.commands.status(self.now + 300_000_000)["hands"]["left"]["detail"], "样本过期")
-            self.assertEqual(self.commands.status(self.now + 300_000_000)["hold_ms"], 0.)
-        self.assertIsNone(self.commands.poll(self.now))
-        self.assertEqual(self.feed(V, V), ("engage", ("left", "right")))
-
-    def test_status_explains_finger_and_confidence_blockers(self):
-        self.feed(skeleton((90, 140, 0, 140, 140)), replace(V, confidences=(.1,) * 21))
-        hands = self.commands.status(self.now)["hands"]
-        self.assertIn("食指需伸直", hands["left"]["detail"])
-        self.assertEqual(hands["right"]["detail"], "骨架置信度低")
-
 
 if __name__ == "__main__":
     unittest.main()

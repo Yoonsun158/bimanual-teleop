@@ -1,7 +1,7 @@
 """Move each Tianji arm once to the teleoperation initial joint pose.
 
-Default prints configured targets without connecting. --inspect reads the current
-pose; --enable-motion moves the selected arms and waits for the controller.
+Confirm the surroundings are safe and press Enter to move the selected arms.
+--inspect reads the current pose without moving.
 --reset explicitly confirms physical emergency release before resetting fault 13.
 """
 from __future__ import annotations
@@ -12,6 +12,7 @@ from pathlib import Path
 import time
 
 from bimanual_teleop.common.console import configure_runtime_logging, print_message
+from bimanual_teleop.common.terminal import NonblockingTerminal, confirm_motion
 from bimanual_teleop.devices.tianji.driver import TianjiDriver
 from bimanual_teleop.devices.tianji.config import DEFAULT_CONFIG, load_config
 from bimanual_teleop.types import ControlProfile
@@ -47,14 +48,13 @@ def await_feedback(driver):
     return sample
 
 
-def run(args):
+def run(args, *, confirmed=False):
+    """Position the arms; an internal worker may inherit its parent's confirmation."""
     side = getattr(args, "side", "both")
     driver = None
     error = None
     try:
-        configure_runtime_logging(verbose=getattr(args, "verbose", False))
-        if args.reset and not (args.inspect or args.execute):
-            raise ValueError("--reset requires --inspect or --enable-motion")
+        configure_runtime_logging()
         settings = load_config(args.config, args.ip)
         controller_ip = settings["controller_ip"]
         source, order, targets = load_targets(settings["ready_pose"], side=side)
@@ -68,37 +68,31 @@ def run(args):
                     profile_source["parameters"]["arms"][arm][key] = source[key]
         profile_source["profile_id"] += "-ready"
         profile = ControlProfile(**profile_source)
-        if not (args.inspect or args.execute):
-            label = "双臂" if side == "both" else "左臂" if side == "left" else "右臂"
-            print_message(f"{label}初始关节目标已加载；当前为只读预览。", "ready")
-            if getattr(args, "verbose", False):
-                for arm in order:
-                    print_message(f"{arm}：{source['target_deg'][arm]}°")
-                first = order[0]
-                print_message(f"回位速度 {profile.parameters['arms'][first]['velocity_ratio']}% · "
-                              f"加速度 {profile.parameters['arms'][first]['acceleration_ratio']}%")
-        if args.inspect or args.execute:
-            driver = TianjiDriver(controller_ip, args.library, model_path=args.model)
-            driver.start()
-            initial = await_feedback(driver)
-            if args.inspect:
-                for selected_side in order:
-                    label = "左臂" if selected_side == "left" else "右臂"
-                    arm = initial.payload.arms[selected_side]
-                    angles = [round(math.degrees(q), 2) for q in arm.joints.position_rad]
-                    print_message(f"{label}：{angles}° · 状态 {arm.state} · 错误 {arm.error}",
-                                  "error" if arm.error else "info")
-            if args.reset and any(initial.payload.arms[arm].error == 13 for arm in order):
-                driver.reset_released_emergency(physical_release_confirmed=True)
-            if args.execute:
-                driver.configure(profile)
-                for arm in order:
-                    label = "左臂" if arm == "left" else "右臂"
-                    ratio = profile.parameters["arms"][arm]["velocity_ratio"]
-                    print_message(f"{label}回位中 · 速度 {ratio}%")
-                    driver.move_joints(arm, targets[arm])
-                print_message(("双臂" if side == "both" else "左臂" if side == "left" else "右臂") +
-                              "初始姿态准备完成", "done")
+        if not args.inspect and not confirmed:
+            with NonblockingTerminal() as terminal:
+                if not confirm_motion(terminal, "开始机械臂回位"):
+                    return 0
+        driver = TianjiDriver(controller_ip, args.library, model_path=args.model)
+        driver.start()
+        initial = await_feedback(driver)
+        if args.inspect:
+            for selected_side in order:
+                label = "左臂" if selected_side == "left" else "右臂"
+                arm = initial.payload.arms[selected_side]
+                angles = [round(math.degrees(q), 2) for q in arm.joints.position_rad]
+                print_message(f"{label}：{angles}° · 状态 {arm.state} · 错误 {arm.error}",
+                              "error" if arm.error else "info")
+        if args.reset and any(initial.payload.arms[arm].error == 13 for arm in order):
+            driver.reset_released_emergency(physical_release_confirmed=True)
+        if not args.inspect:
+            driver.configure(profile)
+            for arm in order:
+                label = "左臂" if arm == "left" else "右臂"
+                ratio = profile.parameters["arms"][arm]["velocity_ratio"]
+                print_message(f"{label}回位中 · 速度 {ratio}%")
+                driver.move_joints(arm, targets[arm])
+            print_message(("双臂" if side == "both" else "左臂" if side == "left" else "右臂") +
+                          "初始姿态准备完成", "done")
     except BaseException as exc:
         error = f"{type(exc).__name__}: {exc}"
     finally:
@@ -115,17 +109,13 @@ def run(args):
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--tianji-config", "--config", dest="config", type=Path, default=DEFAULT_CONFIG,
-                        help="天机统一配置 JSON；默认 configs/tianji_teleop.json")
+                        help="天机统一配置 YAML；默认 configs/tianji_teleop.yaml")
     result.add_argument("--ip", help="临时覆盖设备配置中的天机控制器 IP")
     result.add_argument("--library", type=Path, help="built libtianji_bridge.so")
     result.add_argument("--model", type=Path, help="Tianji kinematics model")
     result.add_argument("--side", choices=("left", "right", "both"), default="both")
-    result.add_argument("--verbose", action="store_true", help="显示详细运行状态")
     result.add_argument("--reset", action="store_true", help="confirm physical emergency release and reset fault 13")
-    modes = result.add_mutually_exclusive_group()
-    modes.add_argument("--inspect", action="store_true", help="read the current pose without moving")
-    modes.add_argument("--enable-motion", "--execute", dest="execute", action="store_true",
-                       help="move the selected arms to the configured initial pose")
+    result.add_argument("--inspect", action="store_true", help="read the current pose without moving")
     return result
 
 

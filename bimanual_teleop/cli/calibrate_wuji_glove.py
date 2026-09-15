@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 
 from bimanual_teleop.common.console import StatusConsole, configure_runtime_logging, print_message
 from bimanual_teleop.devices.wuji.config import add_glove_arguments, glove_settings
@@ -202,21 +201,18 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     add_glove_arguments(parser, include_sdk_user=False)
     parser.add_argument("--kind", choices=("joints", "tactile"), required=True)
-    user = parser.add_mutually_exclusive_group(required=True)
-    user.add_argument("--user-name", help="按姓名选择用户；没有同名用户时创建")
-    user.add_argument("--user-id", help="兼容旧命令或区分同名用户的实际 SDK ID")
-    parser.add_argument("--verbose", action="store_true", help="显示完整标定结果和 SDK 信息")
+    parser.add_argument("--user-name", required=True, help="按姓名选择用户；没有同名用户时创建")
     args = parser.parse_args(argv)
     try:
-        configure_runtime_logging(verbose=args.verbose, wuji=True)
-        address, _ = glove_settings(args.config, args.side, args.address)
+        configure_runtime_logging(wuji=True)
+        address, _ = glove_settings(args.config, args.side, args.address, user_name=args.user_name)
         guide = CalibrationGuide(args.kind)
         print_message(f"开始{('关节' if args.kind == 'joints' else '触觉')}标定；设备 {args.side}。")
         if args.kind == "joints":
             print_message("共 6 个静态姿势；每步摆好后保持不动，SDK 自动采集，无需按键；步间完全张开手。")
         else:
             print_message("共 4 个无接触动作；每步回车开始采集，动作期间持续重复；采集结束可保留或重录。")
-        result = calibrate_glove(args.side, address, kind=args.kind, user_id=args.user_id,
+        result = calibrate_glove(args.side, address, kind=args.kind,
                                  user_name=args.user_name, on_feedback=guide.feedback,
                                  on_pose_prompt=guide.pose_prompt if args.kind == "tactile" else None)
         user = result["sdk_user"]
@@ -228,9 +224,7 @@ def main(argv=None):
             model = summary.get("model_dir", "未提供路径") if isinstance(summary, dict) else "未提供路径"
             print_message(f"触觉标定完成；用户 {user.get('display_name', '')}；"
                           f"触觉模型 {model}。", "done")
-        if args.verbose:
-            print_message(json.dumps(result, ensure_ascii=False, indent=2, default=str))
-        print_message(f"后续显示或控制可在 configs/wuji_teleop.json 中设置 "
+        print_message(f"后续显示或控制可在 configs/wuji_teleop.yaml 中设置 "
                       f"sdk_user_name={user['display_name']!r}，或使用 --user-name {user['display_name']!r}")
         return 0
     except KeyboardInterrupt:

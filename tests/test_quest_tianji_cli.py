@@ -3,7 +3,6 @@
 from contextlib import redirect_stderr, redirect_stdout
 import logging
 import io
-import json
 import os
 from pathlib import Path
 import sys
@@ -12,6 +11,8 @@ import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
+
+import yaml
 
 from bimanual_teleop.types import ControlProfile, Health
 from bimanual_teleop.common.console import (LiveProgress, StatusConsole,
@@ -171,72 +172,21 @@ class ConsoleTests(unittest.TestCase):
         self.assertIn("\r", output)
         self.assertNotIn("目标 2", output)
 
-    def test_sdk_warn_by_default_and_info_in_verbose(self):
+    def test_sdk_and_python_logging_keep_warnings(self):
         sdk = SimpleNamespace(set_log_level=Mock())
         logger = logging.getLogger("bimanual_teleop")
         handlers, level, propagate = list(logger.handlers), logger.level, logger.propagate
         try:
             with patch.dict(sys.modules, {"wuji_sdk": sdk}):
                 configure_runtime_logging(wuji=True)
-                configure_runtime_logging(wuji=True, verbose=True)
+                configure_runtime_logging(wuji=True)
             self.assertEqual(sdk.set_log_level.call_args_list, [
-                unittest.mock.call("warn"), unittest.mock.call("info")])
-            self.assertEqual(logger.level, logging.INFO)
+                unittest.mock.call("warn"), unittest.mock.call("warn")])
+            self.assertEqual(logger.level, logging.WARNING)
         finally:
             logger.handlers[:] = handlers
             logger.setLevel(level)
             logger.propagate = propagate
-
-
-class GestureStatusTests(unittest.TestCase):
-    def setUp(self):
-        self.runtime, self.messages = Runtime(), []
-        self.ui = cli.TeleopUI(self.runtime, PROFILE, gesture=Mock(), emit=self.messages.append,
-                                verbose=True)
-        self.status = {"state": "ready", "health": {"ready": True}, "gesture": {
-            "hands": {"left": {"v": False, "rock": False, "detail": "请伸直中指"},
-                      "right": {"v": True, "rock": False, "detail": "已识别 V，请保持"}},
-            "start_armed": True, "hold_ms": 0.,
-        }}
-
-    def test_reports_actionable_hand_changes_without_repeating_counters(self):
-        self.ui.report_status(self.status)
-        self.assertEqual(len(self.messages), 2)
-        self.assertEqual(self.messages[-1], "手势：左手请伸直中指；右手已识别 V，请保持")
-        self.status["gesture"]["hold_ms"] = 250.
-        self.ui.report_status({**self.status, "scheduler_cycles": 200})
-        self.assertEqual(len(self.messages), 2)
-        self.status["gesture"]["hands"]["left"]["detail"] = "请弯曲小指"
-        self.ui.report_status(self.status)
-        self.assertEqual(len(self.messages), 3)
-        self.assertIn("左手请弯曲小指", self.messages[-1])
-        self.status["gesture"]["start_armed"] = False
-        self.ui.report_status(self.status)
-        self.assertIn("至少一手离开 V", self.messages[-1])
-        self.ui.report_status(self.status)
-        self.assertEqual(len(self.messages), 4)
-
-    def test_hides_hand_guidance_while_engaging_following_or_device_not_ready(self):
-        self.ui._engage_thread = Mock()
-        self.ui.report_status(self.status)
-        self.ui._engage_thread = None
-        self.ui.report_status({**self.status, "state": "engaged"})
-        self.ui.report_status({**self.status, "health": {"ready": False, "detail": "USB unavailable"}})
-        self.assertFalse(any("手势：" in message for message in self.messages))
-        self.ui.report_status(self.status)
-        self.assertIn("手势：", self.messages[-1])
-
-    def test_default_hides_gesture_details_and_verbose_shows_them(self):
-        self.ui.gesture = None
-        self.ui.report_status(self.status)
-        self.assertEqual(len(self.messages), 1)
-        self.assertIn("按 Enter", self.messages[0])
-        self.ui.gesture = Mock()
-        self.ui.report_status(self.status)
-        self.assertIn("手势：", self.messages[-1])
-        quiet = cli.TeleopUI(self.runtime, PROFILE, gesture=Mock(), emit=self.messages.append)
-        quiet.report_status(self.status)
-        self.assertNotIn("手势：", self.messages[-1])
 
 
 class SchedulerTests(unittest.TestCase):
@@ -316,7 +266,7 @@ class SchedulerTests(unittest.TestCase):
                                  for side in ("left", "right")},
                        "start_armed": True, "hold_ms": 0.}
         gesture = Mock(poll=Mock(return_value=None), status=Mock(return_value=diagnostics))
-        ui = cli.TeleopUI(runtime, PROFILE, gesture=gesture, emit=messages.append, verbose=True)
+        ui = cli.TeleopUI(runtime, PROFILE, gesture=gesture, emit=messages.append)
 
         def read(timeout):
             clock[0] += 1_000_000_000
@@ -324,8 +274,8 @@ class SchedulerTests(unittest.TestCase):
 
         with patch.object(cli.time, "monotonic_ns", side_effect=lambda: clock[0]):
             cli.run_loop(runtime, ui, Mock(read=read))
-        self.assertEqual(gesture.status.call_count, 4)
-        self.assertEqual(sum("手势：" in message for message in messages), 1)
+        gesture.status.assert_not_called()
+        self.assertEqual(sum("手势：" in message for message in messages), 0)
 
     def test_terminal_restores_settings_after_failure_and_treats_eof_as_exit(self):
         stream = Mock()
@@ -349,10 +299,10 @@ class MainTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.config = self.root / "config.json"
+        self.config = self.root / "config.yaml"
         self.settings = {"controller_ip": "192.0.2.7", "profile": {
             "profile_id": PROFILE.profile_id, "mode": PROFILE.mode, "parameters": PROFILE.parameters}}
-        self.config.write_text(json.dumps(self.settings))
+        self.config.write_text(yaml.safe_dump(self.settings))
         self.args = ["--arms-only", "--config", str(self.config)]
         self.runtime = Runtime()
         self.stdout, self.stderr = io.StringIO(), io.StringIO()
@@ -364,6 +314,7 @@ class MainTests(unittest.TestCase):
         terminal.__enter__ = Mock(return_value=Mock(read=lambda timeout: keys))
         terminal.__exit__ = Mock(return_value=False)
         with patch.object(cli, "NonblockingTerminal", return_value=terminal), \
+             patch.object(cli, "confirm_motion", return_value=True), \
              patch.object(cli, "prepare_initial_pose", side_effect=prepare_error,
                           return_value={"side": "both"}) as prepare, \
              patch.object(cli, "create_runtime", return_value=self.runtime) as create, \
@@ -382,15 +333,14 @@ class MainTests(unittest.TestCase):
         terminal.__exit__.assert_called_once()
         return result, create.call_args.args[0] if create.called else None
 
-    def test_arms_only_starts_read_only_without_calibration_and_closes_cleanly(self):
+    def test_arms_only_prepares_then_waits_for_engagement_and_closes_cleanly(self):
         result, args = self.invoke()
         self.assertEqual(result, 0)
-        self.assertFalse(args.enable_motion)
         self.assertTrue(args.arms_only)
         self.assertEqual(args.coordinate_frame, "headset")
-        self.prepare.assert_not_called()
+        self.prepare.assert_called_once()
         self.assertFalse(any(call[0] in ("engage", "load", "jog") for call in self.runtime.calls))
-        self.assertIn("只读预览", self.stderr.getvalue())
+        self.assertIn("实机遥操作", self.stderr.getvalue())
         self.assertIn("Enter 开始/恢复", self.stderr.getvalue())
         self.assertNotIn("手柄映射", self.stderr.getvalue())
         self.assertIn("已退出", self.stderr.getvalue())
@@ -399,7 +349,7 @@ class MainTests(unittest.TestCase):
 
     def test_shared_config_supplies_controller_ip_and_coordinate_frame(self):
         self.settings.update(controller_ip="192.0.2.8", quest={"coordinate_frame": "world"})
-        self.config.write_text(json.dumps(self.settings))
+        self.config.write_text(yaml.safe_dump(self.settings))
         result, args = self.invoke()
         self.assertEqual(result, 0)
         self.assertEqual(args.robot_ip, "192.0.2.8")
@@ -408,8 +358,8 @@ class MainTests(unittest.TestCase):
     def test_tianji_config_option_reaches_profile_and_initial_pose_preparation(self):
         self.settings.update(controller_ip="192.0.2.8", quest={"coordinate_frame": "world"})
         self.settings["profile"]["profile_id"] = "custom-tianji"
-        self.config.write_text(json.dumps(self.settings))
-        self.args = ["--arms-only", "--tianji-config", str(self.config), "--enable-motion"]
+        self.config.write_text(yaml.safe_dump(self.settings))
+        self.args = ["--arms-only", "--tianji-config", str(self.config)]
         result, args = self.invoke()
         self.assertEqual(result, 0)
         self.assertEqual(args.config, self.config)
@@ -426,17 +376,16 @@ class MainTests(unittest.TestCase):
 
     def test_invalid_coordinate_frame_fails_before_preparation_or_connection(self):
         self.settings["quest"] = {"coordinate_frame": "grip"}
-        self.config.write_text(json.dumps(self.settings))
+        self.config.write_text(yaml.safe_dump(self.settings))
         with patch.object(cli, "prepare_initial_pose") as prepare, \
                 patch.object(cli, "create_runtime") as create, \
                 redirect_stderr(self.stderr):
-            self.assertEqual(cli.main([*self.args, "--enable-motion"]), 1)
+            self.assertEqual(cli.main([*self.args]), 1)
         prepare.assert_not_called()
         create.assert_not_called()
         self.assertIn("coordinate_frame", self.stderr.getvalue())
 
     def test_motion_prepares_before_creating_runtime_and_still_waits_for_enter(self):
-        self.args += ["--enable-motion"]
         result, args = self.invoke()
         self.assertEqual(result, 0)
         self.assertEqual([call[0] for call in self.order.mock_calls], ["prepare", "create"])
@@ -455,7 +404,6 @@ class MainTests(unittest.TestCase):
         self.assertEqual(selected.profile_id, "test-profile-left")
 
     def test_preparation_failure_prevents_all_teleop_device_creation(self):
-        self.args += ["--enable-motion"]
         result, _ = self.invoke(prepare_error=RuntimeError("initial pose rejected"))
         self.assertEqual(result, 1)
         self.assertIn("initial pose rejected", self.stderr.getvalue())
@@ -489,9 +437,8 @@ class PreparationStartupTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
-        self.args = SimpleNamespace(robot_ip="192.0.2.7", config=self.root / "custom-config.json",
-                                    library=self.root / "custom.so",
-                                    verbose=False)
+        self.args = SimpleNamespace(robot_ip="192.0.2.7", config=self.root / "custom-config.yaml",
+                                    library=self.root / "custom.so")
         self.process = Mock()
         self.process.poll.return_value = 0
         self.process.wait.return_value = 0
@@ -516,7 +463,8 @@ class PreparationStartupTests(unittest.TestCase):
         for flag, expected in (("--ip", self.args.robot_ip), ("--tianji-config", self.args.config),
                                ("--library", self.args.library)):
             self.assertEqual(self.command[self.command.index(flag)+1], str(expected))
-        self.assertIn("--enable-motion", self.command)
+        self.assertEqual(self.command[1], "-c")
+        self.assertIn("confirmed=True", self.command[2])
         self.assertNotIn("--output", self.command)
         self.assertTrue(self.options["start_new_session"])
         self.assertEqual(self.options["stdin"], preparation.subprocess.DEVNULL)
@@ -556,19 +504,31 @@ class PreparationStartupTests(unittest.TestCase):
         spawn.assert_not_called()
 
     def test_real_subprocess_cancellation_waits_for_child_finally(self):
-        scripts = self.root / "scripts"
-        scripts.mkdir()
+        package = self.root / "bimanual_teleop"
+        scripts = package / "cli"
+        scripts.mkdir(parents=True)
+        (package / "__init__.py").touch()
+        (scripts / "__init__.py").touch()
         (scripts / "prepare_tianji_teleop.py").write_text(
+            "import argparse\n"
             "from pathlib import Path\n"
             "import time\n"
-            "try:\n"
-            "    Path('started').touch()\n"
-            "    time.sleep(10)\n"
-            "except KeyboardInterrupt:\n"
-            "    pass\n"
-            "finally:\n"
-            "    time.sleep(.05)\n"
-            "    Path('held-and-closed').touch()\n")
+            "def parser():\n"
+            "    result = argparse.ArgumentParser()\n"
+            "    for name in ('--ip', '--tianji-config', '--side', '--library'):\n"
+            "        result.add_argument(name)\n"
+            "    return result\n"
+            "def run(args, *, confirmed=False):\n"
+            "    assert confirmed\n"
+            "    try:\n"
+            "        Path('started').touch()\n"
+            "        time.sleep(10)\n"
+            "    except KeyboardInterrupt:\n"
+            "        pass\n"
+            "    finally:\n"
+            "        time.sleep(.05)\n"
+            "        Path('held-and-closed').touch()\n"
+            "    return 0\n")
         started = self.root / "started"
         deadline = time.monotonic()+3
 

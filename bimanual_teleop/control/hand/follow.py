@@ -16,7 +16,8 @@ import uuid
 from bimanual_teleop.devices.wuji.adapter import (
     JOINT_LIMITS_RAD, JOINT_NAMES, WujiGloveSource, WujiHandDriver, WujiSdkSession,
 )
-from bimanual_teleop.common.config import load_json_config
+from bimanual_teleop.common.config import load_yaml_config
+from bimanual_teleop.devices.wuji.config import sdk_user_name
 from bimanual_teleop.system import SystemState
 from bimanual_teleop.types import ControlProfile, DeviceCommand, Event, Health, JointTarget
 
@@ -31,7 +32,7 @@ def preflight():
 
 
 def load_config(path):
-    config = load_json_config(path)
+    config = load_yaml_config(path)
     _validate_config(config)
     config.setdefault("profile_id", "wuji-hand2")
     return config
@@ -44,12 +45,7 @@ def _validate_config(config):
         raise ValueError("Wuji profile_id must be nonempty when supplied")
     if config.get("mode", "mit") != "mit":
         raise ValueError("Hand2 control mode must be mit")
-    for key in ("sdk_user_name", "sdk_user_id"):
-        value = config.get(key, "")
-        if not isinstance(value, str) or (value and not value.strip()):
-            raise ValueError(f"{key} must be a nonblank string (or empty for default)")
-    if config.get("sdk_user_name") and config.get("sdk_user_id"):
-        raise ValueError("specify only one of sdk_user_name or sdk_user_id")
+    sdk_user_name(config)
     for key, default in (("control_hz", 120), ("transition_s", .75),
                          ("glove_timeout_s", .25), ("hand_timeout_s", .5)):
         value = config.get(key, default)
@@ -526,8 +522,7 @@ def create_wuji_teleop(config, sides=("left", "right"), *, sink=None, enable_mot
     profile = ControlProfile(config.get("profile_id", "wuji-hand2"), "mit", dict(config["parameters"]))
     return WujiTeleop(gloves, hands, {s: WujiHandRetargeter(s) for s in sides},
         profile=profile, sink=sink, enable_motion=enable_motion,
-        session=WujiSdkSession(user_name=config.get("sdk_user_name", ""),
-                               user_id=config.get("sdk_user_id", "")),
+        session=WujiSdkSession(user_name=sdk_user_name(config)),
         control_hz=config.get("control_hz", 120), transition_s=config.get("transition_s", .75),
         glove_timeout_s=config.get("glove_timeout_s", .25), hand_timeout_s=config.get("hand_timeout_s", .5),
         metadata=config)

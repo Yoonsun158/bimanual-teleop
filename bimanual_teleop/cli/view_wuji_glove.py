@@ -12,25 +12,21 @@ from bimanual_teleop.devices.wuji.adapter import WujiGloveSource, WujiSdkSession
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     add_glove_arguments(parser)
-    parser.add_argument("--verbose", action="store_true", help="显示详细设备状态和 SDK 信息")
     args = parser.parse_args(argv)
     source = session = view = timer = None
     error = None
     try:
-        configure_runtime_logging(verbose=args.verbose, wuji=True)
+        configure_runtime_logging(wuji=True)
         import matplotlib.pyplot as plt
         from bimanual_teleop.visualization.wuji import WujiGloveView
 
-        address, user = glove_settings(args.config, args.side, args.address, args.sdk_user_id,
+        address, user = glove_settings(args.config, args.side, args.address,
                                       user_name=args.user_name)
         print_message(f"正在连接{('左' if args.side == 'left' else '右')}手套。")
         session = WujiSdkSession(**user).open()
         source = WujiGloveSource(args.side, address, manager=session.manager, sdk=session.sdk,
                                  streams=("skeleton", "tactile", "contact"))
         source.start()
-        if args.verbose:
-            print_message(f"SDK 用户：{session.metadata.get('sdk_user_name')} ({session.metadata.get('sdk_user_id')})；"
-                          f"模型：{source.metadata.get('human_model', 'unknown')}")
         view = WujiGloveView(args.side)
         timer = view.figure.canvas.new_timer(interval=50)
         timer.add_callback(lambda: view.update(source, session=session))

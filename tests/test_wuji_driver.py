@@ -428,7 +428,8 @@ class WujiAcquisitionTests(unittest.TestCase):
 
     def test_named_user_is_selected_monitored_and_restored(self):
         manager = Manager(None)
-        session = WujiSdkSession(user_id="person-1", manager=manager, sdk=SDK).open()
+        manager.list_users = Mock(return_value=[{"user_id": "person-1", "display_name": "Alice"}])
+        session = WujiSdkSession(user_name="Alice", manager=manager, sdk=SDK).open()
         self.assertEqual(manager.user, "person-1")
         self.assertEqual(session.metadata["sdk_user_id"], "person-1")
         self.assertTrue(session.health().ready)

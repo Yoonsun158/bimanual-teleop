@@ -39,7 +39,7 @@ class CalibrationTests(unittest.TestCase):
              patch("bimanual_teleop.calibration.wuji.WujiGloveSource", return_value=source), \
              patch("bimanual_teleop.calibration.wuji.require_tactile_744"):
             with self.assertRaisesRegex(RuntimeError, "未安装触觉模型"):
-                calibrate_glove("left", "test", kind="tactile", user_id="named",
+                calibrate_glove("left", "test", kind="tactile", user_name="Alice",
                                 manager=manager, sdk=NS())
         source.close.assert_called_once()
         session.close.assert_called_once()
@@ -52,8 +52,8 @@ class CalibrationTests(unittest.TestCase):
         manager.create_user.assert_not_called()
         self.assertEqual(resolve_user_id(manager, user_name="Bob", create=True), "b")
         manager.create_user.assert_called_once_with("Bob")
-        with self.assertRaisesRegex(ValueError, "首次标定请用 --user-name"):
-            resolve_user_id(manager, user_id="missing")
+        with self.assertRaisesRegex(ValueError, "请先用该用户名完成标定"):
+            resolve_user_id(manager, user_name="missing")
 
     def test_joint_guide_names_each_hand_pose_and_explains_auto_capture(self):
         output = StringIO()
@@ -150,7 +150,7 @@ class CalibrationTests(unittest.TestCase):
         manager.connect = Mock(return_value=glove)
         sdk = NS(WujiGlove=type(glove), ConnectOptions=lambda **kwargs: NS(**kwargs))
         with self.assertRaisesRegex(RuntimeError, "calibration failed"):
-            calibrate_glove("left", "test", kind="joints", user_id="named",
+            calibrate_glove("left", "test", kind="joints", user_name="Alice",
                             sdk=sdk, manager=manager)
         manager.disconnect.assert_called_once()
         manager.switch_user.assert_called()

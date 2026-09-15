@@ -11,7 +11,7 @@ import time
 
 from bimanual_teleop.types import ControlProfile
 from bimanual_teleop.common.console import configure_runtime_logging, print_message
-from bimanual_teleop.common.terminal import NonblockingTerminal
+from bimanual_teleop.common.terminal import NonblockingTerminal, confirm_motion
 from bimanual_teleop.devices.tianji.config import DEFAULT_CONFIG, load_config
 from bimanual_teleop.devices.wuji.config import DEFAULT_CONFIG as DEFAULT_WUJI_CONFIG
 from bimanual_teleop.control.arm import preparation
@@ -50,7 +50,7 @@ def brief_reason(detail):
 class TeleopUI:
     """Only UI state lives here; the runtime validates and executes each request."""
 
-    def __init__(self, runtime, profile, *, enable_motion=False, emit=None, verbose=False,
+    def __init__(self, runtime, profile, *, enable_motion=False, emit=None,
                  background_engage=False, following_message="已接合，双臂正在跟随手柄。", gesture=None):
         self.runtime, self.profile = runtime, profile
         self.enable_motion = enable_motion
@@ -62,7 +62,6 @@ class TeleopUI:
         self.motion_pauses = 0
         self._last_status = None
         self._last_message = None
-        self.verbose = verbose
         self.background_engage = background_engage
         self.following_message = following_message
         self._engage_thread = None
@@ -86,17 +85,9 @@ class TeleopUI:
     def report_status(self, status):
         health = status.get("health") or asdict(self.runtime.health())
         state = status.get("state", "").lower()
-        gesture = status.get("gesture")
-        gesture_message = None
-        if (self.verbose and self.gesture is not None and gesture and health["ready"] and state != "engaged"
-                and self._engage_thread is None and not self.engage_pending):
-            hands = gesture["hands"]
-            gesture_message = f"手势：左手{hands['left']['detail']}；右手{hands['right']['detail']}"
-            if not gesture["start_armed"]:
-                gesture_message += "；可按 Enter，或至少一手离开 V 后再双手重新比 V。"
         current = (state, status.get("mode"), health["ready"],
                    health.get("detail") if not health["ready"] else None,
-                   self.engage_pending, gesture_message)
+                   self.engage_pending)
         if current == self._last_status:
             return
         previous, self._last_status = self._last_status, current
@@ -107,8 +98,6 @@ class TeleopUI:
         elif state != "engaged" and (previous is None or not previous[2]):
             self.say(f"设备已就绪，{self.start_hint}开始" +
                      ("遥操作。" if self.enable_motion else "只读预览。"), "ready")
-        if gesture_message is not None and (previous is None or previous[-1] != gesture_message):
-            self.say(gesture_message)
 
     def waiting_message(self, detail):
         message = brief_reason(detail)
@@ -221,7 +210,7 @@ def prepare_initial_pose(args, terminal):
     result = preparation.prepare_initial_pose(
         config=args.config, ip=args.robot_ip, terminal=terminal,
         side=getattr(args, "side", "both"), library=args.library,
-        model=getattr(args, "model", None), verbose=getattr(args, "verbose", False))
+        model=getattr(args, "model", None))
     print_message("正在连接 Quest。")
     return result
 
@@ -238,18 +227,18 @@ def create_runtime(args, profile, sink):
     kinematics = TianjiKinematics(args.library)
     executor = TianjiCartesianExecutor(driver, kinematics)
     arms = QuestTianjiTeleop(quest, driver, executor, kinematics, profile=profile,
-                            sink=sink, enable_motion=args.enable_motion,
+                            sink=sink, enable_motion=True,
                             side=getattr(args, "side", "both"),
                             coordinate_frame=args.coordinate_frame)
     if args.arms_only:
         return arms
     from bimanual_teleop.control.hand.follow import create_wuji_teleop
     from bimanual_teleop.control.combined import QuestTianjiWujiTeleop
-    hands = create_wuji_teleop(args.wuji_settings, sink=sink, enable_motion=args.enable_motion)
+    hands = create_wuji_teleop(args.wuji_settings, sink=sink, enable_motion=True)
     return QuestTianjiWujiTeleop(arms, hands)
 
 
-def run_loop(runtime, ui, terminal, *, period_ns=PERIOD_NS, status_reporter=None):
+def run_loop(runtime, ui, terminal, *, period_ns=PERIOD_NS):
     next_tick = time.monotonic_ns()
     started = next_tick
     next_report = next_tick
@@ -282,14 +271,7 @@ def run_loop(runtime, ui, terminal, *, period_ns=PERIOD_NS, status_reporter=None
                 skipped += missed
                 next_tick += missed * period_ns
         if now >= next_report:
-            status = {**runtime.status(include_target=False), "engage_pending": ui.engage_pending,
-                      "scheduler_cycles": cycles, "skipped_deadlines": skipped,
-                      "target_hz": round(1e9 / period_ns)}
-            if ui.gesture is not None:
-                status["gesture"] = ui.gesture.status(time.monotonic_ns())
-            ui.report_status(status)
-            if status_reporter is not None:
-                status_reporter(status)
+            ui.report_status(runtime.status(include_target=False))
             next_report = now + 1_000_000_000
         keys = terminal.read(max(0, next_tick - time.monotonic_ns()) / 1e9)
         if keys == "":
@@ -306,18 +288,16 @@ def run_loop(runtime, ui, terminal, *, period_ns=PERIOD_NS, status_reporter=None
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, epilog=MAPPING_HELP)
-    parser.add_argument("--enable-motion", action="store_true",
-                        help="prepare the initial pose, then engage via Enter or both hands V (combined)")
     parser.add_argument("--tianji-config", "--config", dest="config", type=Path, default=DEFAULT_CONFIG,
-                        help="天机统一配置 JSON；默认 configs/tianji_teleop.json")
+                        help="天机统一配置 YAML；默认 configs/tianji_teleop.yaml")
     parser.add_argument("--side", choices=("left", "right", "both"), default="both",
                         help="select the robot arm; left uses the right controller and vice versa")
-    parser.add_argument("--verbose", action="store_true", help="显示详细运行状态和 SDK 信息")
     parser.add_argument("--serial", help="Quest USB adb serial")
     parser.add_argument("--robot-ip", help="临时覆盖设备配置中的天机控制器 IP")
     parser.add_argument("--library", type=Path, help="built libtianji_bridge.so")
     parser.add_argument("--wuji-config", type=Path, default=DEFAULT_WUJI_CONFIG,
-                        help="Wuji 配置；默认 configs/wuji_teleop.json")
+                        help="Wuji 配置；默认 configs/wuji_teleop.yaml")
+    parser.add_argument("--user-name", help="联合控制使用的已有 Wuji SDK 用户名；默认从配置文件读取")
     parser.add_argument("--arms-only", action="store_true", help="只控制机械臂，不连接 Wuji 手套和灵巧手")
     args = parser.parse_args(argv)
     if not args.arms_only and args.side != "both":
@@ -327,7 +307,7 @@ def main(argv=None):
     error = None
     timing = None
     try:
-        configure_runtime_logging(verbose=args.verbose, wuji=combined)
+        configure_runtime_logging(wuji=combined)
         settings = load_config(args.config, args.robot_ip)
         args.robot_ip = settings["controller_ip"]
         args.coordinate_frame = settings["quest"]["coordinate_frame"]
@@ -336,13 +316,17 @@ def main(argv=None):
         if combined:
             from bimanual_teleop.control.hand.follow import load_config as load_wuji_config, preflight
             args.wuji_settings = load_wuji_config(args.wuji_config)
+            if args.user_name is not None:
+                from bimanual_teleop.devices.wuji.config import sdk_user_name
+                args.wuji_settings["sdk_user_name"] = sdk_user_name({}, user_name=args.user_name)
             preflight()
         with NonblockingTerminal() as terminal:
-            if args.enable_motion:
-                prepare_initial_pose(args, terminal)
+            if not confirm_motion(terminal, "开始初始回位，完成后等待遥操作接合"):
+                return 0
+            prepare_initial_pose(args, terminal)
             runtime = create_runtime(args, profile, None)
             help_text = GESTURE_HELP if combined else HELP
-            print_message(("实机遥操作\n" if args.enable_motion else "只读预览\n") + help_text)
+            print_message("实机遥操作\n" + help_text)
             runtime.start()
             gesture = None
             if combined:
@@ -350,8 +334,7 @@ def main(argv=None):
                 gesture = GestureCommands({side: glove.get_latest
                     for side, glove in runtime.hands.gloves.items()},
                     timeout_s=runtime.hands.glove_timeout_ns / 1e9)
-            ui = TeleopUI(runtime, profile, enable_motion=args.enable_motion, gesture=gesture,
-                            verbose=args.verbose,
+            ui = TeleopUI(runtime, profile, enable_motion=True, gesture=gesture,
                             background_engage=combined,
                             following_message="已接合，双臂与双手正在跟随。" if combined else
                                               f"已接合，{'双臂' if args.side == 'both' else '左臂' if args.side == 'left' else '右臂'}正在跟随手柄。")

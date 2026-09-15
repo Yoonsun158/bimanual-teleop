@@ -3,7 +3,6 @@
 from contextlib import redirect_stderr
 from itertools import count
 import io
-import json
 import math
 from pathlib import Path
 import tempfile
@@ -11,6 +10,8 @@ from types import SimpleNamespace
 import time
 import unittest
 from unittest.mock import patch
+
+import yaml
 
 from bimanual_teleop.devices.wuji.adapter import JOINT_NAMES
 from bimanual_teleop.devices.tianji.model import DEFAULT_MODEL
@@ -38,12 +39,19 @@ class _Keys:
 
 
 class TianjiJogTests(unittest.TestCase):
+    def setUp(self):
+        for name in ("NonblockingTerminal", "confirm_motion"):
+            options = {"return_value": True} if name == "confirm_motion" else {}
+            patcher = patch.object(tianji_jog, name, **options)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def test_jog_uses_shared_config_without_manual_ip(self):
         with tempfile.TemporaryDirectory() as directory:
-            config = Path(directory) / "config.json"
+            config = Path(directory) / "config.yaml"
             settings = tianji_jog.load_config()
             settings["controller_ip"] = "192.0.2.8"
-            config.write_text(json.dumps(settings))
+            config.write_text(yaml.safe_dump(settings))
             driver = SimpleNamespace(start=lambda: None, close=lambda: None)
             with patch.object(tianji_jog, "TianjiDriver", return_value=driver) as factory, \
                  patch.object(tianji_jog, "TianjiKinematics"), \
@@ -51,14 +59,14 @@ class TianjiJogTests(unittest.TestCase):
                  patch.object(tianji_jog, "run_jog"), redirect_stderr(io.StringIO()):
                 self.assertEqual(tianji_jog.main(["--side", "left", "--config", str(config)]), 0)
             self.assertEqual(factory.call_args.args[0], "192.0.2.8")
-            prepare.assert_not_called()
+            prepare.assert_called_once()
 
     def test_motion_prepares_selected_arm_before_creating_jog_devices(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            config, model, library = root / "custom.json", root / "model.MvKDCfg", root / "custom.so"
+            config, model, library = root / "custom.yaml", root / "model.MvKDCfg", root / "custom.so"
             settings = tianji_jog.load_config()
-            config.write_text(json.dumps(settings))
+            config.write_text(yaml.safe_dump(settings))
             model.write_bytes(DEFAULT_MODEL.read_bytes())
             events = []
             terminal = _Keys(None)
@@ -74,11 +82,11 @@ class TianjiJogTests(unittest.TestCase):
                               side_effect=lambda *args, **kwargs: events.append("jog")) as run, \
                  redirect_stderr(io.StringIO()):
                 self.assertEqual(tianji_jog.main([
-                    "--side", "right", "--enable-motion", "--tianji-config", str(config),
-                    "--ip", "192.0.2.9", "--library", str(library), "--model", str(model), "--verbose"]), 0)
+                    "--side", "right", "--tianji-config", str(config),
+                    "--ip", "192.0.2.9", "--library", str(library), "--model", str(model)]), 0)
             self.assertEqual(events, ["prepare", "kinematics", "driver", "start", "jog", "close"])
             prepare.assert_called_once_with(config=config, ip="192.0.2.9", side="right",
-                                            library=library, model=model, verbose=True, terminal=terminal)
+                                            library=library, model=model, terminal=terminal)
             factory.assert_called_once_with("192.0.2.9", library, model_path=model)
             kinematics.assert_called_once_with(library, model)
             self.assertEqual(run.call_args.kwargs["side"], "right")
@@ -92,7 +100,7 @@ class TianjiJogTests(unittest.TestCase):
                  patch.object(tianji_jog, "TianjiKinematics") as kinematics, \
                  patch.object(tianji_jog, "TianjiDriver") as driver, \
                  patch.object(tianji_jog, "run_jog") as run, redirect_stderr(io.StringIO()):
-                self.assertEqual(tianji_jog.main(["--side", "left", "--enable-motion"]), 1)
+                self.assertEqual(tianji_jog.main(["--side", "left"]), 1)
             kinematics.assert_not_called()
             driver.assert_not_called()
             run.assert_not_called()
