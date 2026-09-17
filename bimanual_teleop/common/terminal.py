@@ -22,7 +22,7 @@ def confirm_motion(terminal, action):
         if keys is None:
             break
     print_message("设备即将运动。请确认机械臂和灵巧手周围无人员、障碍物，"
-                  "运动范围内无碰撞风险，并做好随时急停的准备。", "warning")
+                  "运动范围内无碰撞风险，实体急停已释放，并做好随时急停的准备。", "warning")
     print_message(f"确认安全后按回车键{action}；按 Q 或 Ctrl+C 取消。")
     while True:
         keys = terminal.read(.1)

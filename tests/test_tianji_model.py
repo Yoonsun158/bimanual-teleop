@@ -1,42 +1,24 @@
-"""M6 model/export agreement and local FK/IK; no controller connection."""
+"""Pinned M6 model validation and local FK/IK; no controller connection."""
 
-import configparser
 from copy import deepcopy
 import hashlib
+import json
 import math
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from bimanual_teleop.devices.tianji.model import (  # noqa: E402
-    DEFAULT_LIBRARY, DEFAULT_MODEL, KinematicsError, M6Model, ModelMismatchError,
+    DEFAULT_MODEL, IKTargetError, KinematicsError, M6Model,
     MotionProfile, ProfileError, TianjiKinematics, _matrix_from_pose, _pose_from_matrix,
 )
-from bimanual_teleop.types import ControlProfile, Pose  # noqa: E402
-
-
-def controller_fixture(model):
-    """Represent a controller export, then mutate individual parameters in tests."""
-    parser = configparser.ConfigParser()
-    for index, side in enumerate(("left", "right")):
-        arm, prefix = model.arm(side), f"R.A{index}"
-        parser[f"{prefix}.BASIC"] = {"Dof": "7", "Type": "1017"}
-        for joint, dh in enumerate(arm.dh_native):
-            section = f"{prefix}.L{joint}.DH" if joint < 7 else f"{prefix}.FLANGE"
-            parser[section] = dict(zip(("Alpha", "A", "D", "Theta"), map(str, dh)))
-        for joint, limits in enumerate(arm.limits_native):
-            parser[f"{prefix}.L{joint}.BASIC"] = dict(zip(
-                ("LimitPos", "LimitNeg", "VelMax", "AccMax"), map(str, limits)))
-        parser[f"{prefix}.CTRL"] = {
-            f"BD67{quadrant}{coefficient}": str(value)
-            for quadrant, row in zip(("PP", "NP", "NN", "PN"), arm.bd67_native)
-            for coefficient, value in enumerate(row)
-        }
-    return parser
+from bimanual_teleop.types import ControlProfile, Pose
+from bimanual_teleop.devices.tianji.sdk import load_sdk  # noqa: E402
 
 
 class TianjiModelTests(unittest.TestCase):
@@ -44,33 +26,17 @@ class TianjiModelTests(unittest.TestCase):
         self.model = M6Model.from_file()
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        self.export = Path(self.directory.name) / "robot.ini"
-        self.config = controller_fixture(self.model)
-        self.write_export()
-
-    def write_export(self):
-        with self.export.open("w") as stream:
-            self.config.write(stream)
 
     def profile(self):
         """Synthetic values validate schema only; these are not robot settings."""
-        provenance = {"verified": True, "verified_by": "unit-test", "verified_at": "test",
-                      "evidence": "synthetic fixture; not validated on hardware"}
         arm = {
             "stiffness": [1]*6, "damping": [1]*6,
             "nullspace_stiffness": 1, "nullspace_damping": 1,
             "tool_dyn10": [1, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0.01],
-            "tool_load_verification": provenance,
-            "max_joint_velocity_rad_s": [0.1]*7,
             "velocity_ratio": 10, "acceleration_ratio": 10,
         }
         return ControlProfile("test", "cartesian_impedance", {
             "active_arms": ["left"], "arms": {"left": arm},
-            "controller_model": {
-                "path": str(self.export), "sha256": hashlib.sha256(self.export.read_bytes()).hexdigest(),
-                "verified_current_controller": True, "verified_by": "unit-test",
-                "verified_at": "test", "evidence": "synthetic controller export",
-            },
         })
 
     def test_nominal_geometry_units_and_both_arms(self):
@@ -82,31 +48,11 @@ class TianjiModelTests(unittest.TestCase):
         self.assertEqual(self.model.arm("right").gravity_m_s2, (0, -9.81, 0))
         self.assertEqual(self.model.digest, hashlib.sha256(DEFAULT_MODEL.read_bytes()).hexdigest())
 
-    def test_export_provenance_does_not_claim_live_verification(self):
-        result = self.model.verify_controller_export(self.export)
-        self.assertFalse(result.live_verified)
-        self.assertEqual(result.source, "provided_export")
-        downloaded = self.model.verify_controller_export(self.export, source="downloaded_controller_export")
-        self.assertTrue(downloaded.connected_export_checked)
-        self.assertFalse(downloaded.live_parameters_verified)
-
     def test_modified_nominal_cannot_claim_pinned_m6_provenance(self):
         modified = Path(self.directory.name) / "changed.MvKDCfg"
         modified.write_bytes(DEFAULT_MODEL.read_bytes().replace(b"174.500000", b"174.600000"))
         with self.assertRaises(ProfileError):
             M6Model.from_file(modified)
-
-    def test_model_mismatches_cannot_enable_motion(self):
-        for section, field in [("R.A0.L0.DH", "D"), ("R.A0.FLANGE", "Alpha"),
-                               ("R.A0.L6.BASIC", "LimitPos"), ("R.A0.CTRL", "BD67PP1"),
-                               ("R.A0.BASIC", "Dof")]:
-            with self.subTest(section=section, field=field):
-                previous = self.config[section][field]
-                self.config[section][field] = str(float(previous) + 1)
-                self.write_export()
-                with self.assertRaises(ModelMismatchError):
-                    self.model.verify_controller_export(self.export)
-                self.config[section][field] = previous
 
     def test_profile_requires_sdk_parameters_without_provenance_gates(self):
         result = MotionProfile.from_control_profile(self.profile())
@@ -119,12 +65,6 @@ class TianjiModelTests(unittest.TestCase):
                 profile.parameters["arms"]["left"][field] = value
                 with self.assertRaises(ProfileError):
                     MotionProfile.from_control_profile(profile)
-        profile = self.profile()
-        profile.parameters.pop("controller_model")
-        profile.parameters["arms"]["left"].pop("tool_load_verification")
-        profile.parameters["arms"]["left"].pop("max_joint_velocity_rad_s")
-        result = MotionProfile.from_control_profile(profile)
-        self.assertEqual(result.active_arms, ("left",))
 
     def test_incomplete_motion_parameters_are_rejected(self):
         for field in ("nullspace_damping", "tool_dyn10"):
@@ -142,8 +82,6 @@ class TianjiModelTests(unittest.TestCase):
         parsed = MotionProfile.from_control_profile(profile)
         for side in ("left", "right"):
             self.assertEqual(parsed.arms[side].tool_dyn10, (0.0,)*10)
-            profile.parameters["arms"][side]["tool_load_verification"]["verified"] = False
-            MotionProfile.from_control_profile(profile)
 
     def test_zero_mass_cannot_have_nonzero_other_dynamics(self):
         for index in range(1, 10):
@@ -171,6 +109,75 @@ class TianjiModelTests(unittest.TestCase):
 
 
 class TianjiPoseTests(unittest.TestCase):
+    def test_ik_failure_contains_exact_replay_inputs_and_sdk_flags(self):
+        kine = TianjiKinematics()
+        def solve(side, pose, reference):
+            result = load_sdk("kine").FX_InvKineSolvePara()
+            result.m_OutPut_Result_Num = 1
+            result.m_Output_RetJoint.data[:] = [math.degrees(q) for q in reference]
+            result.m_Output_RetJoint.data[5] = -60.05
+            result.m_Output_JntExdTags[5] = True
+            return True, result
+        kine.solve = solve
+        pose = Pose("tianji_left_base", "tianji_left_flange", (.5, -.1, .3), (0., 0., 0., 1.))
+        reference = tuple(map(math.radians, (30, -60, -34, -52, 30, -59.95, 4)))
+        with self.assertRaises(IKTargetError) as raised:
+            kine.ik("left", pose, reference)
+        detail = str(raised.exception)
+        self.assertIn("J6=-60.05deg", detail.splitlines()[0])
+        snapshot = json.loads(detail.split("[IK诊断] ", 1)[1])
+        self.assertEqual(snapshot["schema"], "tianji_ik_failure_v1")
+        self.assertEqual(snapshot["model_sha256"], kine.model.digest)
+        self.assertEqual(snapshot["sdk_commit"], kine.model.sdk_commit)
+        self.assertEqual(snapshot["side"], "left")
+        self.assertEqual(snapshot["target"]["position_m"], list(pose.position_m))
+        self.assertEqual(snapshot["target"]["orientation_xyzw"], list(pose.orientation_xyzw))
+        for actual, radians in zip(snapshot["reference_deg"], reference):
+            self.assertAlmostEqual(actual, math.degrees(radians))
+        self.assertEqual(snapshot["result_deg"][5], -60.05)
+        self.assertEqual(snapshot["status"], 0)
+        self.assertEqual(snapshot["limit_mask"], 32)
+
+    def test_solver_constraint_flags_are_distinct_from_sdk_failures(self):
+        pose = Pose("tianji_left_base", "tianji_left_flange", (0., 0., 0.), (0., 0., 0., 1.))
+        for status, count, outside, singular, limits, recoverable in (
+                (0, 0, 0, 0, 0, True),
+                (-1, 0, 1, 8, 0, True),
+                (-1, 0, 0, 8, 0, True),
+                (0, 1, 0, 0, 32, True),
+                (-1, 0, 0, 0, 0, False),
+                (-1, 0, 0, 0, 0, False)):
+            with self.subTest(status=status, outside=outside, singular=singular, limits=limits):
+                def solve(side, pose, reference):
+                    result = load_sdk("kine").FX_InvKineSolvePara()
+                    result.m_OutPut_Result_Num = count
+                    result.m_Output_IsOutRange = bool(outside)
+                    for i in range(7):
+                        result.m_Output_IsDeg[i] = bool(singular & (1 << i))
+                        result.m_Output_JntExdTags[i] = bool(limits & (1 << i))
+                    return status == 0, result
+                kine = TianjiKinematics()
+                kine.solve = solve
+                with self.assertRaises(KinematicsError) as raised:
+                    kine.ik("left", pose, (0.,)*7)
+                self.assertEqual(isinstance(raised.exception, IKTargetError), recoverable)
+
+    def test_nonfinite_sdk_result_is_fatal_even_with_constraint_flags(self):
+        def solve(side, pose, reference):
+            result = load_sdk("kine").FX_InvKineSolvePara()
+            result.m_OutPut_Result_Num = 1
+            result.m_Output_IsOutRange = True
+            result.m_Output_RetJoint.data[0] = math.nan
+            return True, result
+        kine = TianjiKinematics()
+        kine.solve = solve
+        pose = Pose("tianji_left_base", "tianji_left_flange", (0., 0., 0.), (0., 0., 0., 1.))
+        with self.assertRaisesRegex(KinematicsError, "nonfinite") as raised:
+            kine.ik("left", pose, (0.,)*7)
+        self.assertNotIsInstance(raised.exception, IKTargetError)
+        snapshot = json.loads(str(raised.exception).split("[IK诊断] ", 1)[1])
+        self.assertIsNone(snapshot["result_deg"][0])
+
     def test_nonzero_rotation_translation_and_half_turn(self):
         for quaternion in [(0.5, 0.5, 0.5, 0.5), (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0)]:
             pose = Pose("tianji_left_base", "tianji_left_flange", (0.1, -0.2, 0.3), quaternion)
@@ -188,7 +195,6 @@ class TianjiPoseTests(unittest.TestCase):
             with self.assertRaises(KinematicsError):
                 _matrix_from_pose(Pose(parent, "tianji_left_flange", (0, 0, 0), q), "left")
 
-    @unittest.skipUnless(DEFAULT_LIBRARY.exists(), "Build the official Tianji bridge for native FK/IK tests")
     def test_official_compiled_fk_ik_fk(self):
         kine = TianjiKinematics()
         reference = tuple(math.radians(value) for value in (12, -22, 31, -48, 17, 15, -12))

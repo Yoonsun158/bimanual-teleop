@@ -1,33 +1,65 @@
 """Concise terminal status and optional colored device logging."""
 
-import os
 import sys
 import logging
+import json
 import re
 import time
 
 
 _LEVELS = {
-    "info": ("提示", "36"),
-    "ready": ("就绪", "32"),
-    "warning": ("警告", "33"),
-    "error": ("错误", "31"),
-    "done": ("完成", "32"),
+    "info": ("提示", "bright_black"),
+    "ready": ("就绪", "cyan"),
+    "warning": ("警告", "yellow"),
+    "error": ("错误", "red"),
+    "done": ("完成", "cyan"),
 }
 
 
 def format_message(message, level="info", *, stream=None):
+    from rich.console import Console
+    from rich.text import Text
+
     stream = sys.stderr if stream is None else stream
     label, colour = _LEVELS[level]
-    label = f"[{label}]"
-    if "NO_COLOR" not in os.environ and getattr(stream, "isatty", lambda: False)():
-        label = f"\x1b[{colour}m{label}\x1b[0m"
-    return f"{label} {message}"
+    console = Console(file=stream, highlight=False)
+    with console.capture() as capture:
+        console.print(Text.assemble((f"[{label}]", colour), f" {message}"),
+                      end="", soft_wrap=True)
+    return capture.get()
 
 
 def print_message(message, level="info", *, stream=None):
     stream = sys.stderr if stream is None else stream
-    print(format_message(message, level, stream=stream), file=stream, flush=True)
+    if not getattr(stream, "isatty", lambda: False)():
+        print(format_message(message, level, stream=stream), file=stream, flush=True)
+        return
+
+    from rich.console import Console
+    from rich.table import Table
+    from rich.text import Text
+
+    label, colour = _LEVELS[level]
+    table = Table.grid(padding=(0, 1))
+    table.add_column(style=colour, no_wrap=True)
+    table.add_row(f"[{label}]", Text(str(message)))
+    Console(file=stream, highlight=False).print(table)
+
+
+def runtime_message(message, *, verbose=False):
+    """Hide structured diagnostic attachments while retaining the fault reason."""
+    if verbose:
+        return message
+
+    def remove_attachment(match):
+        try:
+            _, end = json.JSONDecoder().raw_decode(match[1])
+        except ValueError:
+            return match[0]  # Keep unrecognized content so no fault text is lost.
+        return match[1][end:]
+
+    return re.sub(r"(?:^|\n)\[(?:IK诊断|控制诊断|停机诊断)\] ([^\n]*)",
+                  remove_attachment, message).strip()
 
 
 class StatusConsole:
@@ -76,10 +108,13 @@ class LiveProgress:
         if now - self._last_at < self.interval_s:
             return
         self._last_at = now
+        from rich.text import Text
+
         formatted = format_message(message, "info", stream=self.stream)
-        print("\r" + formatted + " " * max(0, self._width - len(formatted)),
+        width = Text.from_ansi(formatted).cell_len
+        print("\r" + formatted + " " * max(0, self._width - width),
               end="", file=self.stream, flush=True)
-        self._width = len(formatted)
+        self._width = width
 
     def clear(self):
         if self._width:
@@ -88,12 +123,15 @@ class LiveProgress:
 
 
 class _ConciseLogHandler(logging.Handler):
-    def __init__(self, console):
+    def __init__(self, console, *, verbose=False):
         super().__init__()
         self.console = console
+        self.verbose = verbose
 
     def emit(self, record):
-        message = record.getMessage()
+        message = runtime_message(record.getMessage(), verbose=self.verbose)
+        if not message:
+            return
         if record.levelno >= logging.ERROR:
             self.console.error(message)
         elif record.levelno >= logging.WARNING:
@@ -104,15 +142,15 @@ class _ConciseLogHandler(logging.Handler):
             self.console.state(message)
 
 
-def configure_runtime_logging(*, wuji=False):
-    """Configure concise Python/optional SDK diagnostics before device creation."""
+def configure_runtime_logging(*, wuji=False, verbose=False):
+    """Select concise or verbose Python/SDK logging before device creation."""
     logger = logging.getLogger("bimanual_teleop")
-    logger.setLevel(logging.WARNING)
+    logger.setLevel(logging.DEBUG if verbose else logging.WARNING)
     for handler in list(logger.handlers):
         if isinstance(handler, _ConciseLogHandler):
             logger.removeHandler(handler)
-    logger.addHandler(_ConciseLogHandler(StatusConsole()))
+    logger.addHandler(_ConciseLogHandler(StatusConsole(), verbose=verbose))
     logger.propagate = False
     if wuji:
         import wuji_sdk
-        wuji_sdk.set_log_level("warn")
+        wuji_sdk.set_log_level("debug" if verbose else "error")

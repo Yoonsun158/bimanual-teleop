@@ -1,0 +1,15 @@
+{
+  "serial": "340YC10GB00HL5",
+  "test": "wake plus periodic proximity override; no manual recovery; no robot connection",
+  "system_build": "3296320034600610",
+  "before_start": "mWakefulness=Asleep",
+  "after_start": "mWakefulness=Awake",
+  "frames": 0,
+  "states": {},
+  "controller_status": {},
+  "max_gap_ms": 0.0,
+  "first_focused_s": null,
+  "focused_hz": null,
+  "final_health": "waiting for Quest frames",
+  "power_override_released": true
+}

@@ -1,0 +1,33 @@
+50280: [INFO][22:32:34              5042407][SI]_FX_RunPosition: arm1: PENDING to RUNNING
+50282: [INFO][22:32:42              5050315][PSI]Arm0: Set Joint V=100, A=100
+50283: [INFO][22:32:42              5050315][PSI]Arm1: Set Joint V=14, A=14
+50284: [INFO][22:32:42              5050576][PSI]Arm0: Request a transfer to TORQUE
+50285: [INFO][22:32:42              5050576][PSI]Arm1: Request a transfer to TORQUE
+50286: [INFO][22:32:42              5050585][SI]_FX_UpdateCmd: arm0 receive a request to transfer to TORQUE
+50287: [INFO][22:32:42              5050585][SI]_FX_RunPosition: arm0 transfer from POSITION to ARM_STATE_TRANS_TO_TORQUE
+50288: [INFO][22:32:42              5050585][SI]_FX_UpdateCmd: arm1 receive a request to transfer to TORQUE
+50289: [INFO][22:32:42              5050585][SI]_FX_RunPosition: arm1 transfer from POSITION to ARM_STATE_TRANS_TO_TORQUE
+50290: [INFO][22:32:42              5050586][SI]___FX_SyncFFDTorque:------- enter -------
+50291: [INFO][22:32:42              5050586][SI]___FX_SyncFFDTorque:------- init_current arm0 {-329657,39904,-203514,-148069,9326,-858,87000}--------
+50292: [INFO][22:32:42              5050586][SI]__FX_RequestTransToSensorMode: arm0: Sync cmd pos as actual feedback pos
+50293: [INFO][22:32:42              5050586][SI]__FX_RequestTransToSensorMode: arm0: Request servo change to sensor ctrl
+50294: [INFO][22:32:42              5050586][SI]___FX_SyncFFDTorque:------- enter -------
+50295: [INFO][22:32:42              5050586][SI]___FX_SyncFFDTorque:------- init_current arm1 {352487,41025,222245,-159515,-12224,-1068,-114000}--------
+50296: [INFO][22:32:42              5050586][SI]__FX_RequestTransToSensorMode: arm1: Sync cmd pos as actual feedback pos
+50297: [INFO][22:32:42              5050586][SI]__FX_RequestTransToSensorMode: arm1: Request servo change to sensor ctrl
+50298: [INFO][22:32:42              5050592][SI]__FX_WaitEnable: arm0: Servos are enabled
+50299: [INFO][22:32:42              5050592][SI]_FX_RunTransferToTorque: arm0: Transfer to ARM_STATE_TORQUE
+50300: [INFO][22:32:42              5050592][SI]__FX_WaitEnable: arm1: Servos are enabled
+50301: [INFO][22:32:42              5050592][SI]_FX_RunTransferToTorque: arm1: Transfer to ARM_STATE_TORQUE
+50305: [INFO][22:35:25              5213652][PSI]Arm0: Request a transfer to POSITION
+50316: [INFO][22:35:25              5213652][SI]_FX_UpdateCmd: arm0 receive a request to transfer to POSITION
+50317: [INFO][22:35:25              5213652][SI]_FX_RunTorque: arm0 transfer from ARM_STATE_TORQUE to ARM_STATE_TRANS_TO_POSITION
+50318: [ERRO][22:35:25              5213653][SI]__FX_RequestTransToPositionMode: arm0: Link0's encoder/extencoder might be error.
+50319: [ERRO][22:35:25              5213653][SI]_FX_RunTransferToPosition: arm0: Transfer to ARM_STATE_ERROR
+51106: [INFO][22:35:45              5233354][PSI]Arm1: Request a transfer to IDLE
+51107: [ERRO][22:35:45              5233332][SI]_FX_RunTorque: arm1: System error(13) happened, goto SENSOR_LOOP_STOPPING
+51108: [INFO][22:35:45              5233332][SI]_FX_RunTorque: arm1 request disable channel, goto SENSOR_LOOP_STOPPED
+51109: [WARN][22:35:45              5233332][SI]FX_MacChnCmdKill: arm:1 FbkP{-44144,-48942,41398,-70272,-21455,3172,-2004} FbkMtoV{1550,12090,2190,7849,192,-3686,-33} FbkMotTor{289000,30000,208000,-58000,-72000,-165000,-96000}
+51111: [WARN][22:35:45              5233332][SI] CmdP{-44144,-48943,41398,-70272,-21455,3173,-2004} CmdFFDTOR{19679407,4590755,12717742,-8038184,-418675,-963011,-3064116}
+51115: [INFO][22:35:45              5233354][SI]_FX_UpdateCmd: arm1 receive a request to transfer to IDLE
+51124: [ERRO][22:35:45              5233662][SI]_FX_RunTorque: arm1 is disabled, goto ARM_STATE_ERROR

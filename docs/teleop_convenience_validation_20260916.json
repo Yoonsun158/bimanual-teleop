@@ -1,0 +1,83 @@
+{
+  "date": "2026-09-16",
+  "motion_authorized": true,
+  "velocity_ratio": 5,
+  "acceleration_ratio": 5,
+  "camera_preview": true,
+  "initial_deg": {
+    "left": [
+      44.19990158081055,
+      -30.25689125061035,
+      -39.561004638671875,
+      -91.32991790771484,
+      17.796628952026367,
+      -8.735332489013672,
+      10.254508018493652
+    ],
+    "right": [
+      -47.84016036987305,
+      -41.01380157470703,
+      38.941810607910156,
+      -90.35851287841797,
+      -25.193511962890625,
+      9.216917991638184,
+      -24.372461318969727
+    ]
+  },
+  "hold_request_ms": 6.7686,
+  "cancel_errors": [
+    "Tianji joint move cancelled"
+  ],
+  "cancel_left_deg": [
+    43.66973114013672,
+    -30.79312133789063,
+    -38.50947570800781,
+    -90.27800750732422,
+    18.843990325927734,
+    -7.687024116516114,
+    9.202491760253908
+  ],
+  "cancel_right_max_change_deg": 3.43322753918412e-05,
+  "cancel_stopped": true,
+  "final_deg": {
+    "left": [
+      30.000003814697266,
+      -59.99998474121094,
+      -33.99999237060547,
+      -51.99999237060547,
+      30.000015258789062,
+      11.999988555908203,
+      3.9999985694885254
+    ],
+    "right": [
+      -30.000017166137695,
+      -59.99999999999999,
+      33.99997329711914,
+      -51.999820709228516,
+      -29.999954223632816,
+      11.999975204467773,
+      -4.0000810623168945
+    ]
+  },
+  "max_error_deg": {
+    "left": 1.5258789065160903e-05,
+    "right": 0.00017929077148860588
+  },
+  "controller_errors": {
+    "left": 0,
+    "right": 0
+  },
+  "remained_disengaged": true,
+  "preview_running": true,
+  "python_tests_passed": 578,
+  "native_tests_passed": 1,
+  "d435_rgb_frames_in_3_seconds": 77,
+  "standalone_preview_exit_code": 0,
+  "physical_fault_injection": false,
+  "notes": [
+    "Physical test used the shared ready-pose operation on one real driver connection, with RealSense preview active.",
+    "The 6.8 ms result measures request_hold call duration, not independently measured physical stopping time.",
+    "Controller and servo errors were zero before testing; fault rejection/reset scenarios were verified by automated fakes and native loopback tests.",
+    "Gesture triggering and keyboard lifecycle were verified automatically; no live operator gesture or 200 Hz engaged-following timing trial was performed."
+  ]
+}

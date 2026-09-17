@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 using XrTime = int64_t;
@@ -18,6 +19,7 @@ using XrSession = int;
 using XrSessionState = int;
 using XrSpaceLocationFlags = uint64_t;
 constexpr int XR_TRUE = 1;
+constexpr int XR_NULL_PATH = 0;
 constexpr int XR_SESSION_STATE_UNKNOWN = 0;
 constexpr int XR_TYPE_ACTION_STATE_GET_INFO = 1, XR_TYPE_ACTION_STATE_POSE = 2;
 constexpr int XR_TYPE_SPACE_LOCATION = 3;
@@ -38,6 +40,7 @@ struct XrPosef { XrQuaternionf orientation; XrVector3f position; };
 struct XrSpaceLocation { int type; XrSpaceLocationFlags locationFlags = 0; XrPosef pose; };
 struct XrActionStateGetInfo { int type; int action = 0; XrPath subactionPath = 0; };
 struct XrActionStatePose { int type; int isActive = 0; };
+struct XrActionSuggestedBinding { int action; XrPath binding; };
 struct XrEventDataBaseHeader { int type; };
 struct XrEventDataReferenceSpaceChangePending {
     int type = XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING;
@@ -64,6 +67,11 @@ using PFN_xrGetDisplayRefreshRateFB = XrResult (*)(XrSession, float*);
 inline XrTime testTime = 1000;
 inline int queryCount = 0;
 inline bool failRefresh = false;
+inline XrResult xrStringToPath(XrInstance, const char* path, XrPath* result) {
+    assert(std::strcmp(path, "/interaction_profiles/khr/simple_controller") == 0);
+    *result = 20;
+    return 0;
+}
 inline XrResult ConvertTime(XrInstance, const timespec*, XrTime* time) {
     *time = testTime;
     return 0;
@@ -125,6 +133,8 @@ class XrApp {
     void RunTest();
   protected:
     virtual std::vector<const char*> GetExtensions() { return {}; }
+    virtual std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> GetSuggestedBindings(
+        XrInstance) { return {{20, {{10, 30}}}, {21, {{10, 31}, {10, 32}}}}; }
     virtual void GetInitialSceneUri(std::string&) const {}
     virtual bool AppInit(const xrJava*) { return true; }
     virtual bool SessionInit() { return true; }
@@ -144,6 +154,9 @@ inline void XrApp::RunTest() {
     JNIEnv env;
     xrJava java{&env};
     assert(AppInit(&java));
+    const auto bindings = GetSuggestedBindings(Instance);
+    assert(bindings.size() == 1 && bindings.count(21) == 1);
+    assert(bindings.at(21).size() == 2);  // retain both Touch controller bindings
     assert(SessionInit());
     XrEventDataSessionStateChanged state;
     AppHandleEvent(reinterpret_cast<XrEventDataBaseHeader*>(&state));

@@ -1,0 +1,2649 @@
+{
+  "schema": "offline_servo_gil_feedback_ablation_v1",
+  "date": "2026-09-15",
+  "hardware_access": false,
+  "python": "3.10.21 (main, Aug 27 2026, 14:42:07) [GCC 14.3.0]",
+  "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
+  "script": "docs/experiments/servo_latency_20260915.py",
+  "script_sha256": "eef23f1b710db08af7a0a415fd4b6ff4eb872daa8b9e663b1a5266168a4278b8",
+  "servo_sha256": "7803056ec9ae2c4dde8b35dcf987a23187a911d06a2a4fd8722e7ebd702c00e0",
+  "model_sha256": "e5760920ee88c70a0e81f89a07aab2665c6354b0bf2dcb686a01c1098d45351b",
+  "method": "Sequential fresh processes on shared workstation; fixed real M6 FK/Jacobian and CartesianServo for both arms; same 0.005s dt, fixed 3/2/1mm displacement; no accept(), no 200Hz pacing, no live transport. All modes use identical servo and stage timers. Flat numeric sample arrays avoid tracked statistics tuple growth; normal GC timed. Busy modes synthesize one CPU-bound pure-Python load and are mechanism tests, not representative measured device load. Feedback modes use actual Python receive paths with synthetic 1kHz arm packets and two synthetic hand joint/diagnostic streams each at indicated frequency. No Quest parsing, native SDK property traversal, hand retargeting, or real stop callbacks. Rates are experiment parameters, not measurements. Individual extrema/P99 with different sample sizes are not stable rankings. Both arms use 100% velocity/acceleration ratios, unlike the recorded right-arm 15% setting. Linux-only experiment uses /proc and fork. Low fixed-target QP iteration counts do not exclude difficult real target/posture cases.",
+  "results": {
+    "idle": {
+      "mode": "idle",
+      "duration_s": 2.1540760989955743,
+      "wuji_hz": 1000,
+      "wuji_diagnostics_hz": 1000,
+      "wuji_counts": {},
+      "wuji_errors": [],
+      "feedback_count": 0,
+      "feedback_error": null,
+      "n_pairs": 1500,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.047384,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017052,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.021546,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.016493,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017271,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.016424,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.174842,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017111,
+          "collected": 14
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 0.0,
+        "thread_cpu_s": 0.0,
+        "batches": 0.0
+      },
+      "switchinterval": 0.005,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 20
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 20
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 0.7022,
+        "p95": 0.769,
+        "p99": 1.221,
+        "mean": 0.7152,
+        "max": 1.6024
+      },
+      "single_thread_cpu_ms": {
+        "p50": 0.7028,
+        "p95": 0.7692,
+        "p99": 1.2223,
+        "mean": 0.7156,
+        "max": 1.604
+      },
+      "pair_wall_ms": {
+        "p50": 1.4065,
+        "p95": 1.5304,
+        "p99": 2.4556,
+        "mean": 1.4349,
+        "max": 2.9031
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 1.4066,
+        "p95": 1.5289,
+        "p99": 2.4558,
+        "mean": 1.4348,
+        "max": 2.9035
+      },
+      "pair_over_5ms": 0,
+      "pair_over_25ms": 0,
+      "pair_over_50ms": 0,
+      "slowest_pairs": [
+        {
+          "index": 158,
+          "wall_ms": 2.903137,
+          "thread_cpu_ms": 2.90347
+        },
+        {
+          "index": 160,
+          "wall_ms": 2.859488,
+          "thread_cpu_ms": 2.859763
+        },
+        {
+          "index": 159,
+          "wall_ms": 2.840611,
+          "thread_cpu_ms": 2.840989
+        },
+        {
+          "index": 182,
+          "wall_ms": 2.770649,
+          "thread_cpu_ms": 2.770936
+        },
+        {
+          "index": 161,
+          "wall_ms": 2.687383,
+          "thread_cpu_ms": 2.687644
+        },
+        {
+          "index": 162,
+          "wall_ms": 2.592204,
+          "thread_cpu_ms": 2.592427
+        },
+        {
+          "index": 157,
+          "wall_ms": 2.592033,
+          "thread_cpu_ms": 2.58269
+        },
+        {
+          "index": 164,
+          "wall_ms": 2.559295,
+          "thread_cpu_ms": 2.559562
+        },
+        {
+          "index": 173,
+          "wall_ms": 2.558717,
+          "thread_cpu_ms": 2.558911
+        },
+        {
+          "index": 184,
+          "wall_ms": 2.554019,
+          "thread_cpu_ms": 2.554239
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 0.0264,
+            "p95": 0.0328,
+            "p99": 0.0425,
+            "mean": 0.027,
+            "max": 0.0724
+          },
+          "cpu_ms": {
+            "p50": 0.0265,
+            "p95": 0.0329,
+            "p99": 0.0425,
+            "mean": 0.0271,
+            "max": 0.0725
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 0.0267,
+            "p95": 0.032,
+            "p99": 0.0441,
+            "mean": 0.0275,
+            "max": 0.0556
+          },
+          "cpu_ms": {
+            "p50": 0.0268,
+            "p95": 0.032,
+            "p99": 0.0437,
+            "mean": 0.0275,
+            "max": 0.0554
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 0.0553,
+            "p95": 0.0665,
+            "p99": 0.0966,
+            "mean": 0.0569,
+            "max": 0.13
+          },
+          "cpu_ms": {
+            "p50": 0.0554,
+            "p95": 0.0666,
+            "p99": 0.097,
+            "mean": 0.057,
+            "max": 0.1307
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 0.0244,
+            "p95": 0.0298,
+            "p99": 0.0443,
+            "mean": 0.0252,
+            "max": 0.0604
+          },
+          "cpu_ms": {
+            "p50": 0.0243,
+            "p95": 0.0296,
+            "p99": 0.0437,
+            "mean": 0.0251,
+            "max": 0.0601
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.0079,
+            "p95": 0.0091,
+            "p99": 0.0144,
+            "mean": 0.0082,
+            "max": 0.0283
+          },
+          "cpu_ms": {
+            "p50": 0.0079,
+            "p95": 0.0091,
+            "p99": 0.0144,
+            "mean": 0.0082,
+            "max": 0.0251
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0104,
+            "p95": 0.0118,
+            "p99": 0.019,
+            "mean": 0.0106,
+            "max": 0.0328
+          },
+          "cpu_ms": {
+            "p50": 0.0104,
+            "p95": 0.0118,
+            "p99": 0.0191,
+            "mean": 0.0107,
+            "max": 0.0329
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 0.0264,
+            "p95": 0.0349,
+            "p99": 0.0435,
+            "mean": 0.0273,
+            "max": 0.2169
+          },
+          "cpu_ms": {
+            "p50": 0.0265,
+            "p95": 0.035,
+            "p99": 0.0428,
+            "mean": 0.0273,
+            "max": 0.2173
+          }
+        }
+      }
+    },
+    "periodic": {
+      "mode": "periodic",
+      "duration_s": 4.909393533002003,
+      "wuji_hz": 1000,
+      "wuji_diagnostics_hz": 1000,
+      "wuji_counts": {},
+      "wuji_errors": [],
+      "feedback_count": 0,
+      "feedback_error": null,
+      "n_pairs": 1500,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.047248,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.022966,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.015344,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017421,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.018242,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017952,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.228738,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.016601,
+          "collected": 14
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 4.911995921000198,
+        "thread_cpu_s": 2.381512711,
+        "batches": 930.0
+      },
+      "switchinterval": 0.005,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 20
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 20
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 0.7849,
+        "p95": 3.7011,
+        "p99": 4.1651,
+        "mean": 1.633,
+        "max": 4.4493
+      },
+      "single_thread_cpu_ms": {
+        "p50": 0.7786,
+        "p95": 1.3192,
+        "p99": 1.6333,
+        "mean": 0.8446,
+        "max": 1.9402
+      },
+      "pair_wall_ms": {
+        "p50": 4.1127,
+        "p95": 5.0999,
+        "p99": 5.7232,
+        "mean": 3.2715,
+        "max": 8.5518
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 1.6107,
+        "p95": 2.5748,
+        "p99": 3.1855,
+        "mean": 1.6934,
+        "max": 3.5624
+      },
+      "pair_over_5ms": 83,
+      "pair_over_25ms": 0,
+      "pair_over_50ms": 0,
+      "slowest_pairs": [
+        {
+          "index": 1127,
+          "wall_ms": 8.551796,
+          "thread_cpu_ms": 3.562384
+        },
+        {
+          "index": 1137,
+          "wall_ms": 8.546438,
+          "thread_cpu_ms": 3.42452
+        },
+        {
+          "index": 41,
+          "wall_ms": 8.487839,
+          "thread_cpu_ms": 3.362868
+        },
+        {
+          "index": 226,
+          "wall_ms": 8.393478,
+          "thread_cpu_ms": 3.24852
+        },
+        {
+          "index": 148,
+          "wall_ms": 8.335855,
+          "thread_cpu_ms": 3.266346
+        },
+        {
+          "index": 178,
+          "wall_ms": 8.332851,
+          "thread_cpu_ms": 3.258787
+        },
+        {
+          "index": 1400,
+          "wall_ms": 8.114761,
+          "thread_cpu_ms": 3.015255
+        },
+        {
+          "index": 672,
+          "wall_ms": 5.982032,
+          "thread_cpu_ms": 3.478194
+        },
+        {
+          "index": 1389,
+          "wall_ms": 5.922993,
+          "thread_cpu_ms": 3.417077
+        },
+        {
+          "index": 1390,
+          "wall_ms": 5.91455,
+          "thread_cpu_ms": 3.415005
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 0.0291,
+            "p95": 0.0548,
+            "p99": 0.0747,
+            "mean": 0.0404,
+            "max": 2.6839
+          },
+          "cpu_ms": {
+            "p50": 0.0292,
+            "p95": 0.0546,
+            "p99": 0.074,
+            "mean": 0.0328,
+            "max": 0.2283
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 0.0284,
+            "p95": 0.048,
+            "p99": 0.0658,
+            "mean": 0.0503,
+            "max": 2.6924
+          },
+          "cpu_ms": {
+            "p50": 0.0284,
+            "p95": 0.0476,
+            "p99": 0.0645,
+            "mean": 0.0308,
+            "max": 0.1142
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 0.0641,
+            "p95": 2.7139,
+            "p99": 2.7612,
+            "mean": 0.41,
+            "max": 2.8574
+          },
+          "cpu_ms": {
+            "p50": 0.0641,
+            "p95": 0.1567,
+            "p99": 0.1898,
+            "mean": 0.0782,
+            "max": 0.2631
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 0.0276,
+            "p95": 2.573,
+            "p99": 2.6647,
+            "mean": 0.2051,
+            "max": 2.7259
+          },
+          "cpu_ms": {
+            "p50": 0.0277,
+            "p95": 0.0665,
+            "p99": 0.0841,
+            "mean": 0.0337,
+            "max": 0.1107
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.0086,
+            "p95": 0.0176,
+            "p99": 0.0227,
+            "mean": 0.0099,
+            "max": 0.0639
+          },
+          "cpu_ms": {
+            "p50": 0.0086,
+            "p95": 0.0176,
+            "p99": 0.0225,
+            "mean": 0.0099,
+            "max": 0.0428
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0113,
+            "p95": 0.0197,
+            "p99": 0.0241,
+            "mean": 0.0124,
+            "max": 0.0879
+          },
+          "cpu_ms": {
+            "p50": 0.0114,
+            "p95": 0.0198,
+            "p99": 0.0239,
+            "mean": 0.0124,
+            "max": 0.0878
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 0.0287,
+            "p95": 0.3978,
+            "p99": 2.6778,
+            "mean": 0.161,
+            "max": 2.7543
+          },
+          "cpu_ms": {
+            "p50": 0.0288,
+            "p95": 0.0567,
+            "p99": 0.0941,
+            "mean": 0.0335,
+            "max": 0.2855
+          }
+        }
+      }
+    },
+    "process_periodic": {
+      "mode": "process_periodic",
+      "duration_s": 2.26289651299885,
+      "wuji_hz": 1000,
+      "wuji_diagnostics_hz": 1000,
+      "wuji_counts": {},
+      "wuji_errors": [],
+      "feedback_count": 0,
+      "feedback_error": null,
+      "n_pairs": 1500,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.298883,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017404,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.016139,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.018012,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017339,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017254,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.32549,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.016794,
+          "collected": 14
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 2.262084253001376,
+        "thread_cpu_s": 1.1106816190000002,
+        "batches": 438.0
+      },
+      "switchinterval": 0.005,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 20
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 20
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 0.7352,
+        "p95": 0.8133,
+        "p99": 1.7211,
+        "mean": 0.7512,
+        "max": 4.8945
+      },
+      "single_thread_cpu_ms": {
+        "p50": 0.7359,
+        "p95": 0.8118,
+        "p99": 1.7209,
+        "mean": 0.7507,
+        "max": 3.166
+      },
+      "pair_wall_ms": {
+        "p50": 1.4808,
+        "p95": 1.6102,
+        "p99": 3.4726,
+        "mean": 1.5073,
+        "max": 7.3674
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 1.481,
+        "p95": 1.6049,
+        "p99": 3.4612,
+        "mean": 1.5051,
+        "max": 4.7595
+      },
+      "pair_over_5ms": 1,
+      "pair_over_25ms": 0,
+      "pair_over_50ms": 0,
+      "slowest_pairs": [
+        {
+          "index": 17,
+          "wall_ms": 7.367426,
+          "thread_cpu_ms": 4.759524
+        },
+        {
+          "index": 4,
+          "wall_ms": 4.322799,
+          "thread_cpu_ms": 4.323503
+        },
+        {
+          "index": 18,
+          "wall_ms": 4.289606,
+          "thread_cpu_ms": 4.289951
+        },
+        {
+          "index": 19,
+          "wall_ms": 4.177773,
+          "thread_cpu_ms": 4.178155
+        },
+        {
+          "index": 20,
+          "wall_ms": 4.032779,
+          "thread_cpu_ms": 4.033053
+        },
+        {
+          "index": 0,
+          "wall_ms": 3.942622,
+          "thread_cpu_ms": 3.939137
+        },
+        {
+          "index": 22,
+          "wall_ms": 3.803645,
+          "thread_cpu_ms": 3.803987
+        },
+        {
+          "index": 25,
+          "wall_ms": 3.802638,
+          "thread_cpu_ms": 3.803029
+        },
+        {
+          "index": 21,
+          "wall_ms": 3.794868,
+          "thread_cpu_ms": 3.795335
+        },
+        {
+          "index": 24,
+          "wall_ms": 3.759276,
+          "thread_cpu_ms": 3.760182
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 0.0283,
+            "p95": 0.0368,
+            "p99": 0.0611,
+            "mean": 0.0295,
+            "max": 0.254
+          },
+          "cpu_ms": {
+            "p50": 0.0284,
+            "p95": 0.0369,
+            "p99": 0.0612,
+            "mean": 0.0296,
+            "max": 0.2545
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 0.0288,
+            "p95": 0.0355,
+            "p99": 0.0614,
+            "mean": 0.0296,
+            "max": 0.1115
+          },
+          "cpu_ms": {
+            "p50": 0.0289,
+            "p95": 0.0355,
+            "p99": 0.0613,
+            "mean": 0.0297,
+            "max": 0.1116
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 0.0589,
+            "p95": 0.0727,
+            "p99": 0.1287,
+            "mean": 0.0607,
+            "max": 0.3122
+          },
+          "cpu_ms": {
+            "p50": 0.0589,
+            "p95": 0.0727,
+            "p99": 0.1293,
+            "mean": 0.0608,
+            "max": 0.2641
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 0.0255,
+            "p95": 0.0326,
+            "p99": 0.0569,
+            "mean": 0.0265,
+            "max": 0.0939
+          },
+          "cpu_ms": {
+            "p50": 0.0256,
+            "p95": 0.0325,
+            "p99": 0.057,
+            "mean": 0.0265,
+            "max": 0.0942
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.0083,
+            "p95": 0.0098,
+            "p99": 0.0198,
+            "mean": 0.0086,
+            "max": 0.0445
+          },
+          "cpu_ms": {
+            "p50": 0.0083,
+            "p95": 0.0098,
+            "p99": 0.0197,
+            "mean": 0.0086,
+            "max": 0.0446
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0107,
+            "p95": 0.0128,
+            "p99": 0.0263,
+            "mean": 0.0119,
+            "max": 2.0256
+          },
+          "cpu_ms": {
+            "p50": 0.0108,
+            "p95": 0.0129,
+            "p99": 0.0264,
+            "mean": 0.012,
+            "max": 2.026
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 0.0271,
+            "p95": 0.0367,
+            "p99": 0.0607,
+            "mean": 0.0284,
+            "max": 0.3684
+          },
+          "cpu_ms": {
+            "p50": 0.0271,
+            "p95": 0.0367,
+            "p99": 0.0596,
+            "mean": 0.0284,
+            "max": 0.3687
+          }
+        }
+      }
+    },
+    "busy": {
+      "mode": "busy",
+      "duration_s": 6.486342632000742,
+      "wuji_hz": 1000,
+      "wuji_diagnostics_hz": 1000,
+      "wuji_counts": {},
+      "wuji_errors": [],
+      "feedback_count": 0,
+      "feedback_error": null,
+      "n_pairs": 100,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.062905,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.022378,
+          "collected": 14
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 6.502302981003595,
+        "thread_cpu_s": 6.1054956140000005,
+        "batches": 130.0
+      },
+      "switchinterval": 0.005,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 20
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 20
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 32.746,
+        "p95": 43.6379,
+        "p99": 49.2137,
+        "mean": 32.4253,
+        "max": 53.4651
+      },
+      "single_thread_cpu_ms": {
+        "p50": 2.2869,
+        "p95": 2.9976,
+        "p99": 3.3787,
+        "mean": 2.3042,
+        "max": 3.573
+      },
+      "pair_wall_ms": {
+        "p50": 64.937,
+        "p95": 82.7438,
+        "p99": 90.9075,
+        "mean": 64.8615,
+        "max": 92.7264
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 4.5319,
+        "p95": 5.8432,
+        "p99": 6.2656,
+        "mean": 4.615,
+        "max": 6.7378
+      },
+      "pair_over_5ms": 100,
+      "pair_over_25ms": 100,
+      "pair_over_50ms": 93,
+      "slowest_pairs": [
+        {
+          "index": 6,
+          "wall_ms": 92.726415,
+          "thread_cpu_ms": 5.937348
+        },
+        {
+          "index": 49,
+          "wall_ms": 90.889167,
+          "thread_cpu_ms": 4.128451
+        },
+        {
+          "index": 4,
+          "wall_ms": 87.252526,
+          "thread_cpu_ms": 5.739216
+        },
+        {
+          "index": 54,
+          "wall_ms": 85.800986,
+          "thread_cpu_ms": 4.287707
+        },
+        {
+          "index": 58,
+          "wall_ms": 85.703141,
+          "thread_cpu_ms": 4.573505
+        },
+        {
+          "index": 18,
+          "wall_ms": 82.588022,
+          "thread_cpu_ms": 6.26081
+        },
+        {
+          "index": 24,
+          "wall_ms": 82.552818,
+          "thread_cpu_ms": 6.737816
+        },
+        {
+          "index": 65,
+          "wall_ms": 82.078023,
+          "thread_cpu_ms": 5.786382
+        },
+        {
+          "index": 51,
+          "wall_ms": 81.528643,
+          "thread_cpu_ms": 4.757485
+        },
+        {
+          "index": 57,
+          "wall_ms": 81.386208,
+          "thread_cpu_ms": 5.070543
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 5.1764,
+            "p95": 5.2824,
+            "p99": 5.3164,
+            "mean": 3.9563,
+            "max": 5.4105
+          },
+          "cpu_ms": {
+            "p50": 0.1215,
+            "p95": 0.1577,
+            "p99": 0.1723,
+            "mean": 0.1127,
+            "max": 0.2393
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 5.1604,
+            "p95": 5.2617,
+            "p99": 5.2994,
+            "mean": 3.6227,
+            "max": 5.3579
+          },
+          "cpu_ms": {
+            "p50": 0.104,
+            "p95": 0.1481,
+            "p99": 0.1615,
+            "mean": 0.0972,
+            "max": 0.176
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 5.2968,
+            "p95": 5.4066,
+            "p99": 5.4902,
+            "mean": 4.4598,
+            "max": 5.5183
+          },
+          "cpu_ms": {
+            "p50": 0.2281,
+            "p95": 0.311,
+            "p99": 0.3601,
+            "mean": 0.2255,
+            "max": 0.464
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 5.1738,
+            "p95": 5.2693,
+            "p99": 5.3324,
+            "mean": 4.9032,
+            "max": 5.3935
+          },
+          "cpu_ms": {
+            "p50": 0.114,
+            "p95": 0.1494,
+            "p99": 0.1609,
+            "mean": 0.1111,
+            "max": 0.1778
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.0248,
+            "p95": 0.0368,
+            "p99": 0.0405,
+            "mean": 0.0254,
+            "max": 0.054
+          },
+          "cpu_ms": {
+            "p50": 0.0248,
+            "p95": 0.037,
+            "p99": 0.0408,
+            "mean": 0.0254,
+            "max": 0.0538
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0189,
+            "p95": 0.0291,
+            "p99": 0.0353,
+            "mean": 0.0204,
+            "max": 0.0416
+          },
+          "cpu_ms": {
+            "p50": 0.0189,
+            "p95": 0.0293,
+            "p99": 0.0356,
+            "mean": 0.0205,
+            "max": 0.0419
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 5.1811,
+            "p95": 10.3242,
+            "p99": 10.4561,
+            "mean": 5.1652,
+            "max": 10.4747
+          },
+          "cpu_ms": {
+            "p50": 0.1162,
+            "p95": 0.1832,
+            "p99": 0.2147,
+            "mean": 0.1168,
+            "max": 0.2403
+          }
+        }
+      }
+    },
+    "process_busy": {
+      "mode": "process_busy",
+      "duration_s": 2.4516178339981707,
+      "wuji_hz": 1000,
+      "wuji_diagnostics_hz": 1000,
+      "wuji_counts": {},
+      "wuji_errors": [],
+      "feedback_count": 0,
+      "feedback_error": null,
+      "n_pairs": 1500,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.293611,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.019981,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.017941,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.019889,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.019511,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.022014,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.368699,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.016711,
+          "collected": 14
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 2.5004021350032417,
+        "thread_cpu_s": 2.497947564,
+        "batches": 50.0
+      },
+      "switchinterval": 0.005,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 20
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 20
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 0.7947,
+        "p95": 0.8839,
+        "p99": 1.348,
+        "mean": 0.814,
+        "max": 4.9736
+      },
+      "single_thread_cpu_ms": {
+        "p50": 0.7955,
+        "p95": 0.8848,
+        "p99": 1.349,
+        "mean": 0.8146,
+        "max": 4.9748
+      },
+      "pair_wall_ms": {
+        "p50": 1.5912,
+        "p95": 1.7494,
+        "p99": 2.6864,
+        "mean": 1.633,
+        "max": 7.4852
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 1.5914,
+        "p95": 1.7498,
+        "p99": 2.6869,
+        "mean": 1.6331,
+        "max": 7.4854
+      },
+      "pair_over_5ms": 3,
+      "pair_over_25ms": 0,
+      "pair_over_50ms": 0,
+      "slowest_pairs": [
+        {
+          "index": 14,
+          "wall_ms": 7.485156,
+          "thread_cpu_ms": 7.48539
+        },
+        {
+          "index": 15,
+          "wall_ms": 6.050373,
+          "thread_cpu_ms": 6.026563
+        },
+        {
+          "index": 16,
+          "wall_ms": 5.933908,
+          "thread_cpu_ms": 5.934654
+        },
+        {
+          "index": 17,
+          "wall_ms": 4.307713,
+          "thread_cpu_ms": 4.28538
+        },
+        {
+          "index": 0,
+          "wall_ms": 3.927686,
+          "thread_cpu_ms": 3.926329
+        },
+        {
+          "index": 50,
+          "wall_ms": 3.002502,
+          "thread_cpu_ms": 3.002822
+        },
+        {
+          "index": 49,
+          "wall_ms": 2.872927,
+          "thread_cpu_ms": 2.873112
+        },
+        {
+          "index": 51,
+          "wall_ms": 2.872331,
+          "thread_cpu_ms": 2.872576
+        },
+        {
+          "index": 26,
+          "wall_ms": 2.84768,
+          "thread_cpu_ms": 2.746531
+        },
+        {
+          "index": 12,
+          "wall_ms": 2.834309,
+          "thread_cpu_ms": 2.834628
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 0.0308,
+            "p95": 0.0397,
+            "p99": 0.0543,
+            "mean": 0.0318,
+            "max": 0.2447
+          },
+          "cpu_ms": {
+            "p50": 0.0309,
+            "p95": 0.0398,
+            "p99": 0.0544,
+            "mean": 0.0318,
+            "max": 0.2452
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 0.0317,
+            "p95": 0.0378,
+            "p99": 0.0593,
+            "mean": 0.0327,
+            "max": 0.1468
+          },
+          "cpu_ms": {
+            "p50": 0.0318,
+            "p95": 0.038,
+            "p99": 0.0595,
+            "mean": 0.0328,
+            "max": 0.1366
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 0.0637,
+            "p95": 0.0784,
+            "p99": 0.1039,
+            "mean": 0.0655,
+            "max": 0.1762
+          },
+          "cpu_ms": {
+            "p50": 0.0637,
+            "p95": 0.0787,
+            "p99": 0.1042,
+            "mean": 0.0656,
+            "max": 0.1765
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 0.0276,
+            "p95": 0.0346,
+            "p99": 0.0487,
+            "mean": 0.0285,
+            "max": 0.0863
+          },
+          "cpu_ms": {
+            "p50": 0.0277,
+            "p95": 0.0346,
+            "p99": 0.0486,
+            "mean": 0.0286,
+            "max": 0.0803
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.0091,
+            "p95": 0.0108,
+            "p99": 0.0151,
+            "mean": 0.0093,
+            "max": 0.0287
+          },
+          "cpu_ms": {
+            "p50": 0.0091,
+            "p95": 0.0107,
+            "p99": 0.0151,
+            "mean": 0.0094,
+            "max": 0.0287
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0119,
+            "p95": 0.0142,
+            "p99": 0.0213,
+            "mean": 0.0164,
+            "max": 3.1442
+          },
+          "cpu_ms": {
+            "p50": 0.012,
+            "p95": 0.0145,
+            "p99": 0.0218,
+            "mean": 0.0165,
+            "max": 3.1447
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 0.0295,
+            "p95": 0.04,
+            "p99": 0.0542,
+            "mean": 0.0308,
+            "max": 0.4126
+          },
+          "cpu_ms": {
+            "p50": 0.0296,
+            "p95": 0.0401,
+            "p99": 0.0539,
+            "mean": 0.0309,
+            "max": 0.4133
+          }
+        }
+      }
+    },
+    "feedback_1000": {
+      "mode": "feedback_wuji",
+      "duration_s": 9.985231386999658,
+      "wuji_hz": 1000,
+      "wuji_diagnostics_hz": 1000,
+      "wuji_counts": {
+        "left_joints": 9986,
+        "left_diagnostics": 9986,
+        "right_joints": 9986,
+        "right_diagnostics": 9986
+      },
+      "wuji_errors": [
+        null,
+        null
+      ],
+      "feedback_count": 10023,
+      "feedback_error": null,
+      "n_pairs": 3000,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.046058,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.033795,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.032198,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.045232,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.474276,
+          "collected": 14
+        },
+        {
+          "generation": 2,
+          "wall_ms": 10.562789,
+          "collected": 42
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.021565,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.040554,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.033805,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.040178,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.04286,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.037329,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.045327,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.056827,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.051286,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.063491,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.03605,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.035406,
+          "collected": 14
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 0.0,
+        "thread_cpu_s": 0.0,
+        "batches": 0.0
+      },
+      "switchinterval": 0.005,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 20
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 20
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 1.5269,
+        "p95": 3.0,
+        "p99": 3.8627,
+        "mean": 1.6603,
+        "max": 15.3761
+      },
+      "single_thread_cpu_ms": {
+        "p50": 0.8883,
+        "p95": 1.7488,
+        "p99": 2.0159,
+        "mean": 1.0222,
+        "max": 3.1499
+      },
+      "pair_wall_ms": {
+        "p50": 2.8848,
+        "p95": 5.8899,
+        "p99": 7.4808,
+        "mean": 3.3269,
+        "max": 16.5148
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 1.799,
+        "p95": 3.4435,
+        "p99": 3.849,
+        "mean": 2.0488,
+        "max": 5.6645
+      },
+      "pair_over_5ms": 373,
+      "pair_over_25ms": 0,
+      "pair_over_50ms": 0,
+      "slowest_pairs": [
+        {
+          "index": 47,
+          "wall_ms": 16.514761,
+          "thread_cpu_ms": 2.269291
+        },
+        {
+          "index": 209,
+          "wall_ms": 11.841069,
+          "thread_cpu_ms": 5.664463
+        },
+        {
+          "index": 208,
+          "wall_ms": 11.246559,
+          "thread_cpu_ms": 5.110812
+        },
+        {
+          "index": 219,
+          "wall_ms": 11.042735,
+          "thread_cpu_ms": 5.047917
+        },
+        {
+          "index": 852,
+          "wall_ms": 9.914364,
+          "thread_cpu_ms": 4.30768
+        },
+        {
+          "index": 279,
+          "wall_ms": 8.965276,
+          "thread_cpu_ms": 5.462701
+        },
+        {
+          "index": 220,
+          "wall_ms": 8.812103,
+          "thread_cpu_ms": 4.823865
+        },
+        {
+          "index": 191,
+          "wall_ms": 8.737985,
+          "thread_cpu_ms": 4.542356
+        },
+        {
+          "index": 192,
+          "wall_ms": 8.728532,
+          "thread_cpu_ms": 5.371726
+        },
+        {
+          "index": 845,
+          "wall_ms": 8.655252,
+          "thread_cpu_ms": 4.199018
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 0.0339,
+            "p95": 0.1511,
+            "p99": 0.5271,
+            "mean": 0.0535,
+            "max": 2.1488
+          },
+          "cpu_ms": {
+            "p50": 0.034,
+            "p95": 0.0658,
+            "p99": 0.0897,
+            "mean": 0.0383,
+            "max": 0.2252
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 0.0311,
+            "p95": 0.2361,
+            "p99": 0.7175,
+            "mean": 0.0634,
+            "max": 3.5575
+          },
+          "cpu_ms": {
+            "p50": 0.0312,
+            "p95": 0.0662,
+            "p99": 0.0901,
+            "mean": 0.0366,
+            "max": 0.2165
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 0.1944,
+            "p95": 0.8681,
+            "p99": 1.2244,
+            "mean": 0.2927,
+            "max": 1.9716
+          },
+          "cpu_ms": {
+            "p50": 0.0824,
+            "p95": 0.1637,
+            "p99": 0.2019,
+            "mean": 0.0952,
+            "max": 0.2981
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 0.1408,
+            "p95": 0.7183,
+            "p99": 0.9791,
+            "mean": 0.2144,
+            "max": 9.9611
+          },
+          "cpu_ms": {
+            "p50": 0.0365,
+            "p95": 0.0809,
+            "p99": 0.1027,
+            "mean": 0.0439,
+            "max": 0.2648
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.0094,
+            "p95": 0.0207,
+            "p99": 0.0276,
+            "mean": 0.0114,
+            "max": 0.0665
+          },
+          "cpu_ms": {
+            "p50": 0.0094,
+            "p95": 0.0207,
+            "p99": 0.0277,
+            "mean": 0.0114,
+            "max": 0.0494
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0119,
+            "p95": 0.0229,
+            "p99": 0.0306,
+            "mean": 0.0138,
+            "max": 0.1953
+          },
+          "cpu_ms": {
+            "p50": 0.012,
+            "p95": 0.0231,
+            "p99": 0.0311,
+            "mean": 0.0139,
+            "max": 0.1955
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 0.0382,
+            "p95": 0.6024,
+            "p99": 0.8845,
+            "mean": 0.148,
+            "max": 3.6688
+          },
+          "cpu_ms": {
+            "p50": 0.0366,
+            "p95": 0.0835,
+            "p99": 0.1055,
+            "mean": 0.0433,
+            "max": 0.2369
+          }
+        }
+      }
+    },
+    "feedback_200": {
+      "mode": "feedback_wuji",
+      "duration_s": 9.079050629996345,
+      "wuji_hz": 200,
+      "wuji_diagnostics_hz": 200,
+      "wuji_counts": {
+        "left_joints": 1816,
+        "left_diagnostics": 1816,
+        "right_joints": 1815,
+        "right_diagnostics": 1815
+      },
+      "wuji_errors": [
+        null,
+        null
+      ],
+      "feedback_count": 9118,
+      "feedback_error": null,
+      "n_pairs": 3000,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.052681,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.027348,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.033374,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.034692,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.514735,
+          "collected": 14
+        },
+        {
+          "generation": 2,
+          "wall_ms": 10.068935,
+          "collected": 42
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.034156,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.035354,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.032297,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.039619,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.030517,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.045549,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.038473,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.031652,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.032652,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.04579,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.038858,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.039151,
+          "collected": 14
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 0.0,
+        "thread_cpu_s": 0.0,
+        "batches": 0.0
+      },
+      "switchinterval": 0.005,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 20
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 20
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 1.3823,
+        "p95": 2.7882,
+        "p99": 3.3722,
+        "mean": 1.509,
+        "max": 14.7194
+      },
+      "single_thread_cpu_ms": {
+        "p50": 0.967,
+        "p95": 1.9021,
+        "p99": 2.1999,
+        "mean": 1.1047,
+        "max": 2.9444
+      },
+      "pair_wall_ms": {
+        "p50": 2.6718,
+        "p95": 5.3545,
+        "p99": 6.4276,
+        "mean": 3.0248,
+        "max": 15.771
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 1.9442,
+        "p95": 3.7594,
+        "p99": 4.2504,
+        "mean": 2.2141,
+        "max": 5.5293
+      },
+      "pair_over_5ms": 231,
+      "pair_over_25ms": 0,
+      "pair_over_50ms": 0,
+      "slowest_pairs": [
+        {
+          "index": 77,
+          "wall_ms": 15.77101,
+          "thread_cpu_ms": 3.054255
+        },
+        {
+          "index": 2816,
+          "wall_ms": 11.484555,
+          "thread_cpu_ms": 5.187076
+        },
+        {
+          "index": 2817,
+          "wall_ms": 10.959084,
+          "thread_cpu_ms": 5.488666
+        },
+        {
+          "index": 2818,
+          "wall_ms": 10.260204,
+          "thread_cpu_ms": 5.529336
+        },
+        {
+          "index": 2810,
+          "wall_ms": 10.249104,
+          "thread_cpu_ms": 5.143801
+        },
+        {
+          "index": 2886,
+          "wall_ms": 8.450021,
+          "thread_cpu_ms": 5.014315
+        },
+        {
+          "index": 2829,
+          "wall_ms": 8.276539,
+          "thread_cpu_ms": 4.46244
+        },
+        {
+          "index": 2904,
+          "wall_ms": 8.115491,
+          "thread_cpu_ms": 3.6006
+        },
+        {
+          "index": 2819,
+          "wall_ms": 7.898297,
+          "thread_cpu_ms": 4.876768
+        },
+        {
+          "index": 2769,
+          "wall_ms": 7.889894,
+          "thread_cpu_ms": 4.843362
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 0.0368,
+            "p95": 0.0818,
+            "p99": 0.4347,
+            "mean": 0.0508,
+            "max": 1.8214
+          },
+          "cpu_ms": {
+            "p50": 0.0369,
+            "p95": 0.0727,
+            "p99": 0.0941,
+            "mean": 0.0418,
+            "max": 0.146
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 0.0331,
+            "p95": 0.1052,
+            "p99": 0.6681,
+            "mean": 0.0574,
+            "max": 1.488
+          },
+          "cpu_ms": {
+            "p50": 0.0332,
+            "p95": 0.071,
+            "p99": 0.0922,
+            "mean": 0.0391,
+            "max": 0.1738
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 0.0985,
+            "p95": 0.7871,
+            "p99": 1.1048,
+            "mean": 0.2253,
+            "max": 9.353
+          },
+          "cpu_ms": {
+            "p50": 0.0861,
+            "p95": 0.1739,
+            "p99": 0.2099,
+            "mean": 0.0995,
+            "max": 0.2933
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 0.0449,
+            "p95": 0.6586,
+            "p99": 0.8741,
+            "mean": 0.1461,
+            "max": 1.7782
+          },
+          "cpu_ms": {
+            "p50": 0.0385,
+            "p95": 0.0831,
+            "p99": 0.1027,
+            "mean": 0.0451,
+            "max": 0.1361
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.01,
+            "p95": 0.0226,
+            "p99": 0.0301,
+            "mean": 0.0123,
+            "max": 0.2905
+          },
+          "cpu_ms": {
+            "p50": 0.01,
+            "p95": 0.0227,
+            "p99": 0.0296,
+            "mean": 0.0123,
+            "max": 0.0686
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0131,
+            "p95": 0.0261,
+            "p99": 0.0322,
+            "mean": 0.0154,
+            "max": 0.8212
+          },
+          "cpu_ms": {
+            "p50": 0.0132,
+            "p95": 0.0264,
+            "p99": 0.0322,
+            "mean": 0.0155,
+            "max": 0.8216
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 0.039,
+            "p95": 0.5233,
+            "p99": 0.8094,
+            "mean": 0.1082,
+            "max": 2.0838
+          },
+          "cpu_ms": {
+            "p50": 0.0378,
+            "p95": 0.0864,
+            "p99": 0.1075,
+            "mean": 0.0449,
+            "max": 0.15
+          }
+        }
+      }
+    },
+    "feedback_1000_shortgil": {
+      "mode": "feedback_wuji",
+      "duration_s": 14.493382665001263,
+      "wuji_hz": 1000,
+      "wuji_diagnostics_hz": 1000,
+      "wuji_counts": {
+        "left_joints": 14494,
+        "left_diagnostics": 14494,
+        "right_joints": 14495,
+        "right_diagnostics": 14495
+      },
+      "wuji_errors": [
+        null,
+        null
+      ],
+      "feedback_count": 14537,
+      "feedback_error": null,
+      "n_pairs": 3000,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.065534,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.030154,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.043026,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.031113,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.523507,
+          "collected": 14
+        },
+        {
+          "generation": 2,
+          "wall_ms": 13.895475,
+          "collected": 42
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.033462,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.034365,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.028619,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.03507,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.042272,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.030276,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.025123,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.027908,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.037108,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.034915,
+          "collected": 0
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.042142,
+          "collected": 0
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.058286,
+          "collected": 6
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 0.0,
+        "thread_cpu_s": 0.0,
+        "batches": 0.0
+      },
+      "switchinterval": 0.001,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 20
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 20
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 2.033,
+        "p95": 5.238,
+        "p99": 7.9098,
+        "mean": 2.4107,
+        "max": 21.3943
+      },
+      "single_thread_cpu_ms": {
+        "p50": 1.0903,
+        "p95": 2.4598,
+        "p99": 3.0349,
+        "mean": 1.311,
+        "max": 4.0452
+      },
+      "pair_wall_ms": {
+        "p50": 3.8448,
+        "p95": 10.071,
+        "p99": 15.0268,
+        "mean": 4.8292,
+        "max": 28.2836
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 2.2035,
+        "p95": 4.7872,
+        "p99": 5.9304,
+        "mean": 2.6277,
+        "max": 7.003
+      },
+      "pair_over_5ms": 1026,
+      "pair_over_25ms": 4,
+      "pair_over_50ms": 0,
+      "slowest_pairs": [
+        {
+          "index": 37,
+          "wall_ms": 28.283561,
+          "thread_cpu_ms": 3.404903
+        },
+        {
+          "index": 409,
+          "wall_ms": 25.920757,
+          "thread_cpu_ms": 6.81981
+        },
+        {
+          "index": 410,
+          "wall_ms": 25.742838,
+          "thread_cpu_ms": 6.289946
+        },
+        {
+          "index": 432,
+          "wall_ms": 25.091895,
+          "thread_cpu_ms": 5.962821
+        },
+        {
+          "index": 1837,
+          "wall_ms": 22.435927,
+          "thread_cpu_ms": 7.002966
+        },
+        {
+          "index": 428,
+          "wall_ms": 21.01136,
+          "thread_cpu_ms": 6.736615
+        },
+        {
+          "index": 439,
+          "wall_ms": 20.538931,
+          "thread_cpu_ms": 6.822552
+        },
+        {
+          "index": 433,
+          "wall_ms": 19.666058,
+          "thread_cpu_ms": 6.678714
+        },
+        {
+          "index": 547,
+          "wall_ms": 19.432252,
+          "thread_cpu_ms": 6.88167
+        },
+        {
+          "index": 1497,
+          "wall_ms": 19.422001,
+          "thread_cpu_ms": 5.81215
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 0.0412,
+            "p95": 0.4372,
+            "p99": 1.0446,
+            "mean": 0.0989,
+            "max": 3.1572
+          },
+          "cpu_ms": {
+            "p50": 0.0413,
+            "p95": 0.0986,
+            "p99": 0.1257,
+            "mean": 0.0495,
+            "max": 0.1866
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 0.0362,
+            "p95": 0.7072,
+            "p99": 1.4909,
+            "mean": 0.13,
+            "max": 3.2151
+          },
+          "cpu_ms": {
+            "p50": 0.0363,
+            "p95": 0.0953,
+            "p99": 0.1207,
+            "mean": 0.046,
+            "max": 0.1632
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 0.2682,
+            "p95": 1.3069,
+            "p99": 2.0034,
+            "mean": 0.4306,
+            "max": 6.7571
+          },
+          "cpu_ms": {
+            "p50": 0.1075,
+            "p95": 0.2339,
+            "p99": 0.2974,
+            "mean": 0.1232,
+            "max": 0.4196
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 0.1965,
+            "p95": 0.9864,
+            "p99": 1.6436,
+            "mean": 0.3133,
+            "max": 8.9924
+          },
+          "cpu_ms": {
+            "p50": 0.0472,
+            "p95": 0.1074,
+            "p99": 0.136,
+            "mean": 0.0562,
+            "max": 0.2634
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.0119,
+            "p95": 0.0296,
+            "p99": 0.0381,
+            "mean": 0.0149,
+            "max": 0.1249
+          },
+          "cpu_ms": {
+            "p50": 0.0119,
+            "p95": 0.0296,
+            "p99": 0.0378,
+            "mean": 0.0149,
+            "max": 0.0917
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0146,
+            "p95": 0.0319,
+            "p99": 0.0395,
+            "mean": 0.0176,
+            "max": 0.6296
+          },
+          "cpu_ms": {
+            "p50": 0.0147,
+            "p95": 0.0322,
+            "p99": 0.0396,
+            "mean": 0.0177,
+            "max": 0.6305
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 0.0714,
+            "p95": 0.9069,
+            "p99": 1.6741,
+            "mean": 0.2451,
+            "max": 15.8428
+          },
+          "cpu_ms": {
+            "p50": 0.0462,
+            "p95": 0.1114,
+            "p99": 0.1457,
+            "mean": 0.0558,
+            "max": 0.2523
+          }
+        }
+      }
+    },
+    "feedback_1000_blas1": {
+      "mode": "feedback_wuji",
+      "duration_s": 10.426708605002204,
+      "wuji_hz": 1000,
+      "wuji_diagnostics_hz": 1000,
+      "wuji_counts": {
+        "left_joints": 10426,
+        "left_diagnostics": 10426,
+        "right_joints": 10427,
+        "right_diagnostics": 10427
+      },
+      "wuji_errors": [
+        null,
+        null
+      ],
+      "feedback_count": 10458,
+      "feedback_error": null,
+      "n_pairs": 3000,
+      "gc_events": [
+        {
+          "generation": 0,
+          "wall_ms": 0.039223,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.020616,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.023069,
+          "collected": 14
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.027182,
+          "collected": 14
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.332882,
+          "collected": 14
+        },
+        {
+          "generation": 2,
+          "wall_ms": 7.575822,
+          "collected": 42
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.020314,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.024382,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.029897,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.028122,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.041717,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.020125,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.030964,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.028742,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.02423,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.044724,
+          "collected": 7
+        },
+        {
+          "generation": 0,
+          "wall_ms": 0.04118,
+          "collected": 7
+        },
+        {
+          "generation": 1,
+          "wall_ms": 0.058642,
+          "collected": 13
+        }
+      ],
+      "qp_iterations": {
+        "max_total": 3,
+        "max_deleted": 0
+      },
+      "burner": {
+        "wall_s": 0.0,
+        "thread_cpu_s": 0.0,
+        "batches": 0.0
+      },
+      "switchinterval": 0.005,
+      "blas": [
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          "threads": 1
+        },
+        {
+          "path": "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          "threads": 1
+        }
+      ],
+      "single_wall_ms": {
+        "p50": 1.4004,
+        "p95": 3.8858,
+        "p99": 5.6051,
+        "mean": 1.7336,
+        "max": 21.2005
+      },
+      "single_thread_cpu_ms": {
+        "p50": 0.8742,
+        "p95": 2.1014,
+        "p99": 2.5099,
+        "mean": 1.0281,
+        "max": 3.5198
+      },
+      "pair_wall_ms": {
+        "p50": 2.7997,
+        "p95": 7.537,
+        "p99": 10.5611,
+        "mean": 3.4737,
+        "max": 27.1227
+      },
+      "pair_thread_cpu_ms": {
+        "p50": 1.7499,
+        "p95": 4.0634,
+        "p99": 4.8108,
+        "mean": 2.0608,
+        "max": 6.2389
+      },
+      "pair_over_5ms": 592,
+      "pair_over_25ms": 1,
+      "pair_over_50ms": 0,
+      "slowest_pairs": [
+        {
+          "index": 1144,
+          "wall_ms": 27.122666,
+          "thread_cpu_ms": 6.073879
+        },
+        {
+          "index": 449,
+          "wall_ms": 17.659018,
+          "thread_cpu_ms": 5.858774
+        },
+        {
+          "index": 447,
+          "wall_ms": 17.248166,
+          "thread_cpu_ms": 5.430396
+        },
+        {
+          "index": 446,
+          "wall_ms": 16.292615,
+          "thread_cpu_ms": 5.529466
+        },
+        {
+          "index": 1140,
+          "wall_ms": 16.200239,
+          "thread_cpu_ms": 5.7729
+        },
+        {
+          "index": 368,
+          "wall_ms": 16.0074,
+          "thread_cpu_ms": 5.686157
+        },
+        {
+          "index": 448,
+          "wall_ms": 16.00114,
+          "thread_cpu_ms": 5.9801
+        },
+        {
+          "index": 2445,
+          "wall_ms": 15.553317,
+          "thread_cpu_ms": 3.714274
+        },
+        {
+          "index": 371,
+          "wall_ms": 15.020326,
+          "thread_cpu_ms": 6.238889
+        },
+        {
+          "index": 1145,
+          "wall_ms": 14.301575,
+          "thread_cpu_ms": 5.500007
+        }
+      ],
+      "stages": {
+        "fk": {
+          "wall_ms": {
+            "p50": 0.032,
+            "p95": 0.2693,
+            "p99": 0.7985,
+            "mean": 0.0682,
+            "max": 2.2792
+          },
+          "cpu_ms": {
+            "p50": 0.032,
+            "p95": 0.0851,
+            "p99": 0.1126,
+            "mean": 0.039,
+            "max": 0.1811
+          }
+        },
+        "jacobian": {
+          "wall_ms": {
+            "p50": 0.03,
+            "p95": 0.3961,
+            "p99": 1.0428,
+            "mean": 0.0836,
+            "max": 4.9572
+          },
+          "cpu_ms": {
+            "p50": 0.03,
+            "p95": 0.0788,
+            "p99": 0.1025,
+            "mean": 0.0358,
+            "max": 0.166
+          }
+        },
+        "pinv": {
+          "wall_ms": {
+            "p50": 0.1742,
+            "p95": 0.9833,
+            "p99": 1.5576,
+            "mean": 0.3021,
+            "max": 3.666
+          },
+          "cpu_ms": {
+            "p50": 0.0833,
+            "p95": 0.204,
+            "p99": 0.2541,
+            "mean": 0.0983,
+            "max": 0.4357
+          }
+        },
+        "svd": {
+          "wall_ms": {
+            "p50": 0.1057,
+            "p95": 0.7538,
+            "p99": 1.1661,
+            "mean": 0.2061,
+            "max": 3.6198
+          },
+          "cpu_ms": {
+            "p50": 0.0358,
+            "p95": 0.0959,
+            "p99": 0.1247,
+            "mean": 0.0442,
+            "max": 0.2018
+          }
+        },
+        "cholesky": {
+          "wall_ms": {
+            "p50": 0.0095,
+            "p95": 0.0261,
+            "p99": 0.0344,
+            "mean": 0.0117,
+            "max": 0.0685
+          },
+          "cpu_ms": {
+            "p50": 0.0095,
+            "p95": 0.026,
+            "p99": 0.0343,
+            "mean": 0.0118,
+            "max": 0.0645
+          }
+        },
+        "solve": {
+          "wall_ms": {
+            "p50": 0.0118,
+            "p95": 0.0277,
+            "p99": 0.0348,
+            "mean": 0.014,
+            "max": 0.3585
+          },
+          "cpu_ms": {
+            "p50": 0.0118,
+            "p95": 0.0279,
+            "p99": 0.0349,
+            "mean": 0.014,
+            "max": 0.0774
+          }
+        },
+        "solve_qp": {
+          "wall_ms": {
+            "p50": 0.0395,
+            "p95": 0.6925,
+            "p99": 1.076,
+            "mean": 0.1598,
+            "max": 7.4333
+          },
+          "cpu_ms": {
+            "p50": 0.0354,
+            "p95": 0.0969,
+            "p99": 0.1226,
+            "mean": 0.0437,
+            "max": 0.3577
+          }
+        }
+      }
+    }
+  },
+  "script_initial_sha256": "8eb8bef8fd7a6b5f799645e18ba89f8373138d8682a3d5a56b40f924d9de37bc",
+  "script_note": "Docstring was expanded during execution to state Linux-only and arm-ratio limitations; executable statements did not change.",
+  "conclusion": "A controlled pure-Python CPU burner in the same process causally inflated servo wall time while thread CPU time remained low; moving the identical load into another process removed most of that inflation despite the burner consuming a full CPU. Busy-stage medians near the 5ms GIL switch interval, no other kinematics lock user, and fast CPU times support GIL reacquisition as the mechanism in this synthetic test. This does not establish the actual robot process had equivalent CPU/GIL load. Synthetic feedback at 200Hz reduced load relative to 1kHz, but did not produce a hard real-time guarantee. Shorter GIL interval and one BLAS thread did not improve tail latency in these sequential shared-workstation runs; no production tuning is justified from this experiment alone."
+}

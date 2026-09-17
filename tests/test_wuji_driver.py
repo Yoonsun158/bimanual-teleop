@@ -3,6 +3,7 @@
 from collections import deque
 from dataclasses import asdict
 import json
+import math
 from pathlib import Path
 import sys
 import tempfile
@@ -14,7 +15,7 @@ from unittest.mock import Mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bimanual_teleop.devices.wuji.adapter import (
-    JOINT_NAMES, SKELETON_NAMES, WujiGloveSource, WujiHandDriver, WujiSdkSession,
+    JOINT_NAMES, JOINT_LIMITS_RAD, SKELETON_NAMES, WujiGloveSource, WujiHandDriver, WujiSdkSession,
     WujiHandAngles, WujiTactileFrame, nid_to_index,
 )
 from bimanual_teleop.types import (
@@ -246,6 +247,67 @@ def wait_until(predicate):
 
 
 class WujiAcquisitionTests(unittest.TestCase):
+    def test_health_uses_receiver_faults_and_live_age_without_sdk_getter(self):
+        class GuardedHand(FakeHand):
+            @property
+            def is_connected(self):
+                raise AssertionError("health queried the SDK")
+        now = [1_000_000_000]
+        device = GuardedHand()
+        source = WujiHandDriver("left", "test", sdk=SDK, clock=lambda: now[0])
+        source._device = device
+        source._consume("joints", feedback(), now[0])
+        source._consume("diagnostics", diagnostics(), now[0])
+        self.assertTrue(source.health().ready)
+        for _ in range(20):
+            self.assertTrue(source.health(check_latch=True).ready)
+            source.statistics
+        now[0] += 501_000_000
+        source._consume("joints", feedback(1), now[0])
+        self.assertIn("diagnostics timed out", source.health().detail)
+        source._consume("diagnostics", diagnostics(1), now[0])
+        self.assertTrue(source.health().ready)
+        self.assertFalse(source.health(check_latch=True).ready)
+        source.clear_fault()
+        subscription = Subscription()
+        subscription.error = RuntimeError("device disconnected")
+        source._subscriptions = {"joints": subscription}
+        source._receive()
+        self.assertIn("SDK receive ended: device disconnected", source.health().detail)
+        self.assertIn("device disconnected", source.fault)
+
+    def test_diagnostic_status_read_once_and_fixed_severity_cached(self):
+        reads = []
+        class Joint:
+            def __init__(self, nid):
+                self.nid, self.error_code_current = nid, 7
+            @property
+            def status_word(self):
+                reads.append(self.nid)
+                return NS(ext_state_name="Enabled", position_limit_active=False,
+                          velocity_limit_active=False, current_limit_active=False)
+        describe = Mock(side_effect=lambda code: {"severity": "Warning"} if code == 7 else None)
+        source = WujiHandDriver("left", "test", sdk=NS(WujiHand2=NS(describe_error=describe)))
+        frame = diagnostics()
+        frame.joints = [Joint(j.nid) for j in frame.joints]
+        for _ in range(2):
+            payload, valid, _ = source._decode("diagnostics", frame, None)
+            self.assertTrue(valid)
+            self.assertEqual(payload.states, ("Enabled",) * 20)
+        self.assertEqual(len(reads), 40)
+        describe.assert_called_once_with(7)
+        frame.joints[0].error_code_current = 999
+        for _ in range(2):
+            self.assertFalse(source._decode("diagnostics", frame, None)[1])
+        self.assertEqual(describe.call_count, 2)
+
+    def test_statistics_reader_does_not_take_receiver_lock(self):
+        source = WujiGloveSource("left", "test", sdk=SDK, clock=lambda: 50)
+        source._consume("skeleton", skeleton(), 10)
+        source._lock = Mock()
+        source._lock.__enter__ = Mock(side_effect=AssertionError("reader acquired receiver lock"))
+        self.assertEqual(source.statistics["skeleton"]["count"], 1)
+
     def test_contact_stream_uses_sdk_binary_and_requires_complete_model_artifacts(self):
         with tempfile.TemporaryDirectory() as directory:
             paths = {"dir": directory, "safetensors": f"{directory}/contact.safetensors",
@@ -600,6 +662,38 @@ class WujiHandTests(unittest.TestCase):
         self.assertEqual(device.mit.get()[0].kp, 5.)
         self.assertTrue(device.publisher.closed)
         self.assertEqual(driver.manager.disconnects, [driver.device_id])
+
+    def test_engagement_seed_near_limit_survives_the_next_hold_submission(self):
+        for index, measured in ((18, -1.0501492023468018),
+                                (0, JOINT_LIMITS_RAD[0][1] + math.radians(.2))):
+            with self.subTest(index=index):
+                driver, device, _ = self.opened()
+                driver.configure(PROFILE)
+                frame = feedback(1)
+                frame.joints[index].position = measured
+                driver._consume("joints", frame, time.monotonic_ns())
+                driver.engage()
+                seed = driver.last_target
+                low, high = JOINT_LIMITS_RAD[index]
+                self.assertEqual(seed.position_rad[index], min(high, max(low, measured)))
+                self.assertEqual(device.publisher.commands[0][index].position, seed.position_rad[index])
+                self.assertTrue(driver.submit(self.command(driver, payload=seed)).accepted)
+                # Only the measured engagement seed may be corrected; ordinary
+                # out-of-range commands must still be rejected.
+                self.assertFalse(driver.submit(self.command(driver, payload=JointTarget(
+                    JOINT_NAMES, tuple(j.position for j in frame.joints)))).accepted)
+                driver.close()
+
+    def test_engagement_rejects_large_limit_error_before_enabling_or_sending(self):
+        driver, device, _ = self.opened()
+        driver.configure(PROFILE)
+        frame = feedback(1)
+        frame.joints[18].position = JOINT_LIMITS_RAD[18][0] - math.radians(.6)
+        driver._consume("joints", frame, time.monotonic_ns())
+        with self.assertRaisesRegex(RuntimeError, "left.*finger5_joint3.*0.5"):
+            driver.engage()
+        self.assertEqual(device.enables, 0)
+        self.assertEqual(device.publisher.commands, [])
 
     def test_expired_bad_limit_and_failed_sdk_calls(self):
         driver, device, sink = self.opened()

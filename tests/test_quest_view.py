@@ -17,7 +17,7 @@ if HAS_PLOTTING:
     from bimanual_teleop.visualization.quest import QuestPoseView, STALE_NS, pose_axes
     from bimanual_teleop.cli import view_quest as entry
     from bimanual_teleop.types import Health
-    from test_quest import sample
+    from tests.support.quest_protocol import sample
 
 
 @unittest.skipUnless(HAS_PLOTTING, "install .[visualization] to test the optional viewer")

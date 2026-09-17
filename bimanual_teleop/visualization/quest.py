@@ -8,8 +8,9 @@ from typing import Any
 
 from bimanual_teleop.devices.quest.adapter import QuestFrame, QuestPose
 from bimanual_teleop.types import Health, Sample
+from bimanual_teleop.visualization.style import styled
 
-AXIS_COLORS = ("#dd4444", "#27964b", "#3478d4")
+AXIS_COLORS = ("#ba6767", "#59957b", "#527fa7")
 STALE_NS = 250_000_000  # Host receive silence, not a source-age/latency estimate.
 
 
@@ -31,6 +32,7 @@ def pose_axes(pose: QuestPose, length: float = 0.18) -> Any:
 class QuestPoseView:
     """Update existing artists on the GUI thread; acquisition remains in QuestSource."""
 
+    @styled
     def __init__(self) -> None:
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d.art3d import Line3DCollection
@@ -40,24 +42,26 @@ class QuestPoseView:
         self.axes = self.figure.add_subplot(projection="3d")
         self.figure.subplots_adjust(left=0.06, right=0.94, bottom=0.20, top=0.84)
         self.axes.set(xlabel="X forward (m)", ylabel="Y left (m)", zlabel="Z up (m)")
+        for axis in (self.axes.xaxis, self.axes.yaxis, self.axes.zaxis):
+            axis.set_pane_color((.98, .98, .98, 1.))
         self.axes.set_box_aspect((1, 1, 1))
         self.axes.view_init(elev=25, azim=-135)
         self.axes.set(xlim=(-1, 1), ylim=(-1, 1), zlim=(-1, 1))
-        self.axes.plot([0], [0], [0], marker="+", color="black", markersize=9)
-        self.title = self.figure.suptitle("Quest controllers | waiting for data", fontsize=15)
+        self.axes.plot([0], [0], [0], marker="+", color="#94a3b8", markersize=9)
+        self.title = self.figure.suptitle("Quest controllers | waiting for data", fontsize=13)
         for i, (axis, color) in enumerate(zip("XYZ", AXIS_COLORS)):
-            self.figure.text(0.35 + i * 0.11, 0.925, f"{axis} axis", color=color, weight="bold")
+            self.figure.text(0.35 + i * 0.11, 0.925, f"{axis} axis", color=color, weight="normal")
         self.status = self.figure.text(0.06, 0.115, "", fontsize=9, va="top")
         self.figure.text(0.06, 0.035,
                          "Drag: rotate | Right-drag: zoom | F: fit controllers | Close: stop",
                          fontsize=9, color="#555555")
         self.artists = {}
         self.readouts = {}
-        for i, (side, color) in enumerate((("left", "#8d49b8"), ("right", "#d77b19"))):
-            axes = Line3DCollection([], colors=AXIS_COLORS, linewidths=3)
+        for i, (side, color) in enumerate((("left", "#526e91"), ("right", "#947458"))):
+            axes = Line3DCollection([], colors=AXIS_COLORS, linewidths=2)
             self.axes.add_collection3d(axes, autolim=False)
-            marker, = self.axes.plot([], [], [], marker="o", color=color, markersize=8)
-            label = self.axes.text(0, 0, 0, side.upper(), color=color, weight="bold")
+            marker, = self.axes.plot([], [], [], marker="o", color=color, markersize=6)
+            label = self.axes.text(0, 0, 0, side.upper(), color=color, weight="normal")
             self.artists[side] = (axes, marker, label)
             for artist in self.artists[side]:
                 artist.set_visible(False)

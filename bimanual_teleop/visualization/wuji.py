@@ -6,13 +6,14 @@ import time
 
 from bimanual_teleop.devices.wuji.adapter import WujiTactileFrame
 from bimanual_teleop.types import HandSkeleton
+from bimanual_teleop.visualization.style import styled
 
 STALE_NS = 500_000_000
 CONTACT_SYNC_NS = 100_000_000
 FINGER_PATHS = ((0, 1, 2, 3, 4), (0, 5, 6, 7, 8), (0, 9, 10, 11, 12),
                 (0, 13, 14, 15, 16), (0, 17, 18, 19, 20))
 PALM_PATH = (0, 1, 5, 9, 13, 17, 0)
-FINGER_COLORS = ("#d97706", "#0284c7", "#059669", "#7c3aed", "#db2777")
+FINGER_COLORS = ("#6b859e", "#527fa7", "#598b8b", "#7e8e9e", "#8d8095")
 
 
 def live_payload(sample, expected_type, now_ns):
@@ -27,34 +28,35 @@ def live_payload(sample, expected_type, now_ns):
 
 
 class WujiGloveView:
+    @styled
     def __init__(self, side):
         import matplotlib.pyplot as plt
         import numpy as np
         from matplotlib.collections import LineCollection
-        from matplotlib.colors import LinearSegmentedColormap, Normalize
+        from matplotlib.colors import ListedColormap, Normalize
 
         self.side = side
-        self.figure = plt.figure(figsize=(12, 7.5), facecolor="#f8fafc")
+        self.figure = plt.figure(figsize=(12, 7.5), facecolor="#fafafa")
         self.figure.canvas.manager.set_window_title(f"Wuji Glove · {side}")
         grid = self.figure.add_gridspec(1, 2, width_ratios=(1, 1.15),
                                         left=.03, right=.94, bottom=.14, top=.74, wspace=.12)
-        self.skeleton_ax = self.figure.add_subplot(grid[0, 0], projection="3d", facecolor="#f8fafc")
+        self.skeleton_ax = self.figure.add_subplot(grid[0, 0], projection="3d", facecolor="#fafafa")
         self.skeleton_ax.set_proj_type("ortho")
         self.skeleton_ax.view_init(elev=12, azim=-80)
         self.skeleton_ax.set(xlim=(-125, 125), ylim=(-100, 100), zlim=(-25, 245))
         self.skeleton_ax.set_box_aspect((250, 200, 270), zoom=1.5)
         self.skeleton_ax.set_axis_off()
         self.skeleton_lines = [self.skeleton_ax.plot([], [], [], color=color,
-            lw=3, marker="o", ms=5, markeredgecolor="white", markeredgewidth=.8)[0]
+            lw=2, marker="o", ms=4, markeredgecolor="white", markeredgewidth=.8)[0]
             for color in FINGER_COLORS]
         self.palm_line, = self.skeleton_ax.plot([], [], [], color="#94a3b8", lw=2)
         self.wrist_label = self.skeleton_ax.text(0, 0, -18, "WRIST", ha="center", color="#64748b", fontsize=9)
         self.wrist_label.set_visible(False)
 
         self.tactile_ax = self.figure.add_subplot(grid[0, 1], facecolor="white")
-        palette = LinearSegmentedColormap.from_list("contact_pressure", [
-            (0., "#e2e8f0"), (.01, "#93c5fd"), (.2, "#22d3ee"),
-            (.45, "#facc15"), (.7, "#f97316"), (1., "#dc2626")])
+        colors = plt.get_cmap("Blues")(np.linspace(.2, .9, 256))
+        colors[0] = (.886, .910, .941, 1.)  # No contact stays distinct from pressure.
+        palette = ListedColormap(colors)
         palette.set_bad("white")
         self.heat = self.tactile_ax.imshow(np.ma.masked_all((24, 31)),
             interpolation="nearest", aspect="equal", origin="upper", cmap=palette,
@@ -72,15 +74,15 @@ class WujiGloveView:
         colorbar.ax.tick_params(labelsize=8)
 
         self.title = self.figure.suptitle(f"Wuji Glove · {side}", x=.05, y=.97,
-                                          ha="left", fontsize=20, color="#0f172a", weight="bold")
-        self.figure.text(.05, .905, "HAND JOINTS", fontsize=11, weight="bold", color="#475569")
+                                          ha="left", fontsize=16, color="#0f172a", weight="normal")
+        self.figure.text(.05, .905, "Hand joints", fontsize=11, weight="normal", color="#475569")
         self.figure.text(.05, .862, "Fingertips up · wrist down", fontsize=10, color="#64748b")
         self.figure.text(.05, .07, "Drag to rotate the hand · geometry in wrist coordinates",
                           fontsize=9, color="#64748b")
-        self.figure.text(.52, .905, "TACTILE CONTACT & PRESSURE", fontsize=11,
-                          weight="bold", color="#475569")
-        self.contact_label = self.figure.text(.52, .847, "WAITING FOR TACTILE", fontsize=16,
-                                              weight="bold", color="#64748b")
+        self.figure.text(.52, .905, "Contact & pressure", fontsize=11,
+                          weight="normal", color="#475569")
+        self.contact_label = self.figure.text(.52, .847, "WAITING FOR TACTILE", fontsize=12,
+                                              weight="normal", color="#64748b")
         self.pressure_label = self.figure.text(.52, .798, "Peak contact pressure —", fontsize=11,
                                                color="#475569")
         self.tactile_legend = self.figure.text(.52, .07,
@@ -143,7 +145,7 @@ class WujiGloveView:
         elif known_contact:
             count = int(contacts.sum())
             self.contact_label.set_text(f"{'CONTACT' if count else 'NO CONTACT'}  ·  {count} / {active.sum()} points")
-            self.contact_label.set_color("#c2410c" if count else "#15803d")
+            self.contact_label.set_color("#527fa7" if count else "#64748b")
             peak = float(pressure[contacts].max()) if count else 0.
             self.pressure_label.set_text(f"Peak contact pressure  {peak:.3f} / 1.000")
         else:

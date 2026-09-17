@@ -1,0 +1,74 @@
+{
+  "test": "await physical power wake and controllers; final source without periodic refresh",
+  "observations": [
+    {
+      "elapsed_s": 5,
+      "state": 5,
+      "ready": true,
+      "detail": "valid frame received; source freshness requires clock mapping",
+      "sequence": 401,
+      "controllers": {
+        "left": {
+          "flags": 15,
+          "active": true
+        },
+        "right": {
+          "flags": 15,
+          "active": true
+        }
+      }
+    },
+    {
+      "elapsed_s": 10,
+      "state": 5,
+      "ready": false,
+      "detail": "Quest head tracking unavailable (flags=7, active=None); wake the controller and keep it visible to the headset",
+      "sequence": 793,
+      "controllers": {
+        "left": {
+          "flags": 0,
+          "active": true
+        },
+        "right": {
+          "flags": 0,
+          "active": true
+        }
+      }
+    },
+    {
+      "elapsed_s": 15,
+      "state": 5,
+      "ready": true,
+      "detail": "valid frame received; source freshness requires clock mapping",
+      "sequence": 1183,
+      "controllers": {
+        "left": {
+          "flags": 15,
+          "active": true
+        },
+        "right": {
+          "flags": 15,
+          "active": true
+        }
+      }
+    },
+    {
+      "elapsed_s": 20,
+      "state": 5,
+      "ready": true,
+      "detail": "valid frame received; source freshness requires clock mapping",
+      "sequence": 1634,
+      "controllers": {
+        "left": {
+          "flags": 15,
+          "active": true
+        },
+        "right": {
+          "flags": 15,
+          "active": true
+        }
+      }
+    }
+  ],
+  "power_override_released": true
+}

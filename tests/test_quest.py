@@ -20,36 +20,10 @@ from bimanual_teleop.devices.quest.adapter import (  # noqa: E402
     select_usb_serial,
 )
 from bimanual_teleop.types import Event  # noqa: E402
+from bimanual_teleop.control.arm.quest import QuestInputMonitor  # noqa: E402
 
 
-def frame(sequence: int = 0, **changes: object) -> dict[str, object]:
-    def pose(position: list[float], active: bool | None = True) -> dict[str, object]:
-        return {"p": position, "q": [0.0, 0.0, 0.0, 1.0], "flags": 15, "active": active}
-
-    result = {
-        "v": 1, "type": "frame", "session": "test-session", "seq": sequence,
-        "origin": 0, "query_ns": 1_000_000_000 + sequence * 10_000_000,
-        "xr_time": 2_000_000_000 + sequence * 10_000_000,
-        "send_ns": 1_001_000_000 + sequence * 10_000_000,
-        "state": 5, "refresh_hz": 120.0,
-        "head": pose([0.0, 1.0, 0.0], None),
-        "left": pose([1.0, 2.0, 3.0]), "right": pose([-1.0, 4.0, 2.0]),
-    }
-    result.update(changes)
-    return result
-
-
-def sample(sequence: int = 0, received_ns: int = 3_000_000_000, **changes: object):
-    return decode_message(json.dumps(frame(sequence, **changes)), received_ns)
-
-
-def reference_event(origin: int = 1, change_time: int = 2_010_000_000) -> str:
-    return json.dumps({
-        "v": 1, "type": "event", "session": "test-session",
-        "event": "reference_space_change", "device_ns": 123,
-        "details": {"origin": origin, "change_time": change_time, "pose_valid": False,
-                    "pose_in_previous_space": {"p": None, "q": None}},
-    })
+from tests.support.quest_protocol import frame, sample, reference_event
 
 
 class Sink:
@@ -133,6 +107,74 @@ class QuestProtocolTests(unittest.TestCase):
 
 
 class QuestUsbTests(unittest.TestCase):
+    def test_source_readiness_follows_monitor_publication(self) -> None:
+        source, monitor = QuestSource(), QuestInputMonitor()
+        source._session, source._running = "test-session", True
+        ready_during_publish = []
+
+        def publish(value):
+            ready_during_publish.append(source.health().ready)
+            return monitor.try_publish(value)
+
+        source._sink = Mock(try_publish=publish)
+        with patch("bimanual_teleop.devices.quest.adapter.time.monotonic_ns", return_value=1_000_000_000):
+            source._process_line(json.dumps(frame(0, refresh_hz=90)), 1_000_000_000)
+            self.assertEqual(ready_during_publish, [False])
+            self.assertTrue(source.health().ready)
+            self.assertIs(monitor.current(1_000_000_000)[0], source.get_latest())
+
+    def test_small_source_gap_preserves_fresh_input_without_permanent_source_fault(self) -> None:
+        source, monitor = QuestSource(), QuestInputMonitor()
+        source._session, source._sink, source._running = "test-session", monitor, True
+        source._process_line(json.dumps(frame(0, refresh_hz=90)), 1_000_000_000)
+        source._process_line(json.dumps(frame(3, refresh_hz=90)), 1_030_000_000)
+        with patch("bimanual_teleop.devices.quest.adapter.time.monotonic_ns", return_value=1_030_000_000):
+            self.assertTrue(source.health().ready)
+            self.assertEqual(monitor.current(1_030_000_000, check_latch=True)[0].payload.sequence, 3)
+        # Skipped samples do not grant extra time to reuse the current sample.
+        with self.assertRaisesRegex(RuntimeError, "silent or additionally queued"):
+            monitor.current(1_130_000_000, check_latch=True)
+
+    def test_clean_frames_recover_data_health_but_do_not_clear_control_fault_latch(self) -> None:
+        for kind in ("malformed", "out_of_order", "reference_space_change", "reference_metadata_gap"):
+            with self.subTest(kind=kind):
+                source, monitor = QuestSource(), QuestInputMonitor()
+                source._session, source._sink, source._running = "test-session", monitor, True
+                source._process_line(json.dumps(frame(0, refresh_hz=90)), 1_000_000_000)
+                origin, sequence = 0, 1
+                if kind == "malformed":
+                    line = '{"v":'
+                elif kind == "out_of_order":
+                    line = json.dumps(frame(0, refresh_hz=90))
+                elif kind == "reference_space_change":
+                    line, origin = reference_event(), 1
+                else:
+                    line = json.dumps(frame(1, origin=1, refresh_hz=90))
+                    origin, sequence = 1, 2
+                source._process_line(line, 1_005_000_000)
+                with patch("bimanual_teleop.devices.quest.adapter.time.monotonic_ns", return_value=1_005_000_000):
+                    self.assertFalse(source.health().ready)
+                now = 1_000_000_000 + sequence * 10_000_000
+                source._process_line(json.dumps(frame(sequence, origin=origin, refresh_hz=90)), now)
+                with patch("bimanual_teleop.devices.quest.adapter.time.monotonic_ns", return_value=now):
+                    self.assertTrue(source.health().ready)
+                with self.assertRaises(RuntimeError):
+                    monitor.current(now, check_latch=True)
+                self.assertIsNotNone(monitor.fault)
+                monitor.current(now, acknowledge=True)
+                self.assertIs(monitor.current(now, check_latch=True)[0], source.get_latest())
+
+    def test_new_frame_cannot_clear_disconnection_or_runtime_fault(self) -> None:
+        for kind in ("disconnected", "error"):
+            with self.subTest(kind=kind):
+                source = QuestSource()
+                source._session, source._running = "test-session", True
+                source._issue(kind, "persistent source failure", 1_000_000_000)
+                source._process_line(json.dumps(frame(0, refresh_hz=90)), 1_000_000_000)
+                with patch("bimanual_teleop.devices.quest.adapter.time.monotonic_ns", return_value=1_000_000_000):
+                    self.assertFalse(source.health().ready)
+                    self.assertEqual(source.health().detail, "persistent source failure")
+
     def test_single_side_health_checks_only_requested_tracking(self):
         source = QuestSource()
         source._session, source._running = "test-session", True
@@ -245,6 +287,8 @@ class QuestUsbTests(unittest.TestCase):
         source._process_line(reference_event(), 43)
         self.assertIsNone(source.get_latest())
         self.assertFalse(source.health().ready)
+        self.assertIn("reference space is changing", source.health().detail)
+        self.assertNotIn("waiting for Quest frames", source.health().detail)
         source._process_line(json.dumps(frame(1, origin=1, refresh_hz=90)), 44)
         self.assertNotEqual(source.get_latest().header.ref.epoch, previous_epoch)
         with patch("bimanual_teleop.devices.quest.adapter.time.monotonic_ns", return_value=44):
@@ -334,6 +378,25 @@ class QuestUsbTests(unittest.TestCase):
             self.assertTrue(any("force-stop" in call.args[0] for call in run.call_args_list))
             source.close()
             self.assertEqual(sum("force-stop" in call.args[0] for call in run.call_args_list), 1)
+
+    def test_adb_eof_retains_transport_diagnostic_and_exit_code(self) -> None:
+        source, sink = QuestSource(), Sink()
+        source._session, source._sink, source._running = "test-session", sink, True
+        source._process = Mock(stdout=io.StringIO("adb: error: device offline\n"))
+        source._process.poll.return_value = 1
+        source._read_loop()
+        event = next(event for event in sink.events if event.kind == "quest.disconnected")
+        self.assertEqual(event.details["exit_code"], 1)
+        self.assertEqual(event.details["transport_diagnostic"], "adb: error: device offline")
+        self.assertIn("device offline", source.health().detail)
+        self.assertIn("exit code 1", source.health().detail)
+
+    def test_expected_shutdown_does_not_report_adb_disconnection(self) -> None:
+        source, sink = QuestSource(), Sink()
+        source._session, source._sink = "test-session", sink
+        source._process = Mock(stdout=io.StringIO(""))
+        source._read_loop()
+        self.assertFalse(sink.events)
 
     def test_usb_selection_excludes_network_devices_and_requires_unambiguous_quest(self) -> None:
         listing = """List of devices attached

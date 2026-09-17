@@ -1,21 +1,21 @@
 # Quest 模块交付检查
 
-本页保留 2026-09-10 至 11 日的历史构建与实机验收，并记录 2026-09-14 项目目录更名后的 APK 重建。历史构建主机为 Ubuntu x86_64，Python 3.10.12。旧日志、汇总和预览图已保存在项目外 `../../../demo-archive/20260913-module-cleanup/history.tar.zst`（相对于本文件），归档内路径为 `data/`；当前项目不再提供独立采集或诊断落盘入口。
+本页记录当前 APK 及 2026-09-15 唤醒修复，并保留 2026-09-10 至 11 日的历史构建与实机验收、2026-09-14 项目目录更名后的重建。历史构建主机为 Ubuntu x86_64，Python 3.10.12。旧日志、汇总和预览图已保存在项目外 `../../../demo-archive/20260913-module-cleanup/history.tar.zst`（相对于本文件），归档内路径为 `data/`；当前项目不再提供独立采集或诊断落盘入口。
 
 ## APK
 
-- 文件：[quest-capture-debug.apk](quest-capture-debug.apk)，8,487,977 字节。
+- 文件：[quest-capture-debug.apk](quest-capture-debug.apk)，10,344,353 字节。
 - 包名：`org.bimanual.questcapture`；版本：`0.1.0` / versionCode `1`。
 - Android 最低 API 26，target / compile API 32，仅 `arm64-v8a`。
 - 使用 Android debug 证书签名，`apksigner verify` 验证通过（v2 签名）。
-- SHA-256：`0c7f95c7c12703e45b79e596a1dfb786d1c8d9678cab26790e4263f31fdd925e`；另见 [SHA256SUMS](SHA256SUMS)。
+- SHA-256：`f524574b13d357f07114e1555087f325f40a07c11b88173af35583957abab88c`；另见 [SHA256SUMS](SHA256SUMS)。
 - 包内包含采集器、OpenXR loader、C++ runtime、KTX 库和第三方许可证 assets。
 
 工具链：JDK 17.0.20.1、Gradle 8.5、AGP 8.1.4、Build Tools 33.0.1、NDK 27.0.12077973、CMake 3.22.1、OpenXR loader 1.1.53；Meta OpenXR SDK 固定提交 `bbed2f20e38a5df7113630771c83cb8279e4fc26`。
 
 2026-09-10 至 11 日从当时清理后的构建目录执行 `./gradlew --no-daemon --console=plain assembleDebug lintDebug` 成功。Lint 为 **0 errors、4 warnings**：固定旧 target API、未支持 ChromeOS x86、Android 12 备份规则提示、未设置 launcher icon。编译依赖另有旧 minizip 原型及 NDK 新增 ABI 元数据提示；交付 APK 的实际 ABI 已核对为 arm64-v8a。
 
-2026-09-14 在 `bimanual-teleop/quest_app/` 用相同工具链和已校验 SHA-256 的固定 Meta OpenXR SDK 缓存，离线执行 `./gradlew --offline --no-daemon --console=plain assembleDebug -PmetaSdkSource=/home/yuchen/.cache/bimanual-teleop/meta-openxr-sdk-v85` 成功；`lintDebug` 为 0 errors、4 warnings。新 APK 已更新到交付目录，v2 签名验证通过，签名证书与旧 APK 相同，包内不再含原项目目录的绝对路径。更名前的交付 APK 保存在 `../../../demo-archive/20260914-folder-rename/quest-capture-debug-before-rename.apk`。新 APK 尚未在 Quest 上实机复验；以下实机数据均来自更名前的 APK。
+2026-09-14 在 `bimanual-teleop/quest_app/` 用相同工具链和已校验 SHA-256 的固定 Meta OpenXR SDK 缓存，离线执行 `./gradlew --offline --no-daemon --console=plain assembleDebug -PmetaSdkSource=/home/yuchen/.cache/bimanual-teleop/meta-openxr-sdk-v85` 成功；`lintDebug` 为 0 errors、4 warnings。当时 APK 更新到交付目录，v2 签名验证通过，签名证书与旧 APK 相同，包内不再含原项目目录的绝对路径。更名前的交付 APK 保存在 `../../../demo-archive/20260914-folder-rename/quest-capture-debug-before-rename.apk`。当时未进行实机复验；该构建现已被 2026-09-15 版本替代。
 
 本机复用工具链的命令（在 `quest_app` 内运行）：
 
@@ -27,6 +27,16 @@ GRADLE_USER_HOME=/home/yuchen/.cache/bimanual-teleop/gradle-home \
 ```
 
 工具安装在用户缓存目录，ADB 可从 `~/.local/bin/adb` 调用。首次 wrapper 下载遇到网络超时后，使用同一官方分发包且校验 SHA-256 填充缓存；最终构建通过项目 wrapper 完成。
+
+## 2026-09-15 唤醒与免手柄确认
+
+- 修改 APK 的可选手部输入声明，使无手柄时可启动等待；移除原生 SDK 的 `khr/simple_controller` 回退绑定，仅保留 Touch 手柄输入。Python 启动时请求亮屏和 `prox_close` 保持活跃，退出或启动失败时恢复检测。
+- 离线 `assembleDebug lintDebug` 成功，Lint 为 0 errors、4 warnings；v2 签名验证通过。交付 APK 已更新并安装到 Quest 3S `340YC10GB00HL5`，系统 build incremental `3296320034600610`。
+- 更新前系统残留 `LaunchCheckControllerRequiredDialogActivity`，截图显示“需使用控制器／继续”。该旧窗口阻塞了新版的首次启动；本次通过 ADB 关闭该窗口后，新版可在双手柄 `active=false` 时直接进入 XR。连续观察 60 秒保持 `state=5`，运行时 90 Hz，5–60 秒采样的序号从 408 增至 5362。此结果不代表真休眠后的传感器锁已经解除。
+- 提示用户不佩戴头显、只拿起双手柄按扳机后，收到左右手柄 `flags=15, active=true` 的帧，`health()` 就绪。该次观察与追加的 ADB 唤醒广播相近，不能单独归因于广播；[原始汇总](../../docs/quest_wakeup_20260915.json) 保留完整试采停顿。
+- 从 `mWakefulness=Asleep` 开始，单次“先亮屏再覆盖”和每 2 秒重复覆盖都未通过自动恢复验证：设备亮屏，但 `SensorLockActivity` 和 Guardian 窗口阻止持续追踪。对应[单次试验](../../docs/quest_wakeup_20260915_oneshot.json)与[重复试验](../../docs/quest_wakeup_20260915_periodic.json)。重复广播没有解决传感器锁，最终代码不包含该后台刷新线程；不得把亮屏、ADB 返回成功或零序号缺口当作追踪恢复。
+- 最终使用无后台刷新线程的版本验证：用户确认“不佩戴，只按实体电源键并拿起手柄”。应用直接获得焦点，5、15、20 秒检查均为左右手柄 `flags=15, active=true` 且 `health()` 就绪；10 秒时头显追踪不足，被正确判为未就绪。无需佩戴头显或点击屏幕“继续”，但仍需实体电源键解除 Quest 3S 传感器锁。[该轮记录](../../docs/quest_wakeup_20260915_physical.json) 保留了这次短暂追踪不足；本轮没有连接机器人。
+- Conda `bimanual-teleop` 环境的 Quest 相关 **165 项测试通过**。新增检查启动电源顺序、关闭恢复、失败清理、关闭幂等性、已有会话保护以及原生 Touch 绑定保留。构建和自动测试不代替不同固件、Quest 3、长时间颈挂与多轮真休眠恢复验收。
 
 ## 自动检查
 

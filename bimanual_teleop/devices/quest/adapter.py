@@ -25,8 +25,13 @@ from bimanual_teleop.types import (
 PACKAGE = "org.bimanual.questcapture"
 ACTIVITY = f"{PACKAGE}/.MainActivity"
 LOG_TAG = "QuestCapture"
+POWER_OVERRIDE_ACTION = "com.oculus.vrpowermanager.prox_close"
+POWER_RESTORE_ACTION = "com.oculus.vrpowermanager.automation_disable"
 STREAM = "quest.poses"
 SILENCE_TIMEOUT_NS = 1_000_000_000
+RECOVERABLE_ISSUES = frozenset({
+    "malformed", "out_of_order", "reference_metadata_gap", "reference_time_mismatch",
+})
 LOGGER = logging.getLogger(__name__)
 
 
@@ -218,12 +223,16 @@ def select_usb_serial(output: str, requested: str | None = None) -> str:
 class QuestSource:
     """One USB/ADB owner with optional nonblocking live observation."""
 
-    def __init__(self, serial: str | None = None):
+    def __init__(self, serial: str | None = None, *, keep_awake: bool = True):
         self.serial = serial
+        self.keep_awake = keep_awake
+        self._power_override_requested = False
         self._session: str | None = None
         self._sink: RealtimeObserver | None = None
         self._latest: Sample[QuestFrame] | None = None
         self._problem: str | None = None
+        self._data_problem: str | None = None
+        self._data_problem_generation = 0
         self._observer_error: str | None = None
         self._pending_origins: dict[int, int] = {}
         self._last_sequence = -1
@@ -243,6 +252,7 @@ class QuestSource:
     def metadata(self) -> Mapping[str, object]:
         return {
             "protocol_version": 1, "serial": self.serial, "session": self._session,
+            "keep_awake_requested": self.keep_awake,
             "requested_hz": 90, "transport": "adb_usb_logcat",
             "reference_space": "LOCAL", "controller_pose": "grip", "head_pose": "VIEW",
             "axes": "right-handed: x forward, y left, z up",
@@ -276,6 +286,7 @@ class QuestSource:
             raise RuntimeError(f"{PACKAGE} is already running; stop that session first")
         self._sink, self._session = sink, uuid.uuid4().hex
         self._latest, self._problem = None, None
+        self._data_problem, self._data_problem_generation = None, 0
         self._observer_error = None
         self._last_sequence = self._last_query_ns = -1
         self._last_origin = 0
@@ -283,6 +294,15 @@ class QuestSource:
         self._session_state, self._refresh_hz = 0, 0.0
         self._last_issue_warning, self._last_issue_warning_ns = None, 0
         try:
+            if self.keep_awake:
+                # Meta's development override keeps XR active off-face. This is
+                # separate from Android's KEEP_SCREEN_ON; undo it on close.
+                # This wakes the display. Quest 3S sensor lock may still need
+                # its physical power button; the override cannot unlock it.
+                self._adb(*target, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
+                # Mark before sending so a timeout also attempts cleanup.
+                self._power_override_requested = True
+                self._adb(*target, "shell", "am", "broadcast", "-a", POWER_OVERRIDE_ACTION)
             self._process = subprocess.Popen(
                 ["adb", *target, "logcat", "-v", "raw", "-T", "1", f"{LOG_TAG}:I", "*:S"],
                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -326,7 +346,11 @@ class QuestSource:
 
     def _issue(self, kind: str, detail: str, received_ns: int, **extra: object) -> None:
         with self._lock:
-            self._problem = detail
+            if kind in RECOVERABLE_ISSUES:
+                self._data_problem = detail
+                self._data_problem_generation += 1
+            elif kind != "source_gap":
+                self._problem = detail
         signature = (kind, detail)
         if (signature != self._last_issue_warning or
                 received_ns - self._last_issue_warning_ns >= 5_000_000_000):
@@ -365,6 +389,8 @@ class QuestSource:
             self._event(message)
             return
         frame = message.payload
+        with self._lock:
+            issue_generation = self._data_problem_generation
         if frame.sequence <= self._last_sequence or frame.query_monotonic_ns <= self._last_query_ns:
             self._issue("out_of_order", "source sequence or query time did not increase", received_ns)
             return
@@ -391,27 +417,43 @@ class QuestSource:
         self._last_sequence, self._last_query_ns = frame.sequence, frame.query_monotonic_ns
         self._last_origin = frame.origin
         self._session_state, self._refresh_hz = frame.session_state, frame.refresh_hz
-        with self._lock:
-            self._latest = message
         if self._sink is not None:
             error = None
             try:
-                if self._sink.try_publish(message):
-                    return
+                accepted = self._sink.try_publish(message)
             except Exception as exc:
                 error = exc
-            self._observer_failure(error)
+                accepted = False
+            if not accepted:
+                self._observer_failure(error)
+        # Publish to the safety monitor before advertising source readiness. A
+        # clean frame recovers acquisition, while the monitor's fault latch still
+        # requires explicit re-engagement after malformed data or origin changes.
+        with self._lock:
+            self._latest = message
+            if issue_generation == self._data_problem_generation:
+                self._data_problem = None
 
     def _read_loop(self) -> None:
         assert self._process is not None and self._process.stdout is not None
+        last_diagnostic = None
         try:
             for line in self._process.stdout:
                 received_ns = time.monotonic_ns()
                 if not self._running:
                     break
+                if line.lstrip().startswith(("adb:", "logcat:", "error:")):
+                    last_diagnostic = line.strip()[:512]
                 self._process_line(line, received_ns)
             if self._running:
-                self._issue("disconnected", "ADB log stream ended", time.monotonic_ns())
+                code = self._process.poll()
+                detail = "ADB log stream ended"
+                if code is not None:
+                    detail += f" (exit code {code})"
+                if last_diagnostic:
+                    detail += f": {last_diagnostic}"
+                self._issue("disconnected", detail, time.monotonic_ns(),
+                            exit_code=code, transport_diagnostic=last_diagnostic)
         except (OSError, UnicodeError) as exc:
             if self._running:
                 self._issue("disconnected", f"ADB log stream failed: {exc}", time.monotonic_ns())
@@ -424,19 +466,20 @@ class QuestSource:
         if not sides or len(set(sides)) != len(sides) or any(side not in ("left", "right") for side in sides):
             raise ValueError("Quest health sides must be left, right, or both")
         with self._lock:
-            sample, problem = self._latest, self._observer_error or self._problem
+            sample = self._latest
+            problem = self._observer_error or self._problem or self._data_problem
         now = time.monotonic_ns()
         if not self._running:
             return Health(False, now, "closed")
         if problem:
             return Health(False, now, problem)
+        if self._pending_origins:
+            return Health(False, now, "Quest reference space is changing; wait for a new origin frame, then re-engage")
         if sample is None:
             return Health(False, now, "waiting for Quest frames")
         if now - sample.header.received_monotonic_ns > SILENCE_TIMEOUT_NS:
             return Health(False, now, "no Quest frame arrived for 1 second; host stream is silent")
         frame = sample.payload
-        if self._pending_origins:
-            return Health(False, now, "reference space is changing")
         if self._session_state != 5:
             return Health(False, now, "Quest XR session not focused; close the headset system menu")
         for side in (("head", *sides) if require_head else sides):
@@ -469,3 +512,11 @@ class QuestSource:
             except (OSError, subprocess.SubprocessError) as exc:
                 LOGGER.warning("Could not stop owned Quest app: %s", exc)
             self._owns_app = False
+        if self._power_override_requested and self.serial is not None:
+            try:
+                self._adb("-s", self.serial, "shell", "am", "broadcast", "-a", POWER_RESTORE_ACTION)
+            except (OSError, subprocess.SubprocessError) as exc:
+                LOGGER.warning("Could not restore Quest sleep detection: %s; reconnect USB and run "
+                               "adb -s %s shell am broadcast -a %s", exc, self.serial, POWER_RESTORE_ACTION)
+            else:
+                self._power_override_requested = False

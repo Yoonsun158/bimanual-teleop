@@ -7,6 +7,7 @@
 #include <locale>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -59,6 +60,21 @@ std::string PoseJson(const XrSpaceLocation& location, const char* active) {
 
 class QuestCapture final : public OVRFW::XrApp {
   protected:
+    std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> GetSuggestedBindings(
+        XrInstance instance) override {
+        auto bindings = XrApp::GetSuggestedBindings(instance);
+        XrPath simpleProfile = XR_NULL_PATH;
+        if (!Check("xrStringToPath", xrStringToPath(
+                instance, "/interaction_profiles/khr/simple_controller", &simpleProfile))) {
+            ShouldExit = true;
+            return {};
+        }
+        // The manifest permits controller-free launch, but this stream is for
+        // Touch controllers. Do not bind the framework's generic hand fallback.
+        bindings.erase(simpleProfile);
+        return bindings;
+    }
+
     std::vector<const char*> GetExtensions() override {
         auto extensions = XrApp::GetExtensions();
         extensions.push_back(XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME);

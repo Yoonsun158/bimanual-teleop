@@ -1,0 +1,1362 @@
+{
+  "schema": "teleop_timeout_evidence.v1",
+  "analysis_date": "2026-09-15",
+  "source": {
+    "path": "/home/yuchen/.codex/attachments/c571a14f-2024-47e1-9b73-5c6fef1a55e1/pasted-text.txt",
+    "sha256": "bbf0c319eb420e637cf5b18732f220f296996fc3d77bc53fdeeff6319c3749df",
+    "line_count": 373,
+    "runs": 2
+  },
+  "provenance": {
+    "prior_source": "/home/yuchen/.codex/attachments/deeff016-e808-4fab-8606-0755c86be8a4/pasted-text.txt",
+    "prior_sha256": "f122a1fed32fe72cba1f6f6e26463be4bd4d178be62a8887732b38c9bb21fff2",
+    "current_text_is_contiguous_subset_of_prior": true,
+    "all_current_diagnostics_identical_to_prior": true,
+    "prior_diagnostic_count": 14,
+    "warning": "这些是先前 18:59–19:11 附件中 19:05–19:11 的同批数据，不构成修改之后的新实测或独立复发证据。"
+  },
+  "summary": {
+    "diagnostic_count": 10,
+    "reason_counts": {
+      "Accepted target expired or no target arrived within host watchdog interval": 5,
+      "Previous target watchdog expired; re-engage before submitting": 4,
+      "Quest reference space is changing; wait for a new origin frame, then re-engage": 1
+    },
+    "watchdog_count": 9,
+    "servo_wall_sum_exceeds_old_remaining_at_executor_start_count": 9,
+    "servo_wall_sum_extends_past_first_stop_count": 5,
+    "hand_ready_snapshot_count": 9,
+    "warning_counts": {
+      "0x0007(Stall)": 247,
+      "0x0003(Enc1BitRate)": 44
+    }
+  },
+  "timeout_metrics_ms": {
+    "cycle.tick_gap_ms": {
+      "count": 9,
+      "min": 15.233086,
+      "median": 27.219322,
+      "mean": 28.487911444444446,
+      "max": 41.714916
+    },
+    "cycle.feedback_fk_ms": {
+      "count": 9,
+      "min": 0.165705,
+      "median": 0.232156,
+      "mean": 0.9724268888888888,
+      "max": 2.823545
+    },
+    "cycle.mapping_ms": {
+      "count": 9,
+      "min": 0.1352,
+      "median": 1.174247,
+      "mean": 1.246224,
+      "max": 2.420685
+    },
+    "cycle.source_age_ms": {
+      "count": 9,
+      "min": 2.420482,
+      "median": 10.530797,
+      "mean": 13.676234444444445,
+      "max": 35.304031
+    },
+    "cycle.input_remaining_ms": {
+      "count": 9,
+      "min": 63.091419,
+      "median": 87.423768,
+      "mean": 84.63199355555555,
+      "max": 94.584368
+    },
+    "cycle.target_remaining_ms": {
+      "count": 9,
+      "min": 50.0,
+      "median": 50.0,
+      "mean": 50.0,
+      "max": 50.0
+    },
+    "executor.left_servo_ms": {
+      "count": 9,
+      "min": 9.81834,
+      "median": 16.283628,
+      "mean": 17.486533333333334,
+      "max": 34.568729
+    },
+    "executor.right_servo_ms": {
+      "count": 9,
+      "min": 4.966664,
+      "median": 12.875032,
+      "mean": 13.721757111111112,
+      "max": 24.250304
+    },
+    "executor.elapsed_ms": {
+      "count": 9,
+      "min": 21.332179,
+      "median": 40.190555,
+      "mean": 40.01990833333333,
+      "max": 57.283278
+    },
+    "host_loop.runtime_tick_ms": {
+      "count": 9,
+      "min": 34.746566,
+      "median": 45.564514,
+      "mean": 48.83259888888889,
+      "max": 67.213664
+    },
+    "host_loop.wake_lateness_ms": {
+      "count": 9,
+      "min": 0.07985,
+      "median": 1.760337,
+      "mean": 1.7443067777777779,
+      "max": 3.197089
+    },
+    "host_loop.pre_tick_ms": {
+      "count": 9,
+      "min": 0.385968,
+      "median": 0.468341,
+      "mean": 0.4632806666666667,
+      "max": 0.533256
+    },
+    "host_loop.last_status_ms": {
+      "count": 9,
+      "min": 0.197123,
+      "median": 0.243632,
+      "mean": 0.28038399999999997,
+      "max": 0.504169
+    },
+    "host_loop.last_terminal_wait_ms": {
+      "count": 9,
+      "min": 2.682347,
+      "median": 4.904638,
+      "mean": 4.6839522222222225,
+      "max": 6.502339
+    },
+    "hands.last_compute_ms": {
+      "count": 9,
+      "min": 1.04501,
+      "median": 2.049282,
+      "mean": 2.9302644444444446,
+      "max": 9.161808
+    },
+    "servo_wall_sum": {
+      "count": 9,
+      "min": 19.259429,
+      "median": 31.438729,
+      "mean": 31.208290444444444,
+      "max": 57.158178
+    },
+    "old_deadline_window_from_driver_send_start": {
+      "count": 9,
+      "min": 18.685089,
+      "median": 29.904716,
+      "mean": 29.069726111111112,
+      "max": 41.38385
+    },
+    "old_remaining_at_current_executor_start": {
+      "count": 9,
+      "min": 10.656752,
+      "median": 20.24621,
+      "mean": 20.356070444444445,
+      "max": 34.352475
+    },
+    "old_remaining_at_current_target_created": {
+      "count": 9,
+      "min": 10.7424,
+      "median": 20.35525,
+      "mean": 20.463811111111113,
+      "max": 34.465029
+    },
+    "current_target_remaining_at_first_stop": {
+      "count": 9,
+      "min": 13.362999,
+      "median": 26.245682,
+      "mean": 25.81550111111111,
+      "max": 35.740091
+    },
+    "current_target_age_at_first_stop": {
+      "count": 9,
+      "min": 14.259909,
+      "median": 23.754318,
+      "mean": 24.18449888888889,
+      "max": 36.637001
+    },
+    "servo_sum_minus_old_remaining_at_executor_start": {
+      "count": 9,
+      "min": 1.004082,
+      "median": 3.68579,
+      "mean": 10.852219999999999,
+      "max": 41.337132
+    },
+    "first_stop_to_runtime_pause_snapshot": {
+      "count": 9,
+      "min": 18.827648,
+      "median": 19.576104,
+      "mean": 20.80648377777778,
+      "max": 29.487634
+    },
+    "hand_health_observed_after_first_stop": {
+      "count": 9,
+      "min": 12.46859,
+      "median": 15.968634,
+      "mean": 17.130030333333334,
+      "max": 27.728806
+    },
+    "terminal_wait_above_requested": {
+      "count": 9,
+      "min": 0.077226,
+      "median": 1.757264,
+      "mean": 1.740536111111111,
+      "max": 3.193281
+    },
+    "driver_stop.target_age_ms": {
+      "count": 9,
+      "min": 22.202598,
+      "median": 32.410223,
+      "mean": 32.79041388888889,
+      "max": 43.555822
+    },
+    "driver_stop.deadline_overrun_ms": {
+      "count": 9,
+      "min": 1.121345,
+      "median": 2.841678,
+      "mean": 3.7206877777777776,
+      "max": 12.020643
+    },
+    "driver_stop.feedback_age_ms": {
+      "count": 9,
+      "min": 1.269214,
+      "median": 2.472617,
+      "mean": 2.413478,
+      "max": 3.423315
+    },
+    "last_successful_native_call_duration_ms": {
+      "count": 9,
+      "min": 0.023041,
+      "median": 0.833129,
+      "mean": 0.8638588888888888,
+      "max": 1.945635
+    },
+    "rejected_driver_submit_including_hold_ms": {
+      "count": 4,
+      "min": 18.838854,
+      "median": 19.369027,
+      "mean": 19.60360275,
+      "max": 20.837503
+    }
+  },
+  "semantics": {
+    "old_deadline": "driver._send_command 保留 min(command.expires_monotonic_ns, send_start + watchdog_ns)，默认 watchdog 50 ms；插值命令的 expires 在左右臂求解前产生，最长 created + 50 ms。",
+    "target_age_ms": "从上一条已接受命令进入 driver._send_command 的 now 开始，未包含其前面的 servo 求解；不等同于自目标创建起的年龄。",
+    "target_remaining_ns": "本轮当前新目标在生成时的剩余有效期，不能代替上一条被 watchdog 保护命令的余量。",
+    "servo_wall_time": "计时涵盖 propose() 墙钟耗时，可能包含线程调度/GIL/锁等待；无 thread CPU 数据不能推断纯计算用时。",
+    "servo_sum_earliest_possible_completion": "executor.started + left_servo_ns + right_servo_ns 未包含 validate/循环等开销，因此是求解完成的下界，不是精确结束时刻。",
+    "driver_submit_ns": "拒绝路径包含 request_hold() 及同步 tj_hold 等停机耗时，不能当作正常 tj_submit 时延。",
+    "last_native_call": "保存的最近一次 _timed_native_call 为此前成功 tj_submit，不能证明所有原生周期无抖动。",
+    "hands": "host_loop 和 hands 在 CLI 输出诊断时补取，手部 health 观测在 first_stop 之后；ready 不证明故障瞬间完全无扰动。",
+    "wall_time": "暂停行没有墙钟时间；其他 SDK 行时间只能提供周边上下文。"
+  },
+  "established_findings": [
+    "9 次 watchdog 都在旧目标 deadline 已过 1.121–12.021 ms 时记录首因，当前新目标尚余 13.363–35.740 ms（由记录的单调时钟直接相减）。",
+    "9 次当前 executor 开始时，旧目标只有 10.657–34.352 ms 余量，双臂 propose 墙钟之和 19.259–57.158 ms 全部超过该余量。",
+    "9 次首因对应新命令尚未在旧 deadline 前成功提交；5 次由后台检查触发，4 次由提交前检查触发。",
+    "5 次 propose 计时跨过首个停机时刻，不能把停机后的阶段墙钟全部视为触发前计算成本。",
+    "暂停时双臂反馈仍新鲜，当前轮 Quest 输入尚有效；没有反馈超时、输入断流或 IK 求解失败被记作这 9 次暂停的首因。",
+    "1 次独立坐标系切换暂停旧目标未到期。"
+  ],
+  "unresolved_hypotheses": [
+    "实际 propose 墙钟抖动可能来自数值计算、GIL/线程调度、锁等待或这些因素组合；本附件没有分阶段 thread CPU/墙钟、线程排队或失败前周期历史来区分。",
+    "Wuji 警告和接收负载是否间接拉长主线程等待，需要对照测量；不能仅凭警告挨着暂停就认定因果。",
+    "本机此前离线实验的结果不能替代实机失败轨迹重放，也不能据此宣布解决。"
+  ],
+  "source_files_at_analysis": [
+    {
+      "path": "bimanual_teleop/control/arm/mapping.py",
+      "sha256": "dc60c6c6af656024b013111bfe37efffae0e29c1110408f3bb6c2374f22217d2"
+    },
+    {
+      "path": "bimanual_teleop/control/arm/cartesian.py",
+      "sha256": "3ba6ae040b07d1ac4cea74f43f69261ae0d76d0483a45388508df9d3bac81353"
+    },
+    {
+      "path": "bimanual_teleop/control/arm/quest.py",
+      "sha256": "2d37a82b37e3d550197e353ab055400e8652026427cb23d5ce94451a1f518953"
+    },
+    {
+      "path": "bimanual_teleop/devices/tianji/driver.py",
+      "sha256": "adf657295c68bdbf7587c1fe99f648ae365f81aa9ca8c87e6d189a506672eab7"
+    },
+    {
+      "path": "bimanual_teleop/cli/teleop_quest_tianji.py",
+      "sha256": "ddc5511df6c29744d718bcb55edac86b81062ce95eb7160d4ee22319a0a19c2f"
+    },
+    {
+      "path": "bimanual_teleop/control/hand/follow.py",
+      "sha256": "9d2ad5f3a8e89ae27d66a92d682f4510d5e3f251df9867a9e54e6c77c09e7a4f"
+    }
+  ],
+  "records": [
+    {
+      "line": 28,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Accepted target expired or no target arrived within host watchdog interval",
+        "monotonic_ns": 30719462704371,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Accepted target expired or no target arrived within host watchdog interval",
+          "monotonic_ns": 30719433216737,
+          "last_target_ns": 30719394547516,
+          "deadline_ns": 30719421196094,
+          "target_age_ms": 38.669221,
+          "deadline_overrun_ms": 12.020643,
+          "feedback_age_ms": {
+            "left": 1.831279,
+            "right": 1.831279
+          },
+          "feedback_packet_index": 37468,
+          "feedback_received_monotonic_ns": 30719431385458,
+          "last_command_id": "quest-bdfa3a60b9c54078837a29732d42ab54-3369/step-4084",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 30719394701265,
+            "completed_monotonic_ns": 30719395792644,
+            "duration_ms": 1.091379
+          }
+        },
+        "cycle": {
+          "started_ns": 30719403601986,
+          "host_tick_started_ns": 30719403056272,
+          "dispatch_delay_ns": 545714,
+          "tick_gap_ns": 33374815,
+          "input_check_ns": 25068,
+          "feedback_fk_ns": 201967,
+          "mapping_ns": 1517913,
+          "source_age_ns": 10530797,
+          "input_remaining_ns": 87423768,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 57320959,
+          "elapsed_ns": 59096866
+        },
+        "executor": {
+          "started_ns": 30719405375048,
+          "stage": "input_recheck",
+          "command_id": "quest-bdfa3a60b9c54078837a29732d42ab54-3372/step-4085",
+          "created_ns": 30719405264184,
+          "expires_ns": 30719455264184,
+          "left_servo_ns": 34568729,
+          "right_servo_ns": 22589449,
+          "elapsed_ns": 57283278
+        },
+        "host_loop": {
+          "tick_started_ns": 30719403056272,
+          "wake_lateness_ns": 3197089,
+          "pre_tick_ns": 503435,
+          "runtime_tick_ns": 67213664,
+          "last_status_ns": 504169,
+          "last_status_started_ns": 30719396044344,
+          "last_terminal_wait_ns": 6502339,
+          "requested_terminal_wait_ns": 3309058
+        },
+        "hands": {
+          "last_compute_ns": 9161808,
+          "worker_completed_monotonic_ns": 30719469989831,
+          "worker_age_ns": 2157876,
+          "sdk_checked_monotonic_ns": 30719460989885,
+          "sdk_check_age_ns": 11159474,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 30719460945543,
+            "detail": null
+          },
+          "last_error": "Accepted target expired or no target arrived within host watchdog interval"
+        }
+      },
+      "prior_line": 132,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 57.158178,
+        "old_deadline_window_from_driver_send_start": 26.648578,
+        "old_remaining_at_current_executor_start": 15.821046,
+        "old_remaining_at_current_target_created": 15.93191,
+        "current_target_remaining_at_first_stop": 22.047447,
+        "current_target_age_at_first_stop": 27.952553,
+        "servo_sum_minus_old_remaining_at_executor_start": 41.337132,
+        "first_stop_to_runtime_pause_snapshot": 29.487634,
+        "hand_health_observed_after_first_stop": 27.728806,
+        "terminal_wait_above_requested": 3.193281
+      },
+      "servo_wall_sum_extends_past_first_stop": true,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.153749,
+        "previous_native_call_completed": 1.245128,
+        "current_cycle_started": 9.05447,
+        "current_target_created": 10.716668,
+        "current_executor_started": 10.827532,
+        "old_target_deadline": 26.648578,
+        "first_stop_recorded": 38.669221,
+        "servo_wall_sum_earliest_possible_completion": 67.98571,
+        "current_target_expiration": 60.716668,
+        "pause_snapshot_recorded": 68.156855
+      }
+    },
+    {
+      "line": 43,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Accepted target expired or no target arrived within host watchdog interval",
+        "monotonic_ns": 30726806404511,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Accepted target expired or no target arrived within host watchdog interval",
+          "monotonic_ns": 30726787448742,
+          "last_target_ns": 30726765246144,
+          "deadline_ns": 30726783931233,
+          "target_age_ms": 22.202598,
+          "deadline_overrun_ms": 3.517509,
+          "feedback_age_ms": {
+            "left": 3.070082,
+            "right": 3.070082
+          },
+          "feedback_packet_index": 44263,
+          "feedback_received_monotonic_ns": 30726784378660,
+          "last_command_id": "quest-34602603a31448989afb93ccc93ffb2f-170/step-237",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 30726765402449,
+            "completed_monotonic_ns": 30726766345238,
+            "duration_ms": 0.942789
+          }
+        },
+        "cycle": {
+          "started_ns": 30726771893632,
+          "host_tick_started_ns": 30726771479423,
+          "dispatch_delay_ns": 414209,
+          "tick_gap_ns": 41714916,
+          "input_check_ns": 18355,
+          "feedback_fk_ns": 165705,
+          "mapping_ns": 1174247,
+          "source_age_ns": 12751874,
+          "input_remaining_ns": 86980356,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 33122749,
+          "elapsed_ns": 34506654
+        },
+        "executor": {
+          "started_ns": 30726773274481,
+          "stage": "input_recheck",
+          "command_id": "quest-34602603a31448989afb93ccc93ffb2f-173/step-238",
+          "created_ns": 30726773188833,
+          "expires_ns": 30726823188833,
+          "left_servo_ns": 9818340,
+          "right_servo_ns": 11420203,
+          "elapsed_ns": 21332179
+        },
+        "host_loop": {
+          "tick_started_ns": 30726771479423,
+          "wake_lateness_ns": 1760337,
+          "pre_tick_ns": 385968,
+          "runtime_tick_ns": 34746566,
+          "last_status_ns": 197123,
+          "last_status_started_ns": 30726391684356,
+          "last_terminal_wait_ns": 4976686,
+          "requested_terminal_wait_ns": 3219422
+        },
+        "hands": {
+          "last_compute_ns": 2539148,
+          "worker_completed_monotonic_ns": 30726802533250,
+          "worker_age_ns": 4203378,
+          "sdk_checked_monotonic_ns": 30726800134581,
+          "sdk_check_age_ns": 6602845,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 30726800106780,
+            "detail": null
+          },
+          "last_error": "Accepted target expired or no target arrived within host watchdog interval"
+        }
+      },
+      "prior_line": 147,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 21.238543,
+        "old_deadline_window_from_driver_send_start": 18.685089,
+        "old_remaining_at_current_executor_start": 10.656752,
+        "old_remaining_at_current_target_created": 10.7424,
+        "current_target_remaining_at_first_stop": 35.740091,
+        "current_target_age_at_first_stop": 14.259909,
+        "servo_sum_minus_old_remaining_at_executor_start": 10.581791,
+        "first_stop_to_runtime_pause_snapshot": 18.955769,
+        "hand_health_observed_after_first_stop": 12.658038,
+        "terminal_wait_above_requested": 1.757264
+      },
+      "servo_wall_sum_extends_past_first_stop": true,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.156305,
+        "previous_native_call_completed": 1.099094,
+        "current_cycle_started": 6.647488,
+        "current_target_created": 7.942689,
+        "current_executor_started": 8.028337,
+        "old_target_deadline": 18.685089,
+        "first_stop_recorded": 22.202598,
+        "servo_wall_sum_earliest_possible_completion": 29.26688,
+        "current_target_expiration": 57.942689,
+        "pause_snapshot_recorded": 41.158367
+      }
+    },
+    {
+      "line": 126,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Previous target watchdog expired; re-engage before submitting",
+        "monotonic_ns": 30769363550665,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Previous target watchdog expired; re-engage before submitting",
+          "monotonic_ns": 30769344434554,
+          "last_target_ns": 30769308915776,
+          "deadline_ns": 30769341041221,
+          "target_age_ms": 35.518778,
+          "deadline_overrun_ms": 3.393333,
+          "feedback_age_ms": {
+            "left": 2.063121,
+            "right": 2.063121
+          },
+          "feedback_packet_index": 83602,
+          "feedback_received_monotonic_ns": 30769342371433,
+          "last_command_id": "quest-6a09f219bc1043a882055373e772de4e-3416/step-3798",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 30769309063446,
+            "completed_monotonic_ns": 30769309086487,
+            "duration_ms": 0.023041
+          }
+        },
+        "cycle": {
+          "started_ns": 30769312458393,
+          "host_tick_started_ns": 30769311937897,
+          "dispatch_delay_ns": 520496,
+          "tick_gap_ns": 22652251,
+          "input_check_ns": 23587,
+          "feedback_fk_ns": 192781,
+          "mapping_ns": 135200,
+          "source_age_ns": 35304031,
+          "input_remaining_ns": 63091419,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 50706072,
+          "elapsed_ns": 51087508
+        },
+        "executor": {
+          "started_ns": 30769312835970,
+          "stage": "rejected",
+          "command_id": "quest-6a09f219bc1043a882055373e772de4e-3416/step-3799",
+          "created_ns": 30769312712319,
+          "expires_ns": 30769362712319,
+          "left_servo_ns": 17829366,
+          "right_servo_ns": 13609363,
+          "driver_submit_ns": 19124715,
+          "elapsed_ns": 50680553
+        },
+        "host_loop": {
+          "tick_started_ns": 30769311937897,
+          "wake_lateness_ns": 2684651,
+          "pre_tick_ns": 481608,
+          "runtime_tick_ns": 51410178,
+          "last_status_ns": 227605,
+          "last_status_started_ns": 30768613290646,
+          "last_terminal_wait_ns": 2682347,
+          "requested_terminal_wait_ns": 188
+        },
+        "hands": {
+          "last_compute_ns": 3553907,
+          "worker_completed_monotonic_ns": 30769361890892,
+          "worker_age_ns": 2102000,
+          "sdk_checked_monotonic_ns": 30769358498651,
+          "sdk_check_age_ns": 5495451,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 30769358457167,
+            "detail": null
+          },
+          "last_error": "Previous target watchdog expired; re-engage before submitting"
+        }
+      },
+      "prior_line": 230,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 31.438729,
+        "old_deadline_window_from_driver_send_start": 32.125445,
+        "old_remaining_at_current_executor_start": 28.205251,
+        "old_remaining_at_current_target_created": 28.328902,
+        "current_target_remaining_at_first_stop": 18.277765,
+        "current_target_age_at_first_stop": 31.722235,
+        "servo_sum_minus_old_remaining_at_executor_start": 3.233478,
+        "first_stop_to_runtime_pause_snapshot": 19.116111,
+        "hand_health_observed_after_first_stop": 14.022613,
+        "terminal_wait_above_requested": 2.682159
+      },
+      "servo_wall_sum_extends_past_first_stop": false,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.14767,
+        "previous_native_call_completed": 0.170711,
+        "current_cycle_started": 3.542617,
+        "current_target_created": 3.796543,
+        "current_executor_started": 3.920194,
+        "old_target_deadline": 32.125445,
+        "first_stop_recorded": 35.518778,
+        "servo_wall_sum_earliest_possible_completion": 35.358923,
+        "current_target_expiration": 53.796543,
+        "pause_snapshot_recorded": 54.634889
+      }
+    },
+    {
+      "line": 183,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Accepted target expired or no target arrived within host watchdog interval",
+        "monotonic_ns": 30791268803854,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Accepted target expired or no target arrived within host watchdog interval",
+          "monotonic_ns": 30791248649672,
+          "last_target_ns": 30791213685701,
+          "deadline_ns": 30791245807994,
+          "target_age_ms": 34.963971,
+          "deadline_overrun_ms": 2.841678,
+          "feedback_age_ms": {
+            "left": 1.269214,
+            "right": 1.269214
+          },
+          "feedback_packet_index": 103863,
+          "feedback_received_monotonic_ns": 30791247380458,
+          "last_command_id": "quest-4ee712a54a53469293ff0cf818ad80e1-1778/step-2080",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 30791213828769,
+            "completed_monotonic_ns": 30791214339158,
+            "duration_ms": 0.510389
+          }
+        },
+        "cycle": {
+          "started_ns": 30791220714290,
+          "host_tick_started_ns": 30791220224226,
+          "dispatch_delay_ns": 490064,
+          "tick_gap_ns": 26389009,
+          "input_check_ns": 23522,
+          "feedback_fk_ns": 1674662,
+          "mapping_ns": 948655,
+          "source_age_ns": 9125945,
+          "input_remaining_ns": 88224477,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 45407867,
+          "elapsed_ns": 48084911
+        },
+        "executor": {
+          "started_ns": 30791223389199,
+          "stage": "input_recheck",
+          "command_id": "quest-4ee712a54a53469293ff0cf818ad80e1-1780/step-2081",
+          "created_ns": 30791223292065,
+          "expires_ns": 30791273292065,
+          "left_servo_ns": 21301806,
+          "right_servo_ns": 12875032,
+          "elapsed_ns": 34294484
+        },
+        "host_loop": {
+          "tick_started_ns": 30791220224226,
+          "wake_lateness_ns": 1296927,
+          "pre_tick_ns": 451281,
+          "runtime_tick_ns": 48415461,
+          "last_status_ns": 346157,
+          "last_status_started_ns": 30790747845508,
+          "last_terminal_wait_ns": 5704396,
+          "requested_terminal_wait_ns": 4411009
+        },
+        "hands": {
+          "last_compute_ns": 2049282,
+          "worker_completed_monotonic_ns": 30791268714337,
+          "worker_age_ns": 1645055,
+          "sdk_checked_monotonic_ns": 30791266812541,
+          "sdk_check_age_ns": 3547877,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 30791266776652,
+            "detail": null
+          },
+          "last_error": "Accepted target expired or no target arrived within host watchdog interval"
+        }
+      },
+      "prior_line": 287,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 34.176838,
+        "old_deadline_window_from_driver_send_start": 32.122293,
+        "old_remaining_at_current_executor_start": 22.418795,
+        "old_remaining_at_current_target_created": 22.515929,
+        "current_target_remaining_at_first_stop": 24.642393,
+        "current_target_age_at_first_stop": 25.357607,
+        "servo_sum_minus_old_remaining_at_executor_start": 11.758043,
+        "first_stop_to_runtime_pause_snapshot": 20.154182,
+        "hand_health_observed_after_first_stop": 18.12698,
+        "terminal_wait_above_requested": 1.293387
+      },
+      "servo_wall_sum_extends_past_first_stop": true,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.143068,
+        "previous_native_call_completed": 0.653457,
+        "current_cycle_started": 7.028589,
+        "current_target_created": 9.606364,
+        "current_executor_started": 9.703498,
+        "old_target_deadline": 32.122293,
+        "first_stop_recorded": 34.963971,
+        "servo_wall_sum_earliest_possible_completion": 43.880336,
+        "current_target_expiration": 59.606364,
+        "pause_snapshot_recorded": 55.118153
+      }
+    },
+    {
+      "line": 199,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Previous target watchdog expired; re-engage before submitting",
+        "monotonic_ns": 30805494620432,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Previous target watchdog expired; re-engage before submitting",
+          "monotonic_ns": 30805475792784,
+          "last_target_ns": 30805443382561,
+          "deadline_ns": 30805473287277,
+          "target_age_ms": 32.410223,
+          "deadline_overrun_ms": 2.505507,
+          "feedback_age_ms": {
+            "left": 3.413023,
+            "right": 3.413023
+          },
+          "feedback_packet_index": 116927,
+          "feedback_received_monotonic_ns": 30805472379761,
+          "last_command_id": "quest-02eb8551a80445958ca4f43c37add220-1041/step-1099",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 30805443496457,
+            "completed_monotonic_ns": 30805445316769,
+            "duration_ms": 1.820312
+          }
+        },
+        "cycle": {
+          "started_ns": 30805449457858,
+          "host_tick_started_ns": 30805449024898,
+          "dispatch_delay_ns": 432960,
+          "tick_gap_ns": 26427858,
+          "input_check_ns": 18762,
+          "feedback_fk_ns": 1088844,
+          "mapping_ns": 1536774,
+          "source_age_ns": 2420482,
+          "input_remaining_ns": 94584368,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 42486599,
+          "elapsed_ns": 45158326
+        },
+        "executor": {
+          "started_ns": 30805452127282,
+          "stage": "rejected",
+          "command_id": "quest-02eb8551a80445958ca4f43c37add220-1045/step-1100",
+          "created_ns": 30805452038466,
+          "expires_ns": 30805502038466,
+          "left_servo_ns": 13449863,
+          "right_servo_ns": 10073006,
+          "driver_submit_ns": 18838854,
+          "elapsed_ns": 42462903
+        },
+        "host_loop": {
+          "tick_started_ns": 30805449024898,
+          "wake_lateness_ns": 1465541,
+          "pre_tick_ns": 402150,
+          "runtime_tick_ns": 45441958,
+          "last_status_ns": 223499,
+          "last_status_started_ns": 30804813310122,
+          "last_terminal_wait_ns": 3545762,
+          "requested_terminal_wait_ns": 2083625
+        },
+        "hands": {
+          "last_compute_ns": 1045010,
+          "worker_completed_monotonic_ns": 30805492701049,
+          "worker_age_ns": 2662773,
+          "sdk_checked_monotonic_ns": 30805491791520,
+          "sdk_check_age_ns": 3573192,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 30805491761418,
+            "detail": null
+          },
+          "last_error": "Previous target watchdog expired; re-engage before submitting"
+        }
+      },
+      "prior_line": 303,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 23.522869,
+        "old_deadline_window_from_driver_send_start": 29.904716,
+        "old_remaining_at_current_executor_start": 21.159995,
+        "old_remaining_at_current_target_created": 21.248811,
+        "current_target_remaining_at_first_stop": 26.245682,
+        "current_target_age_at_first_stop": 23.754318,
+        "servo_sum_minus_old_remaining_at_executor_start": 2.362874,
+        "first_stop_to_runtime_pause_snapshot": 18.827648,
+        "hand_health_observed_after_first_stop": 15.968634,
+        "terminal_wait_above_requested": 1.462137
+      },
+      "servo_wall_sum_extends_past_first_stop": false,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.113896,
+        "previous_native_call_completed": 1.934208,
+        "current_cycle_started": 6.075297,
+        "current_target_created": 8.655905,
+        "current_executor_started": 8.744721,
+        "old_target_deadline": 29.904716,
+        "first_stop_recorded": 32.410223,
+        "servo_wall_sum_earliest_possible_completion": 32.26759,
+        "current_target_expiration": 58.655905,
+        "pause_snapshot_recorded": 51.237871
+      }
+    },
+    {
+      "line": 236,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Quest reference space is changing; wait for a new origin frame, then re-engage",
+        "monotonic_ns": 30935148349095,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Cartesian target quest-941c91c9530a4fd6ad56d6485428ce9b-53/step-81: Quest reference space is changing; wait for a new origin frame, then re-engage",
+          "monotonic_ns": 30935129643468,
+          "last_target_ns": 30935124782363,
+          "deadline_ns": 30935170805310,
+          "target_age_ms": 4.861105,
+          "deadline_overrun_ms": 0.0,
+          "feedback_age_ms": {
+            "left": 3.328406,
+            "right": 3.328406
+          },
+          "feedback_packet_index": 1654,
+          "feedback_received_monotonic_ns": 30935126315062,
+          "last_command_id": "quest-941c91c9530a4fd6ad56d6485428ce9b-53/step-80",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 30935124805589,
+            "completed_monotonic_ns": 30935124812599,
+            "duration_ms": 0.00701
+          }
+        },
+        "cycle": {
+          "started_ns": 30935125860524,
+          "host_tick_started_ns": 30935125677692,
+          "dispatch_delay_ns": 182832,
+          "tick_gap_ns": 5167422,
+          "input_check_ns": 11940,
+          "feedback_fk_ns": 79182,
+          "mapping_ns": 68442,
+          "source_age_ns": 37701544,
+          "input_remaining_ns": 61858443,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 22309095,
+          "elapsed_ns": 22483161
+        },
+        "executor": {
+          "started_ns": 30935126030433,
+          "stage": "input_recheck",
+          "command_id": "quest-941c91c9530a4fd6ad56d6485428ce9b-53/step-81",
+          "created_ns": 30935125971456,
+          "expires_ns": 30935175971456,
+          "left_servo_ns": 1961156,
+          "right_servo_ns": 1626626,
+          "elapsed_ns": 3607252
+        },
+        "host_loop": {
+          "tick_started_ns": 30935125677692,
+          "wake_lateness_ns": 212582,
+          "pre_tick_ns": 164401,
+          "runtime_tick_ns": 23022667,
+          "last_status_ns": 173583,
+          "last_status_started_ns": 30934612369661,
+          "last_terminal_wait_ns": 792711,
+          "requested_terminal_wait_ns": 581271
+        },
+        "hands": {
+          "last_compute_ns": 1023521,
+          "worker_completed_monotonic_ns": 30935146550548,
+          "worker_age_ns": 2449044,
+          "sdk_checked_monotonic_ns": 30935145586713,
+          "sdk_check_age_ns": 3418322,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 30935145570883,
+            "detail": null
+          },
+          "last_error": "Quest reference space is changing; wait for a new origin frame, then re-engage"
+        }
+      },
+      "prior_line": 340,
+      "identical_to_prior": true,
+      "is_watchdog": false,
+      "derived_ms": {
+        "servo_wall_sum": 3.587782,
+        "old_deadline_window_from_driver_send_start": 46.022947,
+        "old_remaining_at_current_executor_start": 44.774877,
+        "old_remaining_at_current_target_created": 44.833854,
+        "current_target_remaining_at_first_stop": 46.327988,
+        "current_target_age_at_first_stop": 3.672012,
+        "servo_sum_minus_old_remaining_at_executor_start": -41.187095,
+        "first_stop_to_runtime_pause_snapshot": 18.705627,
+        "hand_health_observed_after_first_stop": 15.927415,
+        "terminal_wait_above_requested": 0.21144
+      },
+      "servo_wall_sum_extends_past_first_stop": false,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.023226,
+        "previous_native_call_completed": 0.030236,
+        "current_cycle_started": 1.078161,
+        "current_target_created": 1.189093,
+        "current_executor_started": 1.24807,
+        "old_target_deadline": 46.022947,
+        "first_stop_recorded": 4.861105,
+        "servo_wall_sum_earliest_possible_completion": 4.835852,
+        "current_target_expiration": 51.189093,
+        "pause_snapshot_recorded": 23.566732
+      }
+    },
+    {
+      "line": 248,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Accepted target expired or no target arrived within host watchdog interval",
+        "monotonic_ns": 30958502559711,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Accepted target expired or no target arrived within host watchdog interval",
+          "monotonic_ns": 30958483119391,
+          "last_target_ns": 30958439563569,
+          "deadline_ns": 30958480947419,
+          "target_age_ms": 43.555822,
+          "deadline_overrun_ms": 2.171972,
+          "feedback_age_ms": {
+            "left": 2.80431,
+            "right": 2.80431
+          },
+          "feedback_packet_index": 23243,
+          "feedback_received_monotonic_ns": 30958480315081,
+          "last_command_id": "quest-612fd0fc63b5497db5cab13e37916e2f-1629/step-2022",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 30958439647847,
+            "completed_monotonic_ns": 30958440226858,
+            "duration_ms": 0.579011
+          }
+        },
+        "cycle": {
+          "started_ns": 30958445680454,
+          "host_tick_started_ns": 30958445170302,
+          "dispatch_delay_ns": 510152,
+          "tick_gap_ns": 15233086,
+          "input_check_ns": 26269,
+          "feedback_fk_ns": 201846,
+          "mapping_ns": 656163,
+          "source_age_ns": 9446817,
+          "input_remaining_ns": 89776004,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 55951394,
+          "elapsed_ns": 56871261
+        },
+        "executor": {
+          "started_ns": 30958446594944,
+          "stage": "input_recheck",
+          "command_id": "quest-612fd0fc63b5497db5cab13e37916e2f-1630/step-2023",
+          "created_ns": 30958446482390,
+          "expires_ns": 30958496482390,
+          "left_servo_ns": 13787961,
+          "right_servo_ns": 24250304,
+          "elapsed_ns": 38146113
+        },
+        "host_loop": {
+          "tick_started_ns": 30958445170302,
+          "wake_lateness_ns": 79850,
+          "pre_tick_ns": 468341,
+          "runtime_tick_ns": 57218257,
+          "last_status_ns": 207841,
+          "last_status_started_ns": 30957708260143,
+          "last_terminal_wait_ns": 4834939,
+          "requested_terminal_wait_ns": 4757713
+        },
+        "hands": {
+          "last_compute_ns": 1439955,
+          "worker_completed_monotonic_ns": 30958496964663,
+          "worker_age_ns": 7733060,
+          "sdk_checked_monotonic_ns": 30958495612805,
+          "sdk_check_age_ns": 9086212,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 30958495587981,
+            "detail": null
+          },
+          "last_error": "Accepted target expired or no target arrived within host watchdog interval"
+        }
+      },
+      "prior_line": 352,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 38.038265,
+        "old_deadline_window_from_driver_send_start": 41.38385,
+        "old_remaining_at_current_executor_start": 34.352475,
+        "old_remaining_at_current_target_created": 34.465029,
+        "current_target_remaining_at_first_stop": 13.362999,
+        "current_target_age_at_first_stop": 36.637001,
+        "servo_sum_minus_old_remaining_at_executor_start": 3.68579,
+        "first_stop_to_runtime_pause_snapshot": 19.44032,
+        "hand_health_observed_after_first_stop": 12.46859,
+        "terminal_wait_above_requested": 0.077226
+      },
+      "servo_wall_sum_extends_past_first_stop": true,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.084278,
+        "previous_native_call_completed": 0.663289,
+        "current_cycle_started": 6.116885,
+        "current_target_created": 6.918821,
+        "current_executor_started": 7.031375,
+        "old_target_deadline": 41.38385,
+        "first_stop_recorded": 43.555822,
+        "servo_wall_sum_earliest_possible_completion": 45.06964,
+        "current_target_expiration": 56.918821,
+        "pause_snapshot_recorded": 62.996142
+      }
+    },
+    {
+      "line": 299,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Previous target watchdog expired; re-engage before submitting",
+        "monotonic_ns": 30983639340852,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Previous target watchdog expired; re-engage before submitting",
+          "monotonic_ns": 30983619764748,
+          "last_target_ns": 30983588029719,
+          "deadline_ns": 30983618643403,
+          "target_age_ms": 31.735029,
+          "deadline_overrun_ms": 1.121345,
+          "feedback_age_ms": {
+            "left": 3.423315,
+            "right": 3.423315
+          },
+          "feedback_packet_index": 46451,
+          "feedback_received_monotonic_ns": 30983616341433,
+          "last_command_id": "quest-3b2b2dcfaa3848c58ebac1cba862e01e-1744/step-2048",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 30983588183852,
+            "completed_monotonic_ns": 30983589016981,
+            "duration_ms": 0.833129
+          }
+        },
+        "cycle": {
+          "started_ns": 30983595689168,
+          "host_tick_started_ns": 30983595136420,
+          "dispatch_delay_ns": 552748,
+          "tick_gap_ns": 27219322,
+          "input_check_ns": 25563,
+          "feedback_fk_ns": 232156,
+          "mapping_ns": 2420685,
+          "source_age_ns": 13638831,
+          "input_remaining_ns": 84824559,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 40939387,
+          "elapsed_ns": 43648596
+        },
+        "executor": {
+          "started_ns": 30983598397193,
+          "stage": "rejected",
+          "command_id": "quest-3b2b2dcfaa3848c58ebac1cba862e01e-1749/step-2049",
+          "created_ns": 30983598288153,
+          "expires_ns": 30983648288153,
+          "left_servo_ns": 16283628,
+          "right_servo_ns": 4966664,
+          "driver_submit_ns": 19613339,
+          "elapsed_ns": 40920631
+        },
+        "host_loop": {
+          "tick_started_ns": 30983595136420,
+          "wake_lateness_ns": 2001122,
+          "pre_tick_ns": 510804,
+          "runtime_tick_ns": 44501426,
+          "last_status_ns": 243632,
+          "last_status_started_ns": 30982820770508,
+          "last_terminal_wait_ns": 5918368,
+          "requested_terminal_wait_ns": 3921838
+        },
+        "hands": {
+          "last_compute_ns": 1349637,
+          "worker_completed_monotonic_ns": 30983638510732,
+          "worker_age_ns": 1748137,
+          "sdk_checked_monotonic_ns": 30983637265911,
+          "sdk_check_age_ns": 2993727,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 30983637235953,
+            "detail": null
+          },
+          "last_error": "Previous target watchdog expired; re-engage before submitting"
+        }
+      },
+      "prior_line": 403,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 21.250292,
+        "old_deadline_window_from_driver_send_start": 30.613684,
+        "old_remaining_at_current_executor_start": 20.24621,
+        "old_remaining_at_current_target_created": 20.35525,
+        "current_target_remaining_at_first_stop": 28.523405,
+        "current_target_age_at_first_stop": 21.476595,
+        "servo_sum_minus_old_remaining_at_executor_start": 1.004082,
+        "first_stop_to_runtime_pause_snapshot": 19.576104,
+        "hand_health_observed_after_first_stop": 17.471205,
+        "terminal_wait_above_requested": 1.99653
+      },
+      "servo_wall_sum_extends_past_first_stop": false,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.154133,
+        "previous_native_call_completed": 0.987262,
+        "current_cycle_started": 7.659449,
+        "current_target_created": 10.258434,
+        "current_executor_started": 10.367474,
+        "old_target_deadline": 30.613684,
+        "first_stop_recorded": 31.735029,
+        "servo_wall_sum_earliest_possible_completion": 31.617766,
+        "current_target_expiration": 60.258434,
+        "pause_snapshot_recorded": 51.311133
+      }
+    },
+    {
+      "line": 343,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Previous target watchdog expired; re-engage before submitting",
+        "monotonic_ns": 31004809548910,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Previous target watchdog expired; re-engage before submitting",
+          "monotonic_ns": 31004788694660,
+          "last_target_ns": 31004760727169,
+          "deadline_ns": 31004785402989,
+          "target_age_ms": 27.967491,
+          "deadline_overrun_ms": 3.291671,
+          "feedback_age_ms": {
+            "left": 1.374341,
+            "right": 1.374341
+          },
+          "feedback_packet_index": 65997,
+          "feedback_received_monotonic_ns": 31004787320319,
+          "last_command_id": "quest-243bfecc145d498f9c051708376f4712-1575/step-1773",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 31004760892823,
+            "completed_monotonic_ns": 31004760921868,
+            "duration_ms": 0.029045
+          }
+        },
+        "cycle": {
+          "started_ns": 31004764791534,
+          "host_tick_started_ns": 31004764216206,
+          "dispatch_delay_ns": 575328,
+          "tick_gap_ns": 30580372,
+          "input_check_ns": 24670,
+          "feedback_fk_ns": 2823545,
+          "mapping_ns": 1654266,
+          "source_age_ns": 5227311,
+          "input_remaining_ns": 94052041,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 40215442,
+          "elapsed_ns": 44754453
+        },
+        "executor": {
+          "started_ns": 31004769329564,
+          "stage": "rejected",
+          "command_id": "quest-243bfecc145d498f9c051708376f4712-1578/step-1774",
+          "created_ns": 31004769206118,
+          "expires_ns": 31004819206118,
+          "left_servo_ns": 11939980,
+          "right_servo_ns": 7319449,
+          "driver_submit_ns": 20837503,
+          "elapsed_ns": 40190555
+        },
+        "host_loop": {
+          "tick_started_ns": 31004764216206,
+          "wake_lateness_ns": 606697,
+          "pre_tick_ns": 533256,
+          "runtime_tick_ns": 44981366,
+          "last_status_ns": 307486,
+          "last_status_started_ns": 31003907381851,
+          "last_terminal_wait_ns": 3086095,
+          "requested_terminal_wait_ns": 2484617
+        },
+        "hands": {
+          "last_compute_ns": 1551435,
+          "worker_completed_monotonic_ns": 31004805463607,
+          "worker_age_ns": 4847476,
+          "sdk_checked_monotonic_ns": 31004804004812,
+          "sdk_check_age_ns": 6306971,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 31004803976386,
+            "detail": null
+          },
+          "last_error": "Previous target watchdog expired; re-engage before submitting"
+        }
+      },
+      "prior_line": 447,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 19.259429,
+        "old_deadline_window_from_driver_send_start": 24.67582,
+        "old_remaining_at_current_executor_start": 16.073425,
+        "old_remaining_at_current_target_created": 16.196871,
+        "current_target_remaining_at_first_stop": 30.511458,
+        "current_target_age_at_first_stop": 19.488542,
+        "servo_sum_minus_old_remaining_at_executor_start": 3.186004,
+        "first_stop_to_runtime_pause_snapshot": 20.85425,
+        "hand_health_observed_after_first_stop": 15.281726,
+        "terminal_wait_above_requested": 0.601478
+      },
+      "servo_wall_sum_extends_past_first_stop": false,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.165654,
+        "previous_native_call_completed": 0.194699,
+        "current_cycle_started": 4.064365,
+        "current_target_created": 8.478949,
+        "current_executor_started": 8.602395,
+        "old_target_deadline": 24.67582,
+        "first_stop_recorded": 27.967491,
+        "servo_wall_sum_earliest_possible_completion": 27.861824,
+        "current_target_expiration": 58.478949,
+        "pause_snapshot_recorded": 48.821741
+      }
+    },
+    {
+      "line": 370,
+      "diagnostic": {
+        "schema": "teleop_pause_v1",
+        "reason": "Accepted target expired or no target arrived within host watchdog interval",
+        "monotonic_ns": 31030297634776,
+        "driver_stop": {
+          "schema": "tianji.motion_stop.v1",
+          "reason": "Accepted target expired or no target arrived within host watchdog interval",
+          "monotonic_ns": 31030276788440,
+          "last_target_ns": 31030248697848,
+          "deadline_ns": 31030274165908,
+          "target_age_ms": 28.090592,
+          "deadline_overrun_ms": 2.622532,
+          "feedback_age_ms": {
+            "left": 2.472617,
+            "right": 2.472617
+          },
+          "feedback_packet_index": 89524,
+          "feedback_received_monotonic_ns": 31030274315823,
+          "last_command_id": "quest-0cba207162ee407c9d4f6be930fb313b-1835/step-2180",
+          "last_native_call": {
+            "operation": "tj_submit",
+            "started_monotonic_ns": 31030248802951,
+            "completed_monotonic_ns": 31030250748586,
+            "duration_ms": 1.945635
+          }
+        },
+        "cycle": {
+          "started_ns": 31030256489428,
+          "host_tick_started_ns": 31030256013362,
+          "dispatch_delay_ns": 476066,
+          "tick_gap_ns": 32799574,
+          "input_check_ns": 27652,
+          "feedback_fk_ns": 2170336,
+          "mapping_ns": 1172113,
+          "source_age_ns": 24640022,
+          "input_remaining_ns": 72730950,
+          "target_remaining_ns": 50000000,
+          "executor_ns": 37729297,
+          "elapsed_ns": 41138719
+        },
+        "executor": {
+          "started_ns": 31030259895223,
+          "stage": "input_recheck",
+          "command_id": "quest-0cba207162ee407c9d4f6be930fb313b-1837/step-2181",
+          "created_ns": 31030259776710,
+          "expires_ns": 31030309776710,
+          "left_servo_ns": 18399127,
+          "right_servo_ns": 16392344,
+          "elapsed_ns": 34868479
+        },
+        "host_loop": {
+          "tick_started_ns": 31030256013362,
+          "wake_lateness_ns": 2606547,
+          "pre_tick_ns": 432683,
+          "runtime_tick_ns": 45564514,
+          "last_status_ns": 265944,
+          "last_status_started_ns": 31030018550796,
+          "last_terminal_wait_ns": 4904638,
+          "requested_terminal_wait_ns": 2303275
+        },
+        "hands": {
+          "last_compute_ns": 3682198,
+          "worker_completed_monotonic_ns": 31030300800979,
+          "worker_age_ns": 3406176,
+          "sdk_checked_monotonic_ns": 31030297267997,
+          "sdk_check_age_ns": 6940859,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 31030297232121,
+            "detail": null
+          },
+          "last_error": "Accepted target expired or no target arrived within host watchdog interval"
+        }
+      },
+      "prior_line": 474,
+      "identical_to_prior": true,
+      "is_watchdog": true,
+      "derived_ms": {
+        "servo_wall_sum": 34.791471,
+        "old_deadline_window_from_driver_send_start": 25.46806,
+        "old_remaining_at_current_executor_start": 14.270685,
+        "old_remaining_at_current_target_created": 14.389198,
+        "current_target_remaining_at_first_stop": 32.98827,
+        "current_target_age_at_first_stop": 17.01173,
+        "servo_sum_minus_old_remaining_at_executor_start": 20.520786,
+        "first_stop_to_runtime_pause_snapshot": 20.846336,
+        "hand_health_observed_after_first_stop": 20.443681,
+        "terminal_wait_above_requested": 2.601363
+      },
+      "servo_wall_sum_extends_past_first_stop": true,
+      "timeline_ms_relative_to_previous_driver_send_start": {
+        "previous_send_command_started": 0,
+        "previous_native_call_started": 0.105103,
+        "previous_native_call_completed": 2.050738,
+        "current_cycle_started": 7.79158,
+        "current_target_created": 11.078862,
+        "current_executor_started": 11.197375,
+        "old_target_deadline": 25.46806,
+        "first_stop_recorded": 28.090592,
+        "servo_wall_sum_earliest_possible_completion": 45.988846,
+        "current_target_expiration": 61.078862,
+        "pause_snapshot_recorded": 48.936928
+      }
+    }
+  ]
+}

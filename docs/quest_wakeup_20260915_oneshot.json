@@ -1,0 +1,19 @@
+{
+  "serial": "340YC10GB00HL5",
+  "test": "wake first, then proximity override; no manual recovery commands; no robot connection",
+  "system_build": "3296320034600610",
+  "before_start": "mWakefulness=Asleep",
+  "after_start": "mWakefulness=Awake",
+  "frames": 135,
+  "states": {
+    "2": 1,
+    "4": 134
+  },
+  "controller_status": {
+    "(0, False, 0, False)": 135
+  },
+  "source_hz": 89.22475216343557,
+  "focused_hz": null,
+  "final_health": "no Quest frame arrived for 1 second; host stream is silent",
+  "power_override_released": true
+}

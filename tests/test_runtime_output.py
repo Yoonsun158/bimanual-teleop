@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 import yaml
 
 from bimanual_teleop.common.console import (
-    LiveProgress, StatusConsole, configure_runtime_logging, format_message,
+    LiveProgress, StatusConsole, configure_runtime_logging, format_message, runtime_message,
 )
 
 
@@ -34,6 +34,30 @@ def temporary_working_directory():
 
 
 class ConsoleBehaviorTests(unittest.TestCase):
+    def test_compact_diagnostics_preserve_other_errors_and_verbose_keeps_original(self):
+        for label in ("IK诊断", "控制诊断", "停机诊断"):
+            message = f'目标失败\n[{label}] {{"reason":"不可达"}}; 关闭失败\n连接中断'
+            self.assertEqual(runtime_message(message), "目标失败; 关闭失败\n连接中断")
+            self.assertEqual(runtime_message(message, verbose=True), message)
+        unknown = "目标失败\n[控制诊断] 无法编码诊断"
+        self.assertEqual(runtime_message(unknown), unknown)
+
+    def test_verbose_logging_can_be_enabled_and_reset_without_duplicate_handlers(self):
+        sdk = SimpleNamespace(set_log_level=Mock())
+        logger = logging.getLogger("bimanual_teleop.test_output")
+        for verbose in (False, True, False):
+            with self.subTest(verbose=verbose), redirect_stderr(io.StringIO()) as output, \
+                    patch.dict("sys.modules", {"wuji_sdk": sdk}):
+                configure_runtime_logging(wuji=True, verbose=verbose)
+                logger.debug("调试细节")
+                logger.warning('故障原因\n[控制诊断] {"target":[1,2,3]}')
+                logger.error("连接失败")
+            self.assertEqual("调试细节" in output.getvalue(), verbose)
+            self.assertEqual("[控制诊断]" in output.getvalue(), verbose)
+            self.assertEqual(output.getvalue().count("故障原因"), 1)
+            self.assertIn("连接失败", output.getvalue())
+            sdk.set_log_level.assert_called_with("debug" if verbose else "error")
+
     def test_status_changes_are_deduplicated_and_warnings_are_throttled(self):
         stream = io.StringIO()
         console = StatusConsole(stream=stream, warning_interval_s=5)
@@ -81,35 +105,57 @@ class ConsoleBehaviorTests(unittest.TestCase):
         LiveProgress(stream=redirected).update("不应输出")
         self.assertEqual(redirected.getvalue(), "")
 
-    def test_wuji_sdk_logging_keeps_warnings(self):
+    def test_wuji_sdk_defaults_to_errors_without_duplicate_handlers(self):
         sdk = SimpleNamespace(set_log_level=Mock())
         with patch.dict("sys.modules", {"wuji_sdk": sdk}):
             configure_runtime_logging(wuji=True)
             configure_runtime_logging(wuji=True)
         self.assertEqual([call.args[0] for call in sdk.set_log_level.call_args_list],
-                         ["warn", "warn"])
+                         ["error", "error"])
         logger = logging.getLogger("bimanual_teleop")
         self.assertEqual(len(logger.handlers), 1)
 
 
 class EntryBehaviorTests(unittest.TestCase):
     def setUp(self):
-        from bimanual_teleop.cli import prepare_tianji_teleop, teleop_quest_tianji, teleop_wuji_hand2
+        from bimanual_teleop.cli import home_tianji, teleop_quest_tianji, teleop_wuji_hand2
         from bimanual_teleop.control.arm import jog
         from bimanual_teleop.control.hand import home
-        for module in (prepare_tianji_teleop, teleop_quest_tianji, teleop_wuji_hand2, jog, home):
+        for module in (home_tianji, teleop_quest_tianji, teleop_wuji_hand2, jog, home):
             for name in ("NonblockingTerminal", "confirm_motion"):
                 options = {"return_value": True} if name == "confirm_motion" else {}
                 patcher = patch.object(module, name, **options)
                 patcher.start()
                 self.addCleanup(patcher.stop)
 
+    def test_teleop_output_flags_reach_logging_and_ui(self):
+        from bimanual_teleop.cli import teleop_quest_tianji, teleop_wuji_hand2
+
+        for entry, required, factory in (
+            (teleop_quest_tianji, ["--arms-only"],
+             "bimanual_teleop.cli.teleop_quest_tianji.create_runtime"),
+            (teleop_wuji_hand2, [],
+             "bimanual_teleop.control.hand.follow.create_wuji_teleop"),
+        ):
+            for flags in ([], ["-v"], ["--verbose"]):
+                with self.subTest(entry=entry.__name__, flags=flags), \
+                        patch.object(entry, "configure_runtime_logging") as logging_setup, \
+                        patch(factory, return_value=SimpleNamespace(start=Mock(), close=Mock())), \
+                        patch.object(teleop_quest_tianji, "prepare_initial_pose"), \
+                        patch("bimanual_teleop.control.hand.follow.preflight"), \
+                        patch.object(entry, "run_loop", return_value={"elapsed_s": .1, "motion_pauses": 0}) as loop, \
+                        redirect_stderr(io.StringIO()):
+                    self.assertEqual(entry.main([*required, *flags]), 0)
+                    logging_setup.assert_called_once_with(
+                        wuji=entry is teleop_wuji_hand2, verbose=bool(flags))
+                    self.assertEqual(loop.call_args.args[1].verbose, bool(flags))
+
     def test_retained_entry_help_has_no_runtime_output_option(self):
         from bimanual_teleop.cli import (
             calibrate_wuji_glove, teleop_wuji_hand2, teleop_quest_tianji,
             view_quest, view_wuji_glove,
         )
-        from bimanual_teleop.cli.prepare_tianji_teleop import parser as ready_parser
+        from bimanual_teleop.cli.home_tianji import parser as ready_parser
         from bimanual_teleop.control.arm import jog
         from bimanual_teleop.control.hand import home
 
@@ -153,7 +199,7 @@ class EntryBehaviorTests(unittest.TestCase):
         self.assertEqual(result.exception.code, 2)
 
     def test_ready_pose_cancellation_and_failure_do_not_create_runtime_records(self):
-        from bimanual_teleop.cli import prepare_tianji_teleop as ready
+        from bimanual_teleop.cli import home_tianji as ready
 
         with temporary_working_directory() as directory, redirect_stderr(io.StringIO()):
             with patch.object(ready, "confirm_motion", return_value=False):
@@ -193,7 +239,6 @@ class EntryBehaviorTests(unittest.TestCase):
                     patch.object(jog, "run_jog") as run_jog:
                 args = ["--side", "left", "--ip", "192.0.2.1"]
                 self.assertEqual(jog.main(args), 0)
-                self.assertTrue(run_jog.call_args.kwargs["enable_motion"])
                 prepare.assert_called_once()
                 run_jog.side_effect = RuntimeError("模拟越限")
                 self.assertEqual(jog.main(args), 1)
@@ -227,8 +272,7 @@ class EntryBehaviorTests(unittest.TestCase):
                     patch.object(follow, "preflight"), \
                     patch.object(follow, "create_wuji_teleop", return_value=runtime) as create:
                 self.assertEqual(teleop_wuji_hand2.main(["--side", "left"]), 0)
-                self.assertTrue(create.call_args.kwargs["enable_motion"])
-                with patch.object(follow, "load_config", return_value={"sdk_user_name": "old"}):
+                with patch("bimanual_teleop.devices.wuji.config.load_config", return_value={"sdk_user_name": "old"}):
                     self.assertEqual(teleop_wuji_hand2.main(
                         ["--side", "left", "--user-name", "yuchen"]), 0)
                     self.assertEqual(create.call_args.args[0], {"sdk_user_name": "yuchen"})

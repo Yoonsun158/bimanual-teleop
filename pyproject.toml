@@ -8,12 +8,12 @@ version = "0.1.0"
 description = "Modular Quest, Wuji Glove, Tianji, and Hand2 teleoperation"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["PyYAML>=6,<7"]
+dependencies = ["PyYAML>=6,<7", "numpy>=1.23,<2", "scipy>=1.10,<2", "quadprog==0.1.13", "rich>=14,<15"]
 
 [project.optional-dependencies]
-visualization = ["matplotlib>=3.10,<4", "numpy>=1.23"]
-validation = ["scipy>=1.10,<2"]
-wuji = ["wuji-sdk==2026.8.31", "numpy>=1.23,<2"]
+visualization = ["matplotlib>=3.10,<4"]
+realsense = ["pyrealsense2==2.58.4.10922", "matplotlib>=3.10,<4"]
+wuji = ["wuji-sdk==2026.8.31"]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -21,3 +21,4 @@ include = ["bimanual_teleop*"]
 
 [tool.setuptools.package-data]
 bimanual_teleop = ["py.typed"]
+"bimanual_teleop.vendor.tianji" = ["LICENSE", "manifest.json", "README.md", "SDK_PYTHON/*.py", "SDK_PYTHON/*.so", "CommonConfig/*.MvKDCfg"]

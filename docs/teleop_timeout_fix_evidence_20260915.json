@@ -1,0 +1,1281 @@
+{
+  "date": "2026-09-15",
+  "environment": {
+    "python": "3.10.21 (main, Aug 27 2026, 14:42:07) [GCC 14.3.0]",
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
+    "packages": {
+      "numpy": "1.26.4",
+      "quadprog": "0.1.13",
+      "wuji-sdk": "2026.8.31"
+    }
+  },
+  "method": {
+    "motion_enabled": false,
+    "actual_feedback": "Wuji glove skeleton, Hand2 joints/diagnostics; all modes also use real Tianji feedback",
+    "arm_compute": "real M6 dual CartesianServo; dynamic goals; propose and accept; 200 Hz paced; left/right ratio 100/15",
+    "estimated_deadline": "previous/current iteration-start gap + current dual solve wall time >= 50 ms",
+    "excluded": "Quest UDP input, physical movement, native movement sends, changing actual joint configurations",
+    "connection_side_effect": "Existing Tianji open also sends LOGOF=0 to disable controller logging",
+    "baseline": "pre-edit working directory snapshot, not Git HEAD",
+    "final_hash_note": "Final lifecycle cancellation checks were tightened after the 180 s capture; steady reception, computation and IPC observations unchanged; deterministic cancellation tests rerun."
+  },
+  "baseline_source_sha256": {
+    "bimanual_teleop/control/hand/follow.py": "9d2ad5f3a8e89ae27d66a92d682f4510d5e3f251df9867a9e54e6c77c09e7a4f",
+    "bimanual_teleop/devices/wuji/adapter.py": "aa69065df566e64f7e19c99070f1eeda4386fb8bde237ecca06514c520f0b675",
+    "bimanual_teleop/devices/tianji/driver.py": "adf657295c68bdbf7587c1fe99f648ae365f81aa9ca8c87e6d189a506672eab7",
+    "bimanual_teleop/control/arm/quest.py": "2d37a82b37e3d550197e353ab055400e8652026427cb23d5ce94451a1f518953",
+    "bimanual_teleop/control/arm/mapping.py": "dc60c6c6af656024b013111bfe37efffae0e29c1110408f3bb6c2374f22217d2",
+    "bimanual_teleop/control/arm/servo.py": "7803056ec9ae2c4dde8b35dcf987a23187a911d06a2a4fd8722e7ebd702c00e0",
+    "bimanual_teleop/cli/teleop_quest_tianji.py": "ddc5511df6c29744d718bcb55edac86b81062ce95eb7160d4ee22319a0a19c2f",
+    "configs/wuji_teleop.yaml": "1b38dd696d0b370da96de23aa14fb1a0599e64b22d050cdb98b3e318e060122f",
+    "configs/tianji_teleop.yaml": "7351931ec604c1e9fba47c3733e695b8d6ea172a55d48ee962b4ef8c16a87d42"
+  },
+  "final_source_sha256": {
+    "bimanual_teleop/control/hand/process.py": "44eea59d506a373704469ceb99f131b8dd8a33db45dda1526ddf95e0915fbb9b",
+    "bimanual_teleop/control/hand/follow.py": "9dcd08a20c12409eb3dfbe977d1f71efb108681ad7d841e29d5204405d36b6e6",
+    "bimanual_teleop/devices/wuji/adapter.py": "66015d22060e6950af036c5cae8a01fafc094103b057a13a1c2707309f6d512f",
+    "bimanual_teleop/devices/tianji/driver.py": "eef7dcd81fed01457e3aabae4ec631bbe03a3bd037d94de521d1831c5c10658a",
+    "bimanual_teleop/control/arm/quest.py": "ef6c199adda9b060ec2b4d8aedf2ac219a8546e4eba1cf7b58e37df4e430e56d",
+    "bimanual_teleop/control/arm/mapping.py": "1458fee305aafd50c40737675117e71d1bd42caeb4d883ce7b6d1a8f4763b9c4",
+    "bimanual_teleop/control/arm/servo.py": "7803056ec9ae2c4dde8b35dcf987a23187a911d06a2a4fd8722e7ebd702c00e0",
+    "bimanual_teleop/cli/teleop_quest_tianji.py": "49d5fa380e19cc7cc0923e3f6b9392f73f348cd8d1f3eed7b012cb0834910ad7",
+    "docs/experiments/passive_control_load.py": "54604b28750552b3d219927a3cfe5a544ee7b825a8656504b0c00085312331c1",
+    "configs/wuji_teleop.yaml": "1b38dd696d0b370da96de23aa14fb1a0599e64b22d050cdb98b3e318e060122f",
+    "configs/tianji_teleop.yaml": "7351931ec604c1e9fba47c3733e695b8d6ea172a55d48ee962b4ef8c16a87d42"
+  },
+  "cases": [
+    {
+      "case": "before-hands-45",
+      "raw_path": "/tmp/teleop-passive-before-hands-45.json",
+      "raw_sha256": "e36205bba6f98b3a7b15969bee10877c6f33acd5762c8e4e29e292c07e908cdc",
+      "result": {
+        "mode": "hands",
+        "motion_enabled": false,
+        "source_root": "/tmp/teleop-timeout-baseline-20260915",
+        "duration_s": 45.00255725100578,
+        "pairs": 7865,
+        "wall_ms": {
+          "p50": 4.222637,
+          "p99": 11.216615599999992,
+          "max": 45.059247
+        },
+        "cpu_ms": {
+          "p50": 2.225286,
+          "p99": 4.813957799999998,
+          "max": 6.789467
+        },
+        "gap_ms": {
+          "p50": 5.149081000126898,
+          "p99": 11.420794317091316,
+          "max": 45.12589399382705
+        },
+        "over50": 0,
+        "over20": 6,
+        "previous_creation_to_completion_ms": {
+          "p50": 9.455032501338366,
+          "p99": 22.05850458355066,
+          "max": 47.07111699382705
+        },
+        "simulated_old_deadline_misses": 0,
+        "worst_cycles": [
+          {
+            "index": 0,
+            "wall_ms": 45.059247,
+            "cpu_ms": 3.15482,
+            "gap_ms": 5.0
+          },
+          {
+            "index": 1,
+            "wall_ms": 1.945223,
+            "cpu_ms": 1.46285,
+            "gap_ms": 45.12589399382705
+          },
+          {
+            "index": 4320,
+            "wall_ms": 23.423324,
+            "cpu_ms": 5.989804,
+            "gap_ms": 22.8151799965417
+          },
+          {
+            "index": 4321,
+            "wall_ms": 21.181239,
+            "cpu_ms": 6.46159,
+            "gap_ms": 24.909011997806374
+          },
+          {
+            "index": 4328,
+            "wall_ms": 22.214566,
+            "cpu_ms": 6.48898,
+            "gap_ms": 20.545400002447423
+          },
+          {
+            "index": 4319,
+            "wall_ms": 22.700649,
+            "cpu_ms": 6.430903,
+            "gap_ms": 19.465825003862847
+          },
+          {
+            "index": 4322,
+            "wall_ms": 19.35442,
+            "cpu_ms": 5.234759,
+            "gap_ms": 21.287419003783725
+          },
+          {
+            "index": 4325,
+            "wall_ms": 18.54728,
+            "cpu_ms": 5.737482,
+            "gap_ms": 19.626622000942007
+          },
+          {
+            "index": 4327,
+            "wall_ms": 20.422062,
+            "cpu_ms": 6.44517,
+            "gap_ms": 14.557055998011492
+          },
+          {
+            "index": 4643,
+            "wall_ms": 17.293424,
+            "cpu_ms": 5.580748,
+            "gap_ms": 17.676840005151462
+          },
+          {
+            "index": 4642,
+            "wall_ms": 17.576045,
+            "cpu_ms": 5.504616,
+            "gap_ms": 17.103386999224313
+          },
+          {
+            "index": 4324,
+            "wall_ms": 19.493449,
+            "cpu_ms": 6.789467,
+            "gap_ms": 14.5935320033459
+          }
+        ],
+        "hands": {
+          "state": "engaged",
+          "motion_enabled": false,
+          "mode": "preview",
+          "health": {
+            "ready": true,
+            "observed_monotonic_ns": 40728426133904,
+            "detail": "preview"
+          },
+          "last_error": null,
+          "cycles": 5398,
+          "control_hz_actual": 119.8217459481205,
+          "last_compute_ns": 2092912,
+          "missed_periods": 8,
+          "worker_completed_monotonic_ns": 40728414717798,
+          "worker_age_ns": 11448318,
+          "sdk_checked_monotonic_ns": 40728422471243,
+          "sdk_check_age_ns": 3695842,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 40728422435929,
+            "detail": null
+          },
+          "gloves": {
+            "left": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 40728426203965,
+                "detail": null
+              },
+              "statistics": {
+                "emf": {
+                  "count": 5921,
+                  "source_gaps": 0,
+                  "observed_hz": 120.07769922286514
+                },
+                "skeleton": {
+                  "count": 5918,
+                  "source_gaps": 0,
+                  "observed_hz": 120.0175332468302
+                }
+              }
+            },
+            "right": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 40728426216934,
+                "detail": null
+              },
+              "statistics": {
+                "emf": {
+                  "count": 5542,
+                  "source_gaps": 0,
+                  "observed_hz": 120.09265656783602
+                },
+                "skeleton": {
+                  "count": 5539,
+                  "source_gaps": 0,
+                  "observed_hz": 120.02509468815101
+                }
+              }
+            }
+          },
+          "hands": {
+            "left": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 40728426230064,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 46146,
+                  "source_gaps": 1,
+                  "observed_hz": 999.118782862963
+                },
+                "diagnostics": {
+                  "count": 46143,
+                  "source_gaps": 1,
+                  "observed_hz": 999.0564729184531
+                }
+              },
+              "last_target": null
+            },
+            "right": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 40728426240330,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 45082,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.0951275683908
+                },
+                "diagnostics": {
+                  "count": 45082,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.0953637660809
+                }
+              },
+              "last_target": null
+            }
+          }
+        },
+        "stages": {
+          "left_glove": {
+            "calls": 11841,
+            "wall_total_ms": 2199.519837,
+            "cpu_total_ms": 1111.351399,
+            "max_wall_ms": 1049.98463
+          },
+          "left_hand": {
+            "calls": 92301,
+            "wall_total_ms": 5758.083897,
+            "cpu_total_ms": 5773.735971,
+            "max_wall_ms": 13.763849
+          },
+          "left_retarget": {
+            "calls": 5395,
+            "wall_total_ms": 5092.873694,
+            "cpu_total_ms": 3167.565168,
+            "max_wall_ms": 19.661791
+          },
+          "right_glove": {
+            "calls": 11083,
+            "wall_total_ms": 1051.985722,
+            "cpu_total_ms": 1056.861799,
+            "max_wall_ms": 0.232475
+          },
+          "right_hand": {
+            "calls": 90176,
+            "wall_total_ms": 5629.13788,
+            "cpu_total_ms": 5676.720662,
+            "max_wall_ms": 0.740068
+          },
+          "right_retarget": {
+            "calls": 5392,
+            "wall_total_ms": 4920.134591,
+            "cpu_total_ms": 2900.258966,
+            "max_wall_ms": 12.649289
+          },
+          "check_session": {
+            "calls": 5402,
+            "wall_total_ms": 548.185391,
+            "cpu_total_ms": 553.258142,
+            "max_wall_ms": 0.22445
+          }
+        }
+      }
+    },
+    {
+      "case": "cleanup-hands-45",
+      "raw_path": "/tmp/teleop-passive-cleanup-hands-45.json",
+      "raw_sha256": "984b95f1f945f647102054210e911810e6a36c025adafdaead471c06747b6ad0",
+      "result": {
+        "mode": "hands",
+        "motion_enabled": false,
+        "source_root": "/home/yuchen/project/bimanual-teleop",
+        "duration_s": 45.00570426899503,
+        "pairs": 8072,
+        "wall_ms": {
+          "p50": 4.0007265,
+          "p99": 10.87960047,
+          "max": 70.502592
+        },
+        "cpu_ms": {
+          "p50": 2.311609,
+          "p99": 5.2046088,
+          "max": 6.029791
+        },
+        "gap_ms": {
+          "p50": 5.07767750241328,
+          "p99": 11.101872020080915,
+          "max": 70.59175399626838
+        },
+        "over50": 1,
+        "over20": 6,
+        "previous_creation_to_completion_ms": {
+          "p50": 9.133339000016313,
+          "p99": 21.371210799773376,
+          "max": 109.28625300252607
+        },
+        "simulated_old_deadline_misses": 4,
+        "worst_cycles": [
+          {
+            "index": 3553,
+            "wall_ms": 70.502592,
+            "cpu_ms": 5.787517,
+            "gap_ms": 38.78366100252606
+          },
+          {
+            "index": 3554,
+            "wall_ms": 7.341603,
+            "cpu_ms": 3.384029,
+            "gap_ms": 70.59175399626838
+          },
+          {
+            "index": 1927,
+            "wall_ms": 25.941883,
+            "cpu_ms": 4.00915,
+            "gap_ms": 26.424538998981006
+          },
+          {
+            "index": 3552,
+            "wall_ms": 38.674859,
+            "cpu_ms": 5.730881,
+            "gap_ms": 12.07691700255964
+          },
+          {
+            "index": 2242,
+            "wall_ms": 23.534237,
+            "cpu_ms": 3.95346,
+            "gap_ms": 25.142104997939896
+          },
+          {
+            "index": 0,
+            "wall_ms": 40.121283,
+            "cpu_ms": 4.337693,
+            "gap_ms": 5.0
+          },
+          {
+            "index": 1,
+            "wall_ms": 4.904137,
+            "cpu_ms": 2.468706,
+            "gap_ms": 40.195671004767064
+          },
+          {
+            "index": 2241,
+            "wall_ms": 25.072361,
+            "cpu_ms": 3.584814,
+            "gap_ms": 13.786317002086435
+          },
+          {
+            "index": 2243,
+            "wall_ms": 13.146996,
+            "cpu_ms": 3.119535,
+            "gap_ms": 23.607827999512665
+          },
+          {
+            "index": 3541,
+            "wall_ms": 19.443188,
+            "cpu_ms": 5.372614,
+            "gap_ms": 15.41112599807093
+          },
+          {
+            "index": 1928,
+            "wall_ms": 7.94596,
+            "cpu_ms": 2.711996,
+            "gap_ms": 26.01660000073025
+          },
+          {
+            "index": 7197,
+            "wall_ms": 17.224036,
+            "cpu_ms": 4.287963,
+            "gap_ms": 13.455929998599458
+          }
+        ],
+        "hands": {
+          "state": "engaged",
+          "motion_enabled": false,
+          "mode": "preview",
+          "health": {
+            "ready": true,
+            "observed_monotonic_ns": 40874803128068,
+            "detail": "preview"
+          },
+          "last_error": null,
+          "cycles": 5380,
+          "control_hz_actual": 119.4207032018094,
+          "last_compute_ns": 1957707,
+          "missed_periods": 26,
+          "worker_completed_monotonic_ns": 40874795466603,
+          "worker_age_ns": 7691764,
+          "gloves": {
+            "left": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 40874803161298,
+                "detail": null
+              },
+              "statistics": {
+                "skeleton": {
+                  "count": 5917,
+                  "source_gaps": 0,
+                  "observed_hz": 128.06740691340335
+                }
+              }
+            },
+            "right": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 40874803175995,
+                "detail": null
+              },
+              "statistics": {
+                "skeleton": {
+                  "count": 5539,
+                  "source_gaps": 0,
+                  "observed_hz": 120.03897570862631
+                }
+              }
+            }
+          },
+          "hands": {
+            "left": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 40874803187987,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 46151,
+                  "source_gaps": 1,
+                  "observed_hz": 999.3247167922593
+                },
+                "diagnostics": {
+                  "count": 46136,
+                  "source_gaps": 1,
+                  "observed_hz": 999.0030518607136
+                }
+              },
+              "last_target": null
+            },
+            "right": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 40874803198066,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 45081,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.0893423646636
+                },
+                "diagnostics": {
+                  "count": 45081,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.0931366239334
+                }
+              },
+              "last_target": null
+            }
+          }
+        },
+        "stages": {
+          "left_glove": {
+            "calls": 5917,
+            "wall_total_ms": 642.991547,
+            "cpu_total_ms": 636.173946,
+            "max_wall_ms": 7.59947
+          },
+          "left_hand": {
+            "calls": 92299,
+            "wall_total_ms": 5734.562738,
+            "cpu_total_ms": 5734.55038,
+            "max_wall_ms": 14.075039
+          },
+          "left_retarget": {
+            "calls": 5372,
+            "wall_total_ms": 5468.516502,
+            "cpu_total_ms": 3443.119977,
+            "max_wall_ms": 12.849329
+          },
+          "right_glove": {
+            "calls": 5540,
+            "wall_total_ms": 603.321328,
+            "cpu_total_ms": 601.009705,
+            "max_wall_ms": 5.190715
+          },
+          "right_hand": {
+            "calls": 90176,
+            "wall_total_ms": 5619.944688,
+            "cpu_total_ms": 5646.834864,
+            "max_wall_ms": 15.124001
+          },
+          "right_retarget": {
+            "calls": 4169,
+            "wall_total_ms": 4034.983446,
+            "cpu_total_ms": 2454.498665,
+            "max_wall_ms": 13.346975
+          },
+          "check_session": {
+            "calls": 3,
+            "wall_total_ms": 0.238627,
+            "cpu_total_ms": 0.240658,
+            "max_wall_ms": 0.111006
+          }
+        }
+      }
+    },
+    {
+      "case": "process-hands-60",
+      "raw_path": "/tmp/teleop-passive-process-hands-60.json",
+      "raw_sha256": "c6611417b21de1d8603fd3f63d4864eaf2432eb993afa1d3d98533aa46248dfa",
+      "result": {
+        "mode": "hands-process",
+        "motion_enabled": false,
+        "source_root": "/home/yuchen/project/bimanual-teleop",
+        "duration_s": 60.0005019819946,
+        "pairs": 12000,
+        "wall_ms": {
+          "p50": 1.96672,
+          "p99": 4.26405969,
+          "max": 5.089461
+        },
+        "cpu_ms": {
+          "p50": 1.9662885,
+          "p99": 4.265194800000001,
+          "max": 4.99924
+        },
+        "gap_ms": {
+          "p50": 5.000465000193799,
+          "p99": 5.168975759370369,
+          "max": 5.338927003322169
+        },
+        "over50": 0,
+        "over20": 0,
+        "previous_creation_to_completion_ms": {
+          "p50": 6.973011003848631,
+          "p99": 9.300187024968249,
+          "max": 10.065321007107258
+        },
+        "simulated_old_deadline_misses": 0,
+        "worst_cycles": [
+          {
+            "index": 1416,
+            "wall_ms": 5.089461,
+            "cpu_ms": 2.960218,
+            "gap_ms": 4.975860007107258
+          },
+          {
+            "index": 4265,
+            "wall_ms": 4.677417,
+            "cpu_ms": 4.680797,
+            "gap_ms": 5.177139006264042
+          },
+          {
+            "index": 1,
+            "wall_ms": 4.995135,
+            "cpu_ms": 4.99924,
+            "gap_ms": 4.85296099941479
+          },
+          {
+            "index": 5482,
+            "wall_ms": 4.657795,
+            "cpu_ms": 4.660649,
+            "gap_ms": 5.169821000890806
+          },
+          {
+            "index": 4379,
+            "wall_ms": 4.628441,
+            "cpu_ms": 4.631167,
+            "gap_ms": 5.198924998694565
+          },
+          {
+            "index": 5040,
+            "wall_ms": 4.800718,
+            "cpu_ms": 4.804561,
+            "gap_ms": 5.0232840003445745
+          },
+          {
+            "index": 5042,
+            "wall_ms": 4.571719,
+            "cpu_ms": 4.575207,
+            "gap_ms": 5.239898004219867
+          },
+          {
+            "index": 11317,
+            "wall_ms": 4.561223,
+            "cpu_ms": 4.549384,
+            "gap_ms": 5.204907000006642
+          },
+          {
+            "index": 5571,
+            "wall_ms": 4.557817,
+            "cpu_ms": 4.561054,
+            "gap_ms": 5.199881001317408
+          },
+          {
+            "index": 4176,
+            "wall_ms": 4.50337,
+            "cpu_ms": 4.505748,
+            "gap_ms": 5.223779000516515
+          },
+          {
+            "index": 6004,
+            "wall_ms": 4.559943,
+            "cpu_ms": 4.562784,
+            "gap_ms": 5.147960000613239
+          },
+          {
+            "index": 4269,
+            "wall_ms": 4.526012,
+            "cpu_ms": 4.529108,
+            "gap_ms": 5.1727559985010885
+          }
+        ],
+        "hands": {
+          "state": "engaged",
+          "motion_enabled": false,
+          "mode": "preview",
+          "health": {
+            "ready": true,
+            "observed_monotonic_ns": 41211636329061,
+            "detail": "preview"
+          },
+          "last_error": null,
+          "cycles": 7213,
+          "control_hz_actual": 119.9997649681808,
+          "last_compute_ns": 1340616,
+          "missed_periods": 0,
+          "worker_completed_monotonic_ns": 41211619233216,
+          "worker_age_ns": 3166119,
+          "gloves": {
+            "left": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41211622402038,
+                "detail": null
+              },
+              "statistics": {
+                "skeleton": {
+                  "count": 7724,
+                  "source_gaps": 0,
+                  "observed_hz": 126.09054151592812
+                }
+              }
+            },
+            "right": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41211622418598,
+                "detail": null
+              },
+              "statistics": {
+                "skeleton": {
+                  "count": 7343,
+                  "source_gaps": 0,
+                  "observed_hz": 120.01609870643647
+                }
+              }
+            }
+          },
+          "hands": {
+            "left": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41211622434007,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 61209,
+                  "source_gaps": 1,
+                  "observed_hz": 999.5319952060644
+                },
+                "diagnostics": {
+                  "count": 61205,
+                  "source_gaps": 1,
+                  "observed_hz": 999.47211055747
+                }
+              },
+              "last_target": null
+            },
+            "right": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41211622448733,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 60119,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.0760322118094
+                },
+                "diagnostics": {
+                  "count": 60119,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.078962454012
+                }
+              },
+              "last_target": null
+            }
+          }
+        },
+        "stages": {}
+      }
+    },
+    {
+      "case": "before-all-60",
+      "raw_path": "/tmp/teleop-passive-before-all-60.json",
+      "raw_sha256": "c36c09f8534eaac21e690a7c63572ce2115593a95746bce98225d5f45dbb93eb",
+      "result": {
+        "mode": "all",
+        "motion_enabled": false,
+        "source_root": "/tmp/teleop-timeout-baseline-20260915",
+        "duration_s": 60.00506131900329,
+        "pairs": 8346,
+        "wall_ms": {
+          "p50": 6.1216885,
+          "p99": 18.551345849999937,
+          "max": 39.240591
+        },
+        "cpu_ms": {
+          "p50": 2.3756105,
+          "p99": 4.94740214999999,
+          "max": 6.922858
+        },
+        "gap_ms": {
+          "p50": 6.2841560029482935,
+          "p99": 18.883192798966768,
+          "max": 39.34188900166191
+        },
+        "over50": 0,
+        "over20": 60,
+        "previous_creation_to_completion_ms": {
+          "p50": 12.574058003381543,
+          "p99": 36.597276838287755,
+          "max": 69.46836899545521
+        },
+        "simulated_old_deadline_misses": 7,
+        "worst_cycles": [
+          {
+            "index": 747,
+            "wall_ms": 32.336505,
+            "cpu_ms": 5.646839,
+            "gap_ms": 37.131863995455205
+          },
+          {
+            "index": 6336,
+            "wall_ms": 26.934373,
+            "cpu_ms": 5.689302,
+            "gap_ms": 29.32594099547714
+          },
+          {
+            "index": 5430,
+            "wall_ms": 39.240591,
+            "cpu_ms": 6.922858,
+            "gap_ms": 16.116914004669525
+          },
+          {
+            "index": 5472,
+            "wall_ms": 31.35892,
+            "cpu_ms": 5.787179,
+            "gap_ms": 23.0650519952178
+          },
+          {
+            "index": 5431,
+            "wall_ms": 14.961467,
+            "cpu_ms": 5.349971,
+            "gap_ms": 39.34188900166191
+          },
+          {
+            "index": 746,
+            "wall_ms": 37.018307,
+            "cpu_ms": 6.464676,
+            "gap_ms": 17.079843004466966
+          },
+          {
+            "index": 1871,
+            "wall_ms": 24.390414,
+            "cpu_ms": 4.892485,
+            "gap_ms": 29.493110996554606
+          },
+          {
+            "index": 5475,
+            "wall_ms": 25.259764,
+            "cpu_ms": 4.935159,
+            "gap_ms": 24.601055003586225
+          },
+          {
+            "index": 5476,
+            "wall_ms": 23.852251,
+            "cpu_ms": 5.329212,
+            "gap_ms": 25.361877000250388
+          },
+          {
+            "index": 2008,
+            "wall_ms": 20.592115,
+            "cpu_ms": 5.691338,
+            "gap_ms": 28.607758002181072
+          },
+          {
+            "index": 748,
+            "wall_ms": 16.307831,
+            "cpu_ms": 5.029547,
+            "gap_ms": 32.429253005830105
+          },
+          {
+            "index": 115,
+            "wall_ms": 27.534279,
+            "cpu_ms": 5.339818,
+            "gap_ms": 20.86937899730401
+          }
+        ],
+        "tianji": {
+          "health": "Health(ready=True, observed_monotonic_ns=41460164960112, detail=None)",
+          "metadata": {
+            "host_watchdog_s": 0.05,
+            "sdk_version": 100343014,
+            "controller_version": 100343009,
+            "queue_overflow": "Native feedback queue overflow",
+            "problem": null
+          }
+        },
+        "hands": {
+          "state": "engaged",
+          "motion_enabled": false,
+          "mode": "preview",
+          "health": {
+            "ready": true,
+            "observed_monotonic_ns": 41460165079517,
+            "detail": "preview"
+          },
+          "last_error": null,
+          "cycles": 7146,
+          "control_hz_actual": 118.75251256601405,
+          "last_compute_ns": 4400574,
+          "missed_periods": 75,
+          "worker_completed_monotonic_ns": 41460160840571,
+          "worker_age_ns": 4262785,
+          "sdk_checked_monotonic_ns": 41460156587320,
+          "sdk_check_age_ns": 8516744,
+          "session_health": {
+            "ready": true,
+            "observed_monotonic_ns": 41460156551558,
+            "detail": null
+          },
+          "gloves": {
+            "left": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41460165114378,
+                "detail": null
+              },
+              "statistics": {
+                "emf": {
+                  "count": 7746,
+                  "source_gaps": 0,
+                  "observed_hz": 120.04974263333554
+                },
+                "skeleton": {
+                  "count": 7742,
+                  "source_gaps": 1,
+                  "observed_hz": 119.98818573041777
+                }
+              }
+            },
+            "right": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41460165125405,
+                "detail": null
+              },
+              "statistics": {
+                "emf": {
+                  "count": 7366,
+                  "source_gaps": 0,
+                  "observed_hz": 120.0638712623023
+                },
+                "skeleton": {
+                  "count": 7363,
+                  "source_gaps": 0,
+                  "observed_hz": 120.01522519406775
+                }
+              }
+            }
+          },
+          "hands": {
+            "left": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41460165139893,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 61356,
+                  "source_gaps": 1,
+                  "observed_hz": 999.4535718624288
+                },
+                "diagnostics": {
+                  "count": 61345,
+                  "source_gaps": 1,
+                  "observed_hz": 999.277409561324
+                }
+              },
+              "last_target": null
+            },
+            "right": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41460165150029,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 60233,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.0701966691577
+                },
+                "diagnostics": {
+                  "count": 60233,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.072935472602
+                }
+              },
+              "last_target": null
+            }
+          }
+        },
+        "stages": {
+          "tianji_drain": {
+            "calls": 18506,
+            "wall_total_ms": 10741.402546,
+            "cpu_total_ms": 7850.864911,
+            "max_wall_ms": 58.556551
+          },
+          "left_glove": {
+            "calls": 15488,
+            "wall_total_ms": 2738.98346,
+            "cpu_total_ms": 1459.081572,
+            "max_wall_ms": 1070.278757
+          },
+          "left_hand": {
+            "calls": 122711,
+            "wall_total_ms": 7428.142931,
+            "cpu_total_ms": 7373.761366,
+            "max_wall_ms": 28.243336
+          },
+          "left_retarget": {
+            "calls": 7131,
+            "wall_total_ms": 8466.594545,
+            "cpu_total_ms": 4211.4353,
+            "max_wall_ms": 16.65666
+          },
+          "right_glove": {
+            "calls": 14729,
+            "wall_total_ms": 1390.491813,
+            "cpu_total_ms": 1362.400651,
+            "max_wall_ms": 29.939549
+          },
+          "right_hand": {
+            "calls": 120480,
+            "wall_total_ms": 7238.420934,
+            "cpu_total_ms": 7293.184298,
+            "max_wall_ms": 5.240752
+          },
+          "right_retarget": {
+            "calls": 7034,
+            "wall_total_ms": 8491.636688,
+            "cpu_total_ms": 3854.010826,
+            "max_wall_ms": 45.054074
+          },
+          "check_session": {
+            "calls": 7149,
+            "wall_total_ms": 731.468075,
+            "cpu_total_ms": 738.505362,
+            "max_wall_ms": 0.229991
+          }
+        }
+      }
+    },
+    {
+      "case": "process-all-180",
+      "raw_path": "/tmp/teleop-passive-process-all-180.json",
+      "raw_sha256": "14cc71fb68e71eedec4016dc6251a37db84825fbe6f80710f0e978e3c8340d40",
+      "result": {
+        "mode": "all-process",
+        "motion_enabled": false,
+        "source_root": "/home/yuchen/project/bimanual-teleop",
+        "duration_s": 180.00494044899824,
+        "pairs": 35974,
+        "wall_ms": {
+          "p50": 2.1968755,
+          "p99": 4.557785559999995,
+          "max": 10.271655
+        },
+        "cpu_ms": {
+          "p50": 1.947456,
+          "p99": 4.01036844999999,
+          "max": 5.759925
+        },
+        "gap_ms": {
+          "p50": 5.00029900285881,
+          "p99": 5.368774830276379,
+          "max": 10.79241800471209
+        },
+        "over50": 0,
+        "over20": 0,
+        "previous_creation_to_completion_ms": {
+          "p50": 7.207186999349263,
+          "p99": 9.654147077263808,
+          "max": 17.380480997090025
+        },
+        "simulated_old_deadline_misses": 0,
+        "worst_cycles": [
+          {
+            "index": 15828,
+            "wall_ms": 6.830166,
+            "cpu_ms": 4.939355,
+            "gap_ms": 10.550314997090027
+          },
+          {
+            "index": 15814,
+            "wall_ms": 5.887525,
+            "cpu_ms": 5.192436,
+            "gap_ms": 10.79241800471209
+          },
+          {
+            "index": 15827,
+            "wall_ms": 10.271655,
+            "cpu_ms": 5.471167,
+            "gap_ms": 6.143657999928109
+          },
+          {
+            "index": 15770,
+            "wall_ms": 5.301073,
+            "cpu_ms": 4.772441,
+            "gap_ms": 10.084837005706504
+          },
+          {
+            "index": 15769,
+            "wall_ms": 9.397556,
+            "cpu_ms": 5.212771,
+            "gap_ms": 5.5854689999250695
+          },
+          {
+            "index": 15813,
+            "wall_ms": 9.324674,
+            "cpu_ms": 5.759925,
+            "gap_ms": 5.24013699759962
+          },
+          {
+            "index": 15766,
+            "wall_ms": 7.415524,
+            "cpu_ms": 5.651473,
+            "gap_ms": 7.14134999725502
+          },
+          {
+            "index": 15762,
+            "wall_ms": 6.303262,
+            "cpu_ms": 5.261867,
+            "gap_ms": 7.644037003046833
+          },
+          {
+            "index": 15829,
+            "wall_ms": 6.647978,
+            "cpu_ms": 4.70273,
+            "gap_ms": 6.941984000150114
+          },
+          {
+            "index": 15763,
+            "wall_ms": 6.674462,
+            "cpu_ms": 4.60348,
+            "gap_ms": 6.425715997465886
+          },
+          {
+            "index": 15831,
+            "wall_ms": 7.693203,
+            "cpu_ms": 5.125907,
+            "gap_ms": 5.371842002205085
+          },
+          {
+            "index": 15819,
+            "wall_ms": 6.109699,
+            "cpu_ms": 4.426695,
+            "gap_ms": 6.854369996290188
+          }
+        ],
+        "tianji": {
+          "health": "Health(ready=True, observed_monotonic_ns=41824183461486, detail=None)",
+          "metadata": {
+            "host_watchdog_s": 0.05,
+            "sdk_version": 100343014,
+            "controller_version": 100343009,
+            "queue_overflow": null,
+            "problem": null
+          }
+        },
+        "hands": {
+          "state": "engaged",
+          "motion_enabled": false,
+          "mode": "preview",
+          "health": {
+            "ready": true,
+            "observed_monotonic_ns": 41824183693441,
+            "detail": "preview"
+          },
+          "last_error": null,
+          "cycles": 21611,
+          "control_hz_actual": 119.99984660210262,
+          "last_compute_ns": 1006717,
+          "missed_periods": 0,
+          "worker_completed_monotonic_ns": 41824170509782,
+          "worker_age_ns": 5592111,
+          "gloves": {
+            "left": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41824176104417,
+                "detail": null
+              },
+              "statistics": {
+                "skeleton": {
+                  "count": 22124,
+                  "source_gaps": 0,
+                  "observed_hz": 122.05094446536654
+                }
+              }
+            },
+            "right": {
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41824176118642,
+                "detail": null
+              },
+              "statistics": {
+                "skeleton": {
+                  "count": 21745,
+                  "source_gaps": 0,
+                  "observed_hz": 120.0095002017246
+                }
+              }
+            }
+          },
+          "hands": {
+            "left": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41824176132544,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 181225,
+                  "source_gaps": 1,
+                  "observed_hz": 999.8563811720842
+                },
+                "diagnostics": {
+                  "count": 181208,
+                  "source_gaps": 1,
+                  "observed_hz": 999.7639778307921
+                }
+              },
+              "last_target": null
+            },
+            "right": {
+              "enabled": false,
+              "health": {
+                "ready": true,
+                "observed_monotonic_ns": 41824176145663,
+                "detail": null
+              },
+              "statistics": {
+                "joints": {
+                  "count": 180126,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.0915545188672
+                },
+                "diagnostics": {
+                  "count": 180126,
+                  "source_gaps": 0,
+                  "observed_hz": 1000.0955810154959
+                }
+              },
+              "last_target": null
+            }
+          }
+        },
+        "stages": {
+          "tianji_drain": {
+            "calls": 74564,
+            "wall_total_ms": 22874.753591,
+            "cpu_total_ms": 20030.76849,
+            "max_wall_ms": 5.785121
+          }
+        }
+      }
+    }
+  ],
+  "validation": {
+    "unittest": {
+      "passed": 544,
+      "duration_s": 46.692,
+      "command": "conda run --no-capture-output -n bimanual-teleop python -m unittest discover -s tests -q"
+    },
+    "native_ctest": {
+      "passed": 1,
+      "total": 1
+    },
+    "git_diff_check": "passed",
+    "real_hand_lifecycle_smoke": {
+      "motion_enabled": false,
+      "parent_imported_wuji_sdk": false,
+      "cycles": [
+        {
+          "iteration": 0,
+          "follow_ack_ms": 0.583911,
+          "child_pause_confirmed": true,
+          "hand_enabled": false
+        },
+        {
+          "iteration": 1,
+          "follow_ack_ms": 0.394963,
+          "child_pause_confirmed": true,
+          "hand_enabled": false
+        }
+      ],
+      "closed": true
+    },
+    "lifecycle_sdk_stderr": "At shutdown SDK logged Received Data for unknown expr_id: 1; script returned 0 and child closed; not classified as a control timeout."
+  }
+}

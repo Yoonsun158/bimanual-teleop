@@ -1,65 +1,38 @@
 """Gesture geometry and sample-driven commands without SDK/device access."""
 
 from dataclasses import replace
-import json
 import math
-from pathlib import Path
 import unittest
 from unittest.mock import patch
 
 from bimanual_teleop.devices.wuji.adapter import SKELETON_NAMES
-from bimanual_teleop.control.hand.gesture import GestureCommands, rock_gesture, v_gesture
-from bimanual_teleop.types import HandSkeleton, Sample, SampleHeader, SampleRef
+from bimanual_teleop.control.hand.gesture import GestureCommands, classify_gestures
 
 
-def skeleton(bends=(90, 0, 140, 140, 0), *, mcp=(0,) * 5):
-    points = [(0., 0., 0.)]
-    for finger, bend in enumerate(bends):
-        point = (.02 * (finger - 2), .025, 0.)
-        points.append(point)
-        length = math.hypot(point[0], point[1])
-        axis = (point[0] / length, point[1] / length)
-        for angle in (0, bend / 2, bend):
-            angle = math.radians(angle + mcp[finger])
-            point = (point[0] + .02 * math.cos(angle) * axis[0],
-                     point[1] + .02 * math.cos(angle) * axis[1], point[2] + .02 * math.sin(angle))
-            points.append(point)
-    return HandSkeleton("l_wrist", SKELETON_NAMES, tuple(points), (1.,) * 21, ())
-
-
-ROCK = skeleton()
-V = skeleton((90, 0, 0, 140, 140))
-OPEN = skeleton((0,) * 5)
-
-
-def frame(side, pose, now, sequence, *, valid=True, epoch="test"):
-    return Sample(SampleHeader(SampleRef(f"{side}/skeleton", epoch, sequence), now,
-                              valid, source_sequence=sequence), pose)
-
-
-def recorded_pose(name):
-    fixture = json.loads((Path(__file__).parent / "fixtures/wuji_gestures.json").read_text())[name]
-    p = fixture["sample"]["payload"]
-    return HandSkeleton(p["frame"], tuple(p["joint_names"]), tuple(map(tuple, p["positions_m"])),
-                        tuple(p["confidences"]), ())
+from tests.support.gesture import skeleton, ROCK, V, OPEN, frame, recorded_pose
 
 
 class GeometryTests(unittest.TestCase):
+    def test_open_palms_require_all_fingers_extended(self):
+        self.assertIs(classify_gestures(OPEN)[2], True)
+        for pose in (ROCK, V, skeleton((140,)*5), skeleton((0,)*5, mcp=(0, 90, 0, 0, 0))):
+            self.assertIsNot(classify_gestures(pose)[2], True)
+        self.assertIsNone(classify_gestures(replace(OPEN, confidences=(0.,)*21))[2])
     def test_recorded_v_and_rock_samples(self):
         for name in ("v_left_early", "v_right_early", "v_left_later", "v_right_later"):
             with self.subTest(name=name):
-                self.assertIs(v_gesture(recorded_pose(name)), True)
-                self.assertIsNot(rock_gesture(recorded_pose(name)), True)
+                self.assertIs(classify_gestures(recorded_pose(name))[1], True)
+                self.assertIsNot(classify_gestures(recorded_pose(name))[0], True)
         for name in ("rock_left_recorded", "rock_right_recorded"):
-            self.assertIs(rock_gesture(recorded_pose(name)), True)
-            self.assertIs(v_gesture(recorded_pose(name)), False)
+            self.assertIs(classify_gestures(recorded_pose(name))[0], True)
+            self.assertIs(classify_gestures(recorded_pose(name))[1], False)
         # The operator reported V throughout; these frames do not establish it.
         for name in ("low_extension_left", "low_extension_right"):
-            self.assertIsNot(v_gesture(recorded_pose(name)), True)
+            self.assertIsNot(classify_gestures(recorded_pose(name))[1], True)
 
     def test_v_accounts_for_mcp_flexion_even_when_distal_joints_are_straight(self):
-        self.assertIs(v_gesture(skeleton((90, 0, 0, 0, 0), mcp=(0, 0, 0, 90, 90))), True)
-        self.assertIs(v_gesture(skeleton((90, 0, 0, 140, 140), mcp=(0, 90, 90, 0, 0))), False)
+        self.assertIs(classify_gestures(skeleton((90, 0, 0, 0, 0), mcp=(0, 0, 0, 90, 90)))[1], True)
+        self.assertIs(classify_gestures(skeleton((90, 0, 0, 140, 140), mcp=(0, 90, 90, 0, 0)))[1], False)
 
     def test_rock_wins_when_distal_angles_and_projection_disagree(self):
         pose = skeleton((90, 0, 80, 140, 0), mcp=(0, 0, 0, 0, 90))
@@ -71,8 +44,8 @@ class GeometryTests(unittest.TestCase):
             point = (point[0], point[1] + .02 * math.cos(angle), point[2] + .02 * math.sin(angle))
             points[joint] = point
         pose = replace(pose, positions_m=tuple(points))
-        self.assertIs(rock_gesture(pose), True)
-        self.assertIs(v_gesture(pose), False)
+        self.assertIs(classify_gestures(pose)[0], True)
+        self.assertIs(classify_gestures(pose)[1], False)
         samples = {s: None for s in ("left", "right")}
         commands = GestureCommands({s: lambda s=s: samples[s] for s in samples})
         actions = []
@@ -85,32 +58,32 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(actions, [("pause", ("left", "right"))])
 
     def test_horns_require_thumb_middle_and_ring_bent(self):
-        self.assertIs(rock_gesture(ROCK), True)
+        self.assertIs(classify_gestures(ROCK)[0], True)
         for bends in ((0,) * 5, (140,) * 5, (0, 0, 140, 140, 0),
                       (90, 0, 0, 140, 0), (90, 0, 140, 0, 0), (90, 90, 140, 140, 0)):
             with self.subTest(bends=bends):
-                self.assertIs(rock_gesture(skeleton(bends)), False)
+                self.assertIs(classify_gestures(skeleton(bends))[0], False)
 
     def test_v_requires_only_index_and_middle_extended(self):
-        self.assertIs(v_gesture(V), True)
+        self.assertIs(classify_gestures(V)[1], True)
         for bends in ((0,) * 5, (140,) * 5, (0, 0, 0, 140, 140),
                       (90, 90, 0, 140, 140), (90, 0, 140, 140, 140),
                       (90, 0, 0, 0, 140), (90, 0, 0, 140, 0)):
             with self.subTest(bends=bends):
-                self.assertIsNot(v_gesture(skeleton(bends)), True)
-        self.assertIs(v_gesture(ROCK), False)
-        self.assertIs(rock_gesture(V), False)
+                self.assertIsNot(classify_gestures(skeleton(bends))[1], True)
+        self.assertIs(classify_gestures(ROCK)[1], False)
+        self.assertIs(classify_gestures(V)[0], False)
 
     def test_rotation_translation_mirroring_and_scale_preserve_both_gestures(self):
-        for pose, classify in ((ROCK, rock_gesture), (V, v_gesture)):
+        for pose, index in ((ROCK, 0), (V, 1)):
             for scale in (.5, 1., 2.):
                 for mirror in (-1, 1):
                     transformed = tuple((.2 + scale * z, -.3 + scale * mirror * x, .1 - scale * y)
                                         for x, y, z in pose.positions_m)
-                    self.assertIs(classify(replace(pose, positions_m=transformed)), True)
+                    self.assertIs(classify_gestures(replace(pose, positions_m=transformed))[index], True)
 
     def test_uncertain_bend_and_invalid_geometry_are_not_release(self):
-        for pose, classify in ((ROCK, rock_gesture), (V, v_gesture)):
+        for pose, index in ((ROCK, 0), (V, 1)):
             uncertain = [replace(pose, confidences=(.1,) * 21),
                          replace(pose, confidences=(float("nan"),) * 21),
                          replace(pose, positions_m=((0., 0., 0.),) * 21),
@@ -118,9 +91,9 @@ class GeometryTests(unittest.TestCase):
                          replace(pose, positions_m=pose.positions_m[:-1]),
                          replace(pose, joint_names=tuple(reversed(SKELETON_NAMES)))]
             for invalid in uncertain:
-                self.assertIsNone(classify(invalid))
-        self.assertIsNone(rock_gesture(skeleton((90, 50, 140, 140, 0))))
-        self.assertIsNone(v_gesture(skeleton((90, 75, 0, 140, 140))))
+                self.assertIsNone(classify_gestures(invalid)[index])
+        self.assertIsNone(classify_gestures(skeleton((90, 50, 140, 140, 0)))[0])
+        self.assertIsNone(classify_gestures(skeleton((90, 75, 0, 140, 140)))[1])
 
 
 class CommandTests(unittest.TestCase):
@@ -289,6 +262,66 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(self.hold(V, V), [None] * 4)
         self.assertEqual([self.feed(V, ROCK, start_ready=False) for _ in range(4)],
                          [None, None, None, ("pause", ("right",))])
+
+
+class HomeGestureTests(unittest.TestCase):
+    def setUp(self):
+        self.samples = {"left": None, "right": None}
+        self.now, self.sequence = 1_000_000_000, 0
+        self.commands = GestureCommands({s: lambda s=s: self.samples[s] for s in self.samples})
+
+    def feed(self, left=OPEN, right=OPEN, *, ready=True):
+        self.now += 100_000_000
+        self.sequence += 1
+        self.samples = {s: None if pose is None else frame(s, pose, self.now, self.sequence)
+                        for s, pose in (("left", left), ("right", right))}
+        return self.commands.poll(self.now, start_ready=False, home_ready=ready)
+
+    def test_pause_requires_fresh_release_and_one_second_overlap(self):
+        for _ in range(15):
+            self.assertIsNone(self.feed(ready=False))
+        for _ in range(15):
+            self.assertIsNone(self.feed())
+        self.feed(V, V)
+        for _ in range(10):
+            self.assertIsNone(self.feed())
+        self.assertEqual(self.feed(), ("home", ("left", "right")))
+        for _ in range(15):
+            self.assertIsNone(self.feed())
+        self.feed(V, V)
+        actions = [self.feed() for _ in range(11)]
+        self.assertEqual(actions[-1], ("home", ("left", "right")))
+
+    def test_missing_repeated_or_stale_frames_cannot_complete_home(self):
+        self.feed(V, V)
+        for _ in range(9):
+            self.feed()
+        self.feed(OPEN, None)
+        for _ in range(5):
+            self.assertIsNone(self.feed())
+        for _ in range(12):
+            self.now += 100_000_000
+            self.assertIsNone(self.commands.poll(self.now, start_ready=False, home_ready=True))
+
+    def test_one_rock_hand_can_open_to_home_while_other_hand_stays_open(self):
+        for _ in range(4):
+            action = self.feed(ROCK, OPEN, ready=False)
+        self.assertEqual(action, ("pause", ("left",)))
+        self.commands.inhibit()
+        actions = [self.feed() for _ in range(11)]
+        self.assertEqual(actions, [None] * 10 + [("home", ("left", "right"))])
+        for _ in range(15):
+            self.assertIsNone(self.feed())
+
+    def test_stop_has_priority_and_home_inhibit_requires_release_again(self):
+        self.feed(V, V)
+        for _ in range(9):
+            self.feed()
+        self.commands.inhibit()
+        for _ in range(12):
+            self.assertIsNone(self.feed())
+        actions = [self.feed(ROCK, OPEN) for _ in range(4)]
+        self.assertEqual(actions[-1], ("pause", ("left",)))
 
 
 if __name__ == "__main__":

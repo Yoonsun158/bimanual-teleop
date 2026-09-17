@@ -195,6 +195,7 @@ class _WujiSource:
         self._sequences = {}
         self._source_sequences = {}
         self._stats = {}
+        self._statistics_snapshot = {}
         self._lock = threading.RLock()
         self._attempted = False
         self._closed = False
@@ -327,7 +328,8 @@ class _WujiSource:
     def _consume_frame(self, stream, frame, now):
         sequence = self._sequences.get(stream, 0)
         self._sequences[stream] = sequence + 1
-        source_sequence = int(frame.header.seq)
+        header = frame.header
+        source_sequence = int(header.seq)
         previous = self._source_sequences.get(stream)
         delta = None if previous is None else (source_sequence - previous) % (1 << 32)
         advances = previous is None or 0 < delta < (1 << 31)
@@ -349,7 +351,7 @@ class _WujiSource:
         except (ValueError, TypeError, AttributeError, OverflowError) as error:
             payload, valid, reason = InvalidWujiFrame(str(error)), False, str(error)
         sample = Sample(SampleHeader(ref, now, valid,
-            SourceTime(int(frame.header.timestamp_us), "us", f"{self.device_id}/firmware",
+            SourceTime(int(header.timestamp_us), "us", f"{self.device_id}/firmware",
                        self._source_time_meaning(stream)),
             source_sequence), payload)
         if not valid:
@@ -361,6 +363,10 @@ class _WujiSource:
         if advances:
             self._latest_by_stream[stream] = sample
             self._observe(stream, sample)
+        self._statistics_snapshot = {name: {"count": values["count"], "source_gaps": values["source_gaps"],
+            "observed_hz": ((values["count"]-1)*1e9/(values["latest_ns"]-values["first_ns"])
+                            if values["latest_ns"] > values["first_ns"] else 0.)}
+            for name, values in self._stats.items()}
         self._notify_sample(sample)
 
     def _observe(self, stream, sample):
@@ -375,18 +381,14 @@ class _WujiSource:
 
     @property
     def statistics(self):
-        with self._lock:
-            return {stream: {"count": s["count"], "source_gaps": s["source_gaps"],
-                "observed_hz": ((s["count"] - 1) * 1e9 / (s["latest_ns"] - s["first_ns"])
-                                if s["latest_ns"] > s["first_ns"] else 0.)}
-                for stream, s in self._stats.items()}
+        return {stream: dict(values) for stream, values in self._statistics_snapshot.items()}
 
     def _current_problem(self):
         if self._observer_error is not None:
             return self._observer_error
         if self._receive_error is not None:
             return f"SDK receive ended: {self._receive_error}"
-        if self._closed or self._device is None or not self._device.is_connected:
+        if self._closed or self._device is None:
             return "device disconnected"
         if self._latest is None:
             return "waiting for feedback"
@@ -397,6 +399,7 @@ class _WujiSource:
         return None
 
     def health(self, *, check_latch=False):
+        """Read receiver faults and live sample age without an SDK query or lock."""
         problem = self._current_problem()
         if problem and self._latest is not None:
             self._fault(problem)
@@ -482,11 +485,12 @@ class WujiGloveSource(_WujiSource):
                 for p in payload.positions_m) and all(_finite(q) for q in payload.orientations_xyzw)
             valid = valid and _finite(payload.confidences)
         elif stream == "skeleton":
-            source = self._emf_refs.get(int(frame.header.timestamp_us))
-            payload = HandSkeleton(str(frame.header.frame_id),
-                tuple(str(j.name) for j in frame.joints),
-                tuple(tuple(float(v) for v in j.pose.position) for j in frame.joints),
-                tuple(float(j.confidence) for j in frame.joints),
+            header, joints = frame.header, frame.joints
+            source = self._emf_refs.get(int(header.timestamp_us))
+            payload = HandSkeleton(str(header.frame_id),
+                tuple(str(j.name) for j in joints),
+                tuple(tuple(float(v) for v in j.pose.position) for j in joints),
+                tuple(float(j.confidence) for j in joints),
                 () if source is None else (source,))
             valid = (payload.joint_names == SKELETON_NAMES
                      and payload.frame == f"{self.side[0]}_wrist")
@@ -540,6 +544,7 @@ class WujiHandDriver(_WujiSource):
         self._enable_attempted = False
         self._arming = False
         self._last_dropped = 0
+        self._error_warnings = {}
 
     def _open_streams(self):
         if self._device.online_joints_count().get() != 20:
@@ -558,19 +563,22 @@ class WujiHandDriver(_WujiSource):
                         for key in ("position", "velocity", "effort")]
             return JointState(JOINT_NAMES, *channels), all(_finite(c) for c in channels), \
                 "missing or non-finite joint feedback"
-        states = tuple(None if j is None else str(j.status_word.ext_state_name) for j in joints)
+        status_words = tuple(None if j is None else j.status_word for j in joints)
+        states = tuple(None if word is None else str(word.ext_state_name) for word in status_words)
         codes = tuple(None if j is None else int(j.error_code_current) for j in joints)
-        flags = tuple(None if j is None else tuple(bool(getattr(j.status_word, key)) for key in
+        flags = tuple(None if word is None else tuple(bool(getattr(word, key)) for key in
             ("position_limit_active", "velocity_limit_active", "current_limit_active"))
-            for j in joints)
-        payload = WujiDiagnostics(states, codes, flags, int(frame.comm.sdk_dropped),
-                                  int(frame.comm.e2e_lost))
+            for word in status_words)
+        comm = frame.comm
+        payload = WujiDiagnostics(states, codes, flags, int(comm.sdk_dropped), int(comm.e2e_lost))
         valid = all(j is not None for j in joints)
-        for code in codes:
-            if code:
+        for code in set(codes) - {None, 0}:
+            # Fault severity belongs to the fixed SDK catalog, not to a frame.
+            if code not in self._error_warnings:
                 info = self.sdk.WujiHand2.describe_error(code)
-                if info is None or str(info["severity"]).lower() != "warning":
-                    valid = False
+                self._error_warnings[code] = info is not None and str(info["severity"]).lower() == "warning"
+            if not self._error_warnings[code]:
+                valid = False
         return payload, valid, "offline joint or Hand2 device fault"
 
     def _observe(self, stream, sample):
@@ -643,7 +651,15 @@ class WujiHandDriver(_WujiSource):
             raise RuntimeError("configure Hand2 before engagement")
         if self.enabled:
             return
-        self.last_target = JointTarget(JOINT_NAMES, self._latest.payload.position_rad)
+        measured = self._latest.payload.position_rad
+        seed = tuple(min(high, max(low, q)) for q, (low, high) in zip(measured, JOINT_LIMITS_RAD))
+        # A measured angle can sit just outside a nominal limit. Bound the
+        # takeover correction, but keep every transmitted target within limits.
+        for name, q, target in zip(JOINT_NAMES, measured, seed):
+            if abs(q - target) > math.radians(.5):
+                raise RuntimeError(f"{self.side} Hand2 {name}: measured {math.degrees(q):.3f}° "
+                                   "is outside joint limits by more than 0.5°; engagement refused")
+        self.last_target = JointTarget(JOINT_NAMES, seed)
         if self._publisher is None:
             self._publisher = self._device.joint_command().publish()
         self._enable_attempted = True

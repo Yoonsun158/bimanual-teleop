@@ -4,9 +4,10 @@ from dataclasses import replace
 import math
 import unittest
 
-from test_quest import sample as quest_sample
-from test_quest_tianji_mapping import SIDES, T0, axis_quat, product, robot
-from bimanual_teleop.control.arm.mapping import QuestTianjiMapper, orientation_distance
+from tests.support.quest_protocol import sample as quest_sample
+from tests.support.mapping import SIDES, T0, axis_quat, product, robot
+from tests.support.geometry import orientation_distance
+from bimanual_teleop.control.arm.mapping import QuestTianjiMapper
 from bimanual_teleop.control.arm.quest import operator_input
 
 
@@ -72,7 +73,7 @@ class CoordinateFrameTests(unittest.TestCase):
                         orientation_xyzw=product(axis_quat("z", yaw), pose.orientation_xyzw))
                 actual = operator_input(replace(sample, payload=replace(sample.payload, **poses)))
                 self.assertSameWrists(actual, expected)
-                target = mapper.compute(actual, measured, now_monotonic_ns=T0)
+                target = mapper.compute(actual, now_monotonic_ns=T0)
                 for side in SIDES:
                     self.assertPosition(target.tool_poses[side].position_m, measured.tool_poses[side].payload.position_m)
                     self.assertQuaternion(target.tool_poses[side].orientation_xyzw,
@@ -85,7 +86,7 @@ class CoordinateFrameTests(unittest.TestCase):
         mapper.reset_reference(operator_input(sample), measured)
         moved = replace(sample, payload=replace(sample.payload,
             head=replace(sample.payload.head, position_m=(1.01, 1.98, 3.03))))
-        target = mapper.compute(operator_input(moved), measured, now_monotonic_ns=T0)
+        target = mapper.compute(operator_input(moved), now_monotonic_ns=T0)
         for side, delta in (("left", (-.01, .03, .02)), ("right", (-.01, -.03, -.02))):
             initial = measured.tool_poses[side].payload
             self.assertPosition(target.tool_poses[side].position_m,

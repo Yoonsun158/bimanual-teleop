@@ -12,7 +12,6 @@ from enum import Enum
 from typing import Generic, Literal, Mapping, TypeVar
 
 Side = Literal["left", "right"]
-RobotPart = Literal["left_arm", "right_arm", "left_hand", "right_hand"]
 Vector3 = tuple[float, float, float]
 Quaternion = tuple[float, float, float, float]
 JointValues = tuple[float | None, ...]
@@ -114,14 +113,12 @@ class OperatorInput:
     """Runtime aggregate; each component retains its original sample header."""
 
     wrists: Mapping[Side, Sample[TrackedPose]]
-    hands: Mapping[Side, Sample[HandSkeleton]]
 
 
 @dataclass(frozen=True)
 class RobotState:
     """Runtime feedback aggregate."""
 
-    joints: Mapping[RobotPart, Sample[JointState]]
     tool_poses: Mapping[Side, Sample[Pose]]
 
 
@@ -135,8 +132,8 @@ class JointTarget:
 class ControlProfile:
     """Versioned effective configuration; parameter schemas belong to adapters.
 
-    Units, mode-specific parameters and capability validation must be defined in
-    the module design. An intended profile is not proof it is active on hardware.
+    Adapters validate units, mode-specific parameters and device capabilities.
+    An intended profile is not proof it is active on hardware.
     """
 
     profile_id: str
@@ -146,7 +143,7 @@ class ControlProfile:
 
 @dataclass(frozen=True)
 class RobotTarget:
-    """Mapped tool/hand goals; the executor owns IK/constraints as designed.
+    """Mapped arm goals; the executor applies kinematics and motion constraints.
 
     This boundary does not fix a vendor control mode or command payload. All
     monotonic times refer to the acquisition host's session clock.
@@ -154,7 +151,6 @@ class RobotTarget:
 
     command_id: str
     tool_poses: Mapping[Side, Pose]
-    hand_joints: Mapping[Side, JointTarget]
     source_refs: tuple[SampleRef, ...]
     created_monotonic_ns: int
     expires_monotonic_ns: int
@@ -165,8 +161,8 @@ class RobotTarget:
 class DeviceCommand(Generic[PayloadT]):
     """Complete final payload at a device boundary, including dynamic terms.
 
-    Archive once per device/command_id. Events reference it without copying the
-    payload. Submitting a target does not establish that this payload was sent.
+    Events reference device/command_id without copying the payload. Submitting
+    a target does not establish that this payload was sent.
     """
 
     device_id: str
@@ -190,14 +186,14 @@ class Submission:
 class CommandStatus(str, Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    SDK_SUBMITTED = "sdk_submitted"
     SENT = "sent"
     SEND_FAILED = "send_failed"
-    CONTROLLER_ACKNOWLEDGED = "controller_acknowledged"
 
 
 @dataclass(frozen=True)
 class CommandEvent:
-    """Acknowledgement follows vendor semantics; it does not assert execution."""
+    """Submission and transport status; neither asserts physical execution."""
 
     device_id: str
     command_id: str

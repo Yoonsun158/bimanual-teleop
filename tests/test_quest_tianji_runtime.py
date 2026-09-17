@@ -2,164 +2,16 @@
 
 import math
 from dataclasses import replace
-from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from bimanual_teleop.devices.quest.adapter import QuestFrame, QuestPose
-from bimanual_teleop.devices.tianji.driver import TianjiFrame, TianjiArmState
+from bimanual_teleop.devices.tianji.driver import TianjiFrame
 from bimanual_teleop.system import SystemState
-from bimanual_teleop.control.arm.quest import QuestInputMonitor, QuestTianjiTeleop
-from bimanual_teleop.control.arm.cartesian import TianjiCartesianExecutor
-from bimanual_teleop.types import (
-    ControlProfile, Event, Health, JointState, Pose, Sample, SampleHeader, SampleRef, Submission,
-)
+from bimanual_teleop.control.arm.quest import QuestInputMonitor
+from bimanual_teleop.types import Event, Health
 
-SIDES = ("left", "right")
-
-
-class Clock:
-    def __init__(self): self.now = 1_000_000_000
-    def __call__(self): return self.now
-    def advance(self, ns=5_000_000): self.now += ns
-
-
-class Sink:
-    def __init__(self): self.samples, self.events, self.ready = [], [], True
-    def try_publish(self, sample): self.samples.append(sample); return self.ready
-    def try_event(self, event): self.events.append(event); return self.ready
-    def health(self): return Health(self.ready, 0, None if self.ready else "disk failed")
-
-
-class Quest:
-    def __init__(self, clock):
-        self.clock = clock
-        self.sink = None
-        self.sequence = -1
-        self.positions = {"head": (0., 0., 1.5), "left": (0., .2, 1.), "right": (0., -.2, 1.)}
-        self.origin, self.session = 0, "test"
-        self.metadata = {"session": self.session}
-        self.latest = None
-        self.ready = True
-        self.closed = False
-
-    def start(self, sink): self.sink = sink; self.emit()
-    def close(self): self.closed = True
-    def health(self, *, sides=SIDES, require_head=True):
-        return Health(self.ready, self.clock(), None if self.ready else "Quest unavailable")
-
-    def emit(self, *, positions=None, rotations=None, invalid=None, origin=None, session=None, query_ns=None, state=5,
-             refresh_hz=90.):
-        self.positions.update(positions or {})
-        self.origin = self.origin if origin is None else origin
-        self.session = self.session if session is None else session
-        self.sequence += 1
-        query = self.clock()-500_000_000 if query_ns is None else query_ns
-        parent = f"quest_local_flu/{self.session}/{self.origin}"
-        rotations = {"head": (0., 0., 0., 1.), "left": (-.5, -.5, .5, .5),
-                     "right": (.5, -.5, -.5, .5), **(rotations or {})}
-        poses = {s: QuestPose(parent, f"quest_{s}_grip_flu", p, rotations[s], 0 if s == invalid else 15,
-                               None if s == "head" else True) for s, p in self.positions.items()}
-        frame = QuestFrame(self.session, self.sequence, self.origin, query, query+1, query+1, state,
-                           refresh_hz, poses["head"], poses["left"], poses["right"])
-        self.latest = Sample(SampleHeader(SampleRef("quest.poses", f"{self.session}/origin-{self.origin}",
-            self.sequence), self.clock(), invalid is None), frame)
-        self.sink.try_publish(self.latest)
-        return self.latest
-
-
-class Kinematics:
-    def __init__(self): self.fail_side = None; self.after_ik = None
-
-    def fk(self, side, q):
-        return Pose(f"tianji_{side}_base", f"tianji_{side}_flange", tuple(q[:3]),
-                    (0., 0., math.sin(q[3]/2), math.cos(q[3]/2)))
-
-    def ik(self, side, pose, reference):
-        if self.after_ik: self.after_ik()
-        if side == self.fail_side: raise ValueError(f"{side}: unreachable")
-        angle = 2*math.atan2(pose.orientation_xyzw[2], pose.orientation_xyzw[3])
-        return (*pose.position_m, angle, 0., 0., 0.)
-
-
-class Driver:
-    model_path = None
-    controller_ip = "192.168.1.190"
-
-    def __init__(self, clock, parsed):
-        self.clock, self.parsed = clock, parsed
-        self.profile = self.engagement_sample = None
-        self.metadata = {}
-        self.engaged, self.ready = False, True
-        self.commands, self.holds, self.calls = [], [], []
-        self.q = {"left": (.3, .2, .5, 0., 0., 0., 0.), "right": (.3, -.2, .5, 0., 0., 0., 0.)}
-        self.index = 0
-        self.accept = True
-        self.state = 0
-        self.after_engage = None
-
-    def start(self, sink): self.sink = sink; self.calls.append("start"); self.emit()
-    def health(self, *, sides=None):
-        selected = (self.profile.active_arms if self.profile else SIDES) if sides is None else sides
-        error = next((s for s in selected if self.latest.payload.arms[s].error), None)
-        return Health(self.ready and error is None, self.clock(),
-                      f"{error} controller error" if error else None if self.ready else "Tianji stale")
-    def get_latest(self): return self.latest
-
-    def emit(self, *, error_side=None, wrong_mode=None):
-        self.index += 1
-        arms = {}
-        for side in SIDES:
-            joints = JointState(tuple(f"j{i}" for i in range(7)), self.q[side], (0.,)*7)
-            arms[side] = TianjiArmState(joints, self.index, self.index, self.state,
-                self.state, 1 if error_side == side else 0, 1 if wrong_mode == side else 2, 1, self.q[side], (0.,)*7)
-        self.latest = Sample(SampleHeader(SampleRef("tianji.feedback", "test", self.index), self.clock(), True),
-                             TianjiFrame(self.index, arms))
-        self.sink.try_publish(self.latest)
-
-    def configure(self, profile): self.calls.append("configure"); self.profile = self.parsed
-    def adopt_stationary_control(self, profile): self.calls.append("adopt"); self.profile = self.parsed
-
-    def engage(self):
-        self.calls.append("engage")
-        self.engagement_sample = self.latest
-        self.engaged = True
-        self.state = 3
-        self.emit()
-        if self.after_engage: self.after_engage()
-
-    def submit(self, command):
-        self.commands.append(command)
-        if self.accept:
-            self.q.update(command.payload.targets)
-            self.emit()
-        return Submission(command.command_id, self.accept, None if self.accept else "send rejected")
-
-    def request_hold(self, reason): self.holds.append(reason); self.engaged = False
-    def close(self): self.calls.append("close"); self.engaged = False
-
-
-class RuntimeFixture:
-    """Reusable by the thin CLI integration test."""
-
-    def __init__(self, *, motion=True, side="both", coordinate_frame="headset"):
-        self.clock, self.sink, self.kine = Clock(), Sink(), Kinematics()
-        selected = SIDES if side == "both" else (side,)
-        self.parsed = SimpleNamespace(profile_id="test", active_arms=selected,
-                                      model=SimpleNamespace(digest="model"))
-        self.profile = ControlProfile("test", "cartesian_impedance", {})
-        self.quest, self.driver = Quest(self.clock), Driver(self.clock, self.parsed)
-        self.executor = TianjiCartesianExecutor(self.driver, self.kine)
-        with patch("bimanual_teleop.control.arm.quest.MotionProfile.from_control_profile", return_value=self.parsed):
-            self.runtime = QuestTianjiTeleop(self.quest, self.driver, self.executor, self.kine,
-                profile=self.profile, sink=self.sink, enable_motion=motion, clock_ns=self.clock,
-                side=side, coordinate_frame=coordinate_frame)
-        self.runtime.start()
-
-    def advance(self, ns=5_000_000, *, positions=None, quest=True):
-        self.clock.advance(ns)
-        self.driver.emit()
-        if quest: self.quest.emit(positions=positions)
+from tests.support.quest import SIDES, Sink, Quest, RuntimeFixture
+from tests.support.clock import Clock
 
 
 class InputMonitorTests(unittest.TestCase):
@@ -207,6 +59,60 @@ class InputMonitorTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "silent"):
             self.monitor.current(self.clock(), check_latch=True)
         self.assertEqual(len(self.sink.samples), 1)
+
+    def test_interframe_timeout_is_latched_without_a_control_poll_during_the_gap(self):
+        for receive_gap, query_gap in ((100_000_000, 100_000_000), (100_000_000, 1), (1, 100_000_000)):
+            with self.subTest(receive_gap=receive_gap, query_gap=query_gap):
+                clock, monitor = Clock(), QuestInputMonitor()
+                quest = Quest(clock)
+                quest.start(monitor)
+                previous = quest.latest.payload.query_monotonic_ns
+                clock.advance(receive_gap)
+                quest.emit(query_ns=previous + query_gap)
+                self.assertIn("stream gap reached 100 ms", monitor.fault)
+                # Resume receiving fresh samples before the next control poll.
+                # Use this sample's clock offset, including the source-only gap.
+                clock.advance()
+                quest.emit(query_ns=previous + max(receive_gap, query_gap) + 5_000_000)
+                with self.assertRaisesRegex(RuntimeError, "stream gap"):
+                    monitor.current(clock(), check_latch=True)
+                monitor.current(clock(), acknowledge=True)
+                monitor.current(clock(), check_latch=True)
+
+    def test_small_source_gaps_bursts_and_fixed_clock_offset_do_not_latch(self):
+        for period in (round(1e9 / 72), round(1e9 / 90), round(1e9 / 120), 99_999_999):
+            self.clock.advance(period)
+            self.quest.sequence += 1  # One lost frame, but no timeout.
+            self.quest.emit()
+            self.assertEqual(self.monitor._baseline_ns, 500_000_000)
+            self.monitor.current(self.clock(), check_latch=True)
+        self.quest.emit(query_ns=self.quest.latest.payload.query_monotonic_ns + 1)
+        self.monitor.current(self.clock(), check_latch=True)
+
+    def test_new_session_clock_reset_is_reported_as_reference_change(self):
+        self.clock.advance(500_000_000)
+        self.quest.emit(session="restarted", query_ns=1)
+        self.assertEqual(self.monitor.fault, "Quest reference changed; press Enter to re-engage")
+        self.assertEqual(self.monitor._baseline_ns, self.clock() - 1)
+        self.monitor.current(self.clock(), acknowledge=True)
+        self.monitor.current(self.clock(), check_latch=True)
+
+    def test_origin_change_keeps_clock_baseline_and_requires_reengagement(self):
+        baseline = self.monitor._baseline_ns
+        self.clock.advance()
+        self.quest.emit(origin=1)
+        self.assertEqual(self.monitor.fault, "Quest reference changed; press Enter to re-engage")
+        self.assertEqual(self.monitor._baseline_ns, baseline)
+        self.monitor.current(self.clock(), acknowledge=True)
+        self.monitor.current(self.clock(), check_latch=True)
+
+    def test_interframe_timeout_uses_configured_threshold(self):
+        monitor, quest = QuestInputMonitor(timeout_ns=50_000_000), Quest(self.clock)
+        quest.start(monitor)
+        self.clock.advance(50_000_000)
+        quest.emit()
+        with self.assertRaisesRegex(RuntimeError, "stream gap reached 50 ms"):
+            monitor.current(self.clock(), check_latch=True)
 
     def test_equal_host_timestamp_keeps_burst_but_equal_source_time_latches_fault(self):
         anchor = self.quest.latest.header.ref
@@ -267,6 +173,31 @@ class RuntimeTests(unittest.TestCase):
 
     def engage(self): self.runtime.engage(); self.runtime.tick()
 
+    def test_close_skips_pause_and_releases_quest_after_disable_failure(self):
+        self.engage()
+        self.fx.driver.holds.clear()
+        with patch.object(self.fx.driver, "close", side_effect=RuntimeError("disable unconfirmed")):
+            with self.assertRaisesRegex(RuntimeError, "disable unconfirmed"):
+                self.runtime.close()
+        self.assertEqual(self.fx.driver.holds, [])
+        self.assertTrue(self.fx.quest.closed)
+        self.assertEqual(self.runtime.state, SystemState.CLOSED)
+        self.runtime.pause("late worker failure")
+        self.assertEqual(self.fx.driver.holds, [])
+
+    def test_steady_tick_uses_fk_only_inside_each_servo(self):
+        self.engage()
+        self.fx.advance()
+        with patch.object(self.fx.kine, "fk", wraps=self.fx.kine.fk) as fk:
+            self.assertIsNotNone(self.runtime.tick(), self.runtime.last_error)
+        self.assertEqual([call.args[0] for call in fk.call_args_list], ["left", "left", "right", "right"])
+
+    def test_config_change_observation_is_enabled_only_with_an_external_sink(self):
+        self.assertTrue(self.fx.driver.record_reported_config)
+        fx = RuntimeFixture(external_sink=False)
+        self.addCleanup(fx.runtime.close)
+        self.assertFalse(fx.driver.record_reported_config)
+
     def test_capture_only_start_and_live_engagement_seed_from_exact_feedback(self):
         self.assertEqual(self.fx.driver.calls, ["start"])
         self.engage()
@@ -317,7 +248,7 @@ class RuntimeTests(unittest.TestCase):
         self.fx.advance(quest=False)
         self.fx.quest.emit(positions={"right": (.5, .1, .8), "head": (.2, .3, 1.7)},
                            rotations={"head": (0., 0., math.sin(.4), math.cos(.4))})
-        self.runtime.resume()
+        self.runtime.engage()
         target = self.runtime.tick()
         self.assertEqual(target.tool_poses["left"].position_m, (.35, .2, .5))
         self.assertEqual(self.fx.driver.calls.count("configure"), 1)
@@ -334,7 +265,7 @@ class RuntimeTests(unittest.TestCase):
         self.fx.advance()
         self.runtime.tick()
         self.assertEqual(len(self.fx.driver.commands), count)
-        self.runtime.resume()
+        self.runtime.engage()
         result = self.runtime.tick()
         self.assertEqual(result.tool_poses, before)
         self.assertTrue(self.runtime.status()["reference_ready"])
@@ -357,7 +288,7 @@ class RuntimeTests(unittest.TestCase):
             for actual, start, change in zip(goal.tool_poses[side].position_m, before[side].position_m, delta):
                 self.assertAlmostEqual(actual, start + change)
 
-    def test_both_ik_succeed_before_dispatch_and_right_failure_holds_pair(self):
+    def test_both_servos_succeed_before_dispatch_and_right_model_failure_holds_pair(self):
         self.engage()
         before = len(self.fx.driver.commands)
         self.fx.kine.fail_side = "right"
@@ -365,11 +296,11 @@ class RuntimeTests(unittest.TestCase):
         self.runtime.tick()
         self.assertEqual(len(self.fx.driver.commands), before)
         self.assertEqual(self.runtime.state, SystemState.PAUSED)
-        self.assertIn("unreachable", self.runtime.last_error)
+        self.assertIn("invalid Jacobian", self.runtime.last_error)
 
     def test_relative_motion_has_no_arbitrary_ten_centimeter_cutoff(self):
         self.engage()
-        for _ in range(60):
+        for _ in range(200):
             self.fx.advance(positions={"right": (.2, -.2, 1.)})
             self.assertIsNotNone(self.runtime.tick(), self.runtime.last_error)
         self.assertEqual(self.runtime.state, SystemState.ENGAGED)
@@ -390,6 +321,54 @@ class RuntimeTests(unittest.TestCase):
             self.fx.driver.emit()
             self.runtime.tick()
             self.assertEqual(self.runtime.state, SystemState.PAUSED)
+
+    def test_transient_robot_mode_fault_during_planning_prevents_group_dispatch(self):
+        self.engage()
+        before = len(self.fx.driver.commands)
+        servos = dict(self.fx.executor._servos)
+        previous = {s: (servo.q, servo.velocity) for s, servo in servos.items()}
+
+        def mode_changes():
+            self.fx.driver.emit(wrong_mode="right")
+            self.fx.driver.emit()
+
+        self.fx.kine.after_ik = mode_changes
+        self.fx.advance()
+        self.assertIsNone(self.runtime.tick())
+        self.assertEqual(self.runtime.state, SystemState.PAUSED)
+        self.assertIn("mode changed", self.runtime.last_error)
+        self.assertEqual(len(self.fx.driver.commands), before)
+        self.assertEqual({s: (servo.q, servo.velocity) for s, servo in servos.items()}, previous)
+
+    def test_observer_pause_during_submission_does_not_resurrect_or_advance_servos(self):
+        self.engage()
+        servos = dict(self.fx.executor._servos)
+        previous = {s: (servo.q, servo.velocity) for s, servo in servos.items()}
+        publish = self.fx.sink.try_publish
+
+        def reject_feedback(sample):
+            return False if isinstance(sample.payload, TianjiFrame) else publish(sample)
+
+        self.fx.advance()
+        self.fx.sink.try_publish = reject_feedback
+        self.assertIsNone(self.runtime.tick())
+        self.assertEqual(self.runtime.state, SystemState.PAUSED)
+        self.assertFalse(self.fx.driver.engaged)
+        self.assertEqual(self.fx.executor._reference, {})
+        self.assertEqual(self.fx.executor._servos, {})
+        self.assertEqual({s: (servo.q, servo.velocity) for s, servo in servos.items()}, previous)
+
+    def test_pause_in_first_arm_planning_keeps_both_servo_proposals_uncommitted(self):
+        self.engage()
+        before = len(self.fx.driver.commands)
+        servos = dict(self.fx.executor._servos)
+        previous = {s: (servo.q, servo.velocity) for s, servo in servos.items()}
+        self.fx.kine.after_ik = lambda: self.runtime.pause("pause during planning")
+        self.fx.advance()
+        self.assertIsNone(self.runtime.tick())
+        self.assertEqual(self.runtime.state, SystemState.PAUSED)
+        self.assertEqual(len(self.fx.driver.commands), before)
+        self.assertEqual({s: (servo.q, servo.velocity) for s, servo in servos.items()}, previous)
 
     def test_a_fault_during_blocking_engagement_prevents_first_follow_target(self):
         def lost_and_recovered():
@@ -434,7 +413,7 @@ class RuntimeTests(unittest.TestCase):
         filtered_first = .3*.8 + goals[0].tool_poses["left"].position_m[0]*.2
         filtered_second = filtered_first*.8 + goals[1].tool_poses["left"].position_m[0]*.2
         fraction = (20_000_000-self.runtime._interpolator.delay_ns-5_000_000)/5_000_000
-        self.assertAlmostEqual(result.tool_poses["left"].position_m[0],
+        self.assertAlmostEqual(self.runtime._requested_target.tool_poses["left"].position_m[0],
                                filtered_first+(filtered_second-filtered_first)*fraction)
         for sample in frames:
             self.assertIn(sample.header.ref, result.source_refs)
@@ -452,11 +431,24 @@ class RuntimeTests(unittest.TestCase):
         self.assertIsNotNone(self.runtime.tick())
 
 
-class PreviewTests(unittest.TestCase):
+class CommandTimelineTests(unittest.TestCase):
+    def test_pause_during_planning_does_not_advance_either_arm(self):
+        fx = RuntimeFixture()
+        self.addCleanup(fx.runtime.close)
+        fx.runtime.engage()
+        servos = dict(fx.executor._servos)
+        previous = {s: (servo.q, servo.velocity) for s, servo in servos.items()}
+        fx.kine.after_ik = lambda: fx.runtime.pause("paused during planning")
+        fx.advance()
+        self.assertIsNone(fx.runtime.tick())
+        self.assertEqual(fx.runtime.state, SystemState.PAUSED)
+        self.assertEqual({s: (servo.q, servo.velocity) for s, servo in servos.items()}, previous)
+        self.assertEqual(fx.driver.commands, [])
+
     def test_engagement_processing_delay_does_not_shift_the_source_timeline(self):
         targets = []
         for anchor_age_ns in (0, 20_000_000):
-            fx = RuntimeFixture(motion=False)
+            fx = RuntimeFixture()
             fx.clock.advance(anchor_age_ns)
             fx.runtime.engage()
             fx.advance(20_000_000-anchor_age_ns, positions={"left": (.01, .2, 1.)})
@@ -471,7 +463,7 @@ class PreviewTests(unittest.TestCase):
             outputs = []
             for total_compute_ns in (0, 1_000_000, 3_000_000):
                 with self.subTest(hz=hz, total_compute_ns=total_compute_ns):
-                    fx = RuntimeFixture(motion=False)
+                    fx = RuntimeFixture()
                     anchor = replace(fx.quest.latest, payload=replace(fx.quest.latest.payload, refresh_hz=hz))
                     fx.runtime.input.latest = anchor
                     fx.runtime.engage()
@@ -497,8 +489,8 @@ class PreviewTests(unittest.TestCase):
             self.assertEqual(outputs[0], outputs[1])
             self.assertEqual(outputs[0], outputs[2])
 
-    def test_fixed_axes_map_once_and_preview_never_configures_sends_or_holds(self):
-        fx = RuntimeFixture(motion=False)
+    def test_fixed_axes_map_once_and_only_engagement_configures(self):
+        fx = RuntimeFixture()
         fx.runtime.engage()
         fx.runtime.tick()
         for i in range(1, 21):
@@ -508,19 +500,31 @@ class PreviewTests(unittest.TestCase):
         self.assertAlmostEqual(pose.position_m[0], .3)
         self.assertAlmostEqual(pose.position_m[1], .2)
         self.assertGreater(pose.position_m[2], .5)
-        fx.runtime.pause("preview done")
+        fx.runtime.pause("test done")
         fx.runtime.close()
-        self.assertEqual(fx.driver.calls, ["start", "close"])
-        self.assertEqual(fx.driver.commands, [])
-        self.assertEqual(fx.driver.holds, [])
+        self.assertEqual(fx.driver.calls, ["start", "configure", "engage", "close"])
+        self.assertTrue(fx.driver.commands)
+        self.assertEqual(len(fx.driver.holds), 1)
 
-    def test_preview_rejects_expiry_during_ik(self):
-        fx = RuntimeFixture(motion=False)
-        fx.runtime.engage()
-        fx.kine.after_ik = lambda: fx.clock.advance(30_000_000)
-        self.assertIsNone(fx.runtime.tick())
-        self.assertIn("expired during IK", fx.runtime.last_error)
-        fx.runtime.close()
+    def test_planning_keeps_the_original_50ms_deadline_and_rejects_its_boundary(self):
+        for compute_ns in (49_999_998, 50_000_000, 60_000_000):
+            with self.subTest(compute_ns=compute_ns):
+                fx = RuntimeFixture()
+                self.addCleanup(fx.runtime.close)
+                fx.runtime.engage()
+                started = fx.clock()
+                fx.kine.after_ik = lambda: fx.clock.advance(compute_ns // 2)
+                target = fx.runtime.tick()
+                if compute_ns < 50_000_000:
+                    self.assertIsNotNone(target, fx.runtime.last_error)
+                    command, = fx.driver.commands
+                    self.assertEqual(command.created_monotonic_ns, started)
+                    self.assertEqual(command.expires_monotonic_ns, started + 50_000_000)
+                else:
+                    self.assertIsNone(target)
+                    self.assertIn("expired during IK", fx.runtime.last_error)
+                    self.assertEqual(fx.driver.commands, [])
+                    self.assertEqual(fx.runtime.state, SystemState.PAUSED)
 
 
 class SingleSideTests(unittest.TestCase):
@@ -563,15 +567,15 @@ class SingleSideTests(unittest.TestCase):
                     fx.runtime.tick()
                     self.assertEqual(fx.runtime.state, SystemState.PAUSED)
 
-    def test_single_preview_only_checks_selected_ik_and_never_commands(self):
-        fx = RuntimeFixture(motion=False, side="right")
+    def test_single_arm_only_checks_selected_kinematics(self):
+        fx = RuntimeFixture(side="right")
         self.addCleanup(fx.runtime.close)
         fx.kine.fail_side = "left"
         fx.quest.emit(invalid="right")
         fx.runtime.engage()
         self.assertEqual(set(fx.runtime.tick().tool_poses), {"right"})
-        self.assertEqual(fx.driver.calls, ["start"])
-        self.assertEqual(fx.driver.commands, [])
+        self.assertEqual(fx.driver.calls, ["start", "configure", "engage"])
+        self.assertEqual(set(fx.driver.commands[-1].payload.targets), {"right"})
 
 
 class ReferenceFrameTests(unittest.TestCase):
@@ -586,7 +590,7 @@ class ReferenceFrameTests(unittest.TestCase):
                                                    ("right", "left", (.1, .3, -.2))):
             for side in (robot_side, "both"):
                 with self.subTest(robot_side=robot_side, side=side):
-                    fx = RuntimeFixture(motion=False, side=side)
+                    fx = RuntimeFixture(side=side)
                     self.addCleanup(fx.runtime.close)
                     fx.runtime.engage()
                     before = fx.runtime.tick().tool_poses
@@ -624,7 +628,7 @@ class ReferenceFrameTests(unittest.TestCase):
                             self.assertEqual(fx.runtime.state, SystemState.ENGAGED)
 
     def test_world_mode_ignores_head_position_and_vertical_head_orientation(self):
-        fx = RuntimeFixture(motion=False, coordinate_frame="world")
+        fx = RuntimeFixture(coordinate_frame="world")
         self.addCleanup(fx.runtime.close)
         fx.runtime.engage()
         before = fx.runtime.tick().tool_poses
@@ -633,7 +637,7 @@ class ReferenceFrameTests(unittest.TestCase):
         self.assertEqual(goal.tool_poses, before)
 
     def test_headset_pitch_and_roll_do_not_change_targets(self):
-        fx = RuntimeFixture(motion=False)
+        fx = RuntimeFixture()
         self.addCleanup(fx.runtime.close)
         fx.runtime.engage()
         before = fx.runtime.tick().tool_poses
@@ -659,7 +663,7 @@ class ReferenceFrameTests(unittest.TestCase):
             self.assertIsNone(fx.runtime.tick())
             self.assertEqual(fx.runtime.state, SystemState.PAUSED)
             self.assertEqual(len(fx.driver.commands), command_count)
-            fx.runtime.resume()
+            fx.runtime.engage()
             self.assertEqual(fx.runtime.tick().tool_poses, before)
 
     def test_vertical_head_frame_during_ik_blocks_dispatch_only_in_headset_mode(self):

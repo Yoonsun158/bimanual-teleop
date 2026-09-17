@@ -19,6 +19,7 @@ class QuestTianjiWujiTeleop:
         self.last_error = None
         self._generation = 0
         self._lock = threading.Lock()
+        self._home_cancel = None
 
     @property
     def state(self):
@@ -39,7 +40,7 @@ class QuestTianjiWujiTeleop:
 
     def engage(self, profile=None):
         with self._lock:
-            if self.state not in (SystemState.READY, SystemState.PAUSED):
+            if self.state not in (SystemState.READY, SystemState.PAUSED) or self._home_cancel is not None:
                 raise RuntimeError("Pause before engaging again")
             generation = self._generation
         try:
@@ -57,20 +58,39 @@ class QuestTianjiWujiTeleop:
             self.pause(str(error))
             raise
 
-    def resume(self):
-        self.engage()
+    def home(self, cancel):
+        with self._lock:
+            if self.state != SystemState.PAUSED or self._home_cancel is not None:
+                raise RuntimeError("请先暂停遥操作再回位")
+            self._home_cancel = cancel
+            self._state = SystemState.HOMING
+        try:
+            self.hands.pause("机械臂回位期间保持手部暂停")
+            self.arms.home(cancel)
+            self.last_error = None
+        except BaseException as error:
+            self.last_error = str(error)
+            raise
+        finally:
+            with self._lock:
+                self._home_cancel = None
+                if self.state != SystemState.CLOSED:
+                    self._state = SystemState.PAUSED
 
     def pause(self, reason):
         with self._lock:
             if self.state == SystemState.CLOSED:
                 return
+            if self._home_cancel is not None:
+                self._home_cancel.set()
             self._generation += 1
             self._state, self.last_error = SystemState.PAUSED, reason
-        # Always pause both groups, even if one stop request fails.
+        # The hand control lock can be busy in an SDK call. Request the arm hold
+        # first, and still pause both groups if either stop request fails.
         try:
-            self.hands.pause(reason)
-        finally:
             self.arms.pause(reason)
+        finally:
+            self.hands.pause(reason)
 
     def tick(self, now_monotonic_ns=None):
         if self.state != SystemState.ENGAGED:
@@ -102,15 +122,24 @@ class QuestTianjiWujiTeleop:
                 "hands": self.hands.status(include_target=include_target)}
 
     def close(self):
-        if self.state == SystemState.CLOSED:
-            return
+        with self._lock:
+            if self.state == SystemState.CLOSED:
+                return
+            self._state = SystemState.CLOSED
+            self._generation += 1
+            if self._home_cancel is not None:
+                self._home_cancel.set()
+        error = None
         try:
-            self.pause("Teleoperation closed")
+            self.arms.close()
+        except Exception as problem:
+            error = problem
         finally:
             try:
                 self.hands.close()
-            finally:
-                try:
-                    self.arms.close()
-                finally:
-                    self._state = SystemState.CLOSED
+            except Exception as problem:
+                if error is not None:
+                    raise RuntimeError(f"{error}; hands close failed: {problem}") from error
+                raise
+        if error is not None:
+            raise error

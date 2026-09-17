@@ -9,55 +9,14 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from tests.support.geometry import orientation_distance
 from bimanual_teleop.control.arm.mapping import (
     PoseGoalFilter, PoseGoalInterpolator, QuestTianjiMapper,
-    orientation_distance, slerp,
+    slerp,
 )
-from bimanual_teleop.types import (
-    OperatorInput, Pose, RobotState, RobotTarget, Sample, SampleHeader, SampleRef, TrackedPose,
-)
+from bimanual_teleop.types import Pose
 
-SIDES = ("left", "right")
-T0 = 1_000_000_000
-
-
-def axis_quat(axis, degrees):
-    half = math.radians(degrees) / 2
-    values = [0.0, 0.0, 0.0, math.cos(half)]
-    values["xyz".index(axis)] = math.sin(half)
-    return tuple(values)
-
-
-def product(a, b):
-    """Independent quaternion calculation for expected noncommuting rotations."""
-    x, y, z, w = a
-    X, Y, Z, W = b
-    return (w*X+x*W+y*Z-z*Y, w*Y-x*Z+y*W+z*X,
-            w*Z+x*Y-y*X+z*W, w*W-x*X-y*Y-z*Z)
-
-
-def operator(positions=None, rotations=None, *, sequence=0, received_ns=T0, origin="origin-0"):
-    positions = positions or {"left": (1.3, -.8, .7), "right": (-.2, .6, .5)}
-    rotations = rotations or {side: axis_quat("y", -90) for side in SIDES}
-    header = SampleHeader(SampleRef("quest.poses", f"session/{origin}", sequence), received_ns, True)
-    wrists = {side: Sample(header, TrackedPose(
-        Pose(f"quest_local_flu/session/{origin}", f"quest_{side}_grip_flu", positions[side], rotations[side]),
-        True, True, True, True)) for side in SIDES}
-    return OperatorInput(wrists, {})
-
-
-def robot(positions=None, rotations=None):
-    positions = positions or {"left": (.4, -.2, .5), "right": (.3, .2, .6)}
-    rotations = rotations or {"left": product(axis_quat("y", -40), axis_quat("z", 15)),
-                              "right": product(axis_quat("x", 25), axis_quat("y", 40))}
-    header = SampleHeader(SampleRef("tianji.feedback", "robot-session", 20), T0, True)
-    return RobotState({}, {side: Sample(header, Pose(f"tianji_{side}_base", f"tianji_{side}_flange",
-                                                   positions[side], rotations[side])) for side in SIDES})
-
-
-def target(poses, *, sequence=1, created_ns=T0, expires_ns=T0+100_000_000):
-    return RobotTarget(f"goal-{sequence}", dict(poses), {}, (SampleRef("quest.poses", "session", sequence),),
-                       created_ns, expires_ns, "verified-profile")
+from tests.support.mapping import SIDES, T0, axis_quat, product, operator, robot, target
 
 
 class MappingTests(unittest.TestCase):
@@ -84,7 +43,7 @@ class MappingTests(unittest.TestCase):
                         positions[controller] = tuple(p + (sign*.02 if j == i else 0.)
                                                       for j, p in enumerate(positions[controller]))
                         rotations = {**q0, controller: product(axis_quat("xyz"[i], sign*20), q0[controller])}
-                        result = self.mapper.compute(operator(positions, rotations), self.robot, now_monotonic_ns=T0)
+                        result = self.mapper.compute(operator(positions, rotations), now_monotonic_ns=T0)
                         for side in SIDES:
                             initial = self.robot.tool_poses[side].payload
                             angle = sign*direction*20 if side == arm else 0
@@ -103,7 +62,7 @@ class MappingTests(unittest.TestCase):
                 self.mapper.reset_reference(reference, self.robot)
                 positions = {s: tuple(p+d for p, d in zip(sample.payload.pose.position_m, (.01, .02, .03)))
                              for s, sample in reference.wrists.items()}
-                result = self.mapper.compute(operator(positions), self.robot, now_monotonic_ns=T0)
+                result = self.mapper.compute(operator(positions), now_monotonic_ns=T0)
                 for side, delta in (("left", (.01, -.03, .02)), ("right", (.01, .03, -.02))):
                     for actual, before, d in zip(result.tool_poses[side].position_m,
                                                  self.robot.tool_poses[side].payload.position_m, delta):
@@ -114,7 +73,7 @@ class MappingTests(unittest.TestCase):
         right_delta = product(product(axis_quat("y", 31), axis_quat("x", -26)), axis_quat("z", 12))
         rotations = {s: product(delta, self.operator.wrists[s].payload.pose.orientation_xyzw)
                      for s, delta in (("left", left_delta), ("right", right_delta))}
-        result = self.mapper.compute(operator(rotations=rotations), self.robot, now_monotonic_ns=T0)
+        result = self.mapper.compute(operator(rotations=rotations), now_monotonic_ns=T0)
         expected = {
             "left": product(product(axis_quat("z", 31), axis_quat("x", -26)), axis_quat("y", -12)),
             "right": product(product(axis_quat("y", 35), axis_quat("z", 20)), axis_quat("x", 17)),
@@ -133,7 +92,7 @@ class MappingTests(unittest.TestCase):
                 wrist = selected_operator.wrists[controller]
                 moved = replace(wrist, payload=replace(wrist.payload, pose=replace(wrist.payload.pose,
                     position_m=tuple(p+d for p, d in zip(wrist.payload.pose.position_m, (.02, 0, 0))))))
-                result = mapper.compute(replace(selected_operator, wrists={controller: moved}), selected_robot,
+                result = mapper.compute(replace(selected_operator, wrists={controller: moved}),
                                         now_monotonic_ns=T0)
                 self.assertEqual(set(result.tool_poses), {arm})
                 self.assertAlmostEqual(result.tool_poses[arm].position_m[0],
@@ -144,7 +103,7 @@ class MappingTests(unittest.TestCase):
     def test_rotation_in_place_does_not_translate_a_nonzero_anchor(self):
         rotations = {side: product(axis_quat("z", 25), self.operator.wrists[side].payload.pose.orientation_xyzw)
                      for side in SIDES}
-        result = self.mapper.compute(operator(rotations=rotations), self.robot, now_monotonic_ns=T0)
+        result = self.mapper.compute(operator(rotations=rotations), now_monotonic_ns=T0)
         for side in SIDES:
             self.assertEqual(result.tool_poses[side].position_m, self.robot.tool_poses[side].payload.position_m)
 
@@ -155,20 +114,20 @@ class MappingTests(unittest.TestCase):
             with self.subTest(axis=axis):
                 reference = robot(rotations={side: axis_quat(axis, 180) for side in SIDES})
                 self.mapper.reset_reference(self.operator, reference)
-                result = self.mapper.compute(operator(rotations=rotations), reference, now_monotonic_ns=T0)
+                result = self.mapper.compute(operator(rotations=rotations), now_monotonic_ns=T0)
                 for side in SIDES:
                     self.assertQuaternion(result.tool_poses[side].orientation_xyzw,
                                           product(axis_quat("y", -20 if side == "left" else 20), axis_quat(axis, 180)))
 
     def test_tracking_error_does_not_move_reference_and_reengagement_is_continuous(self):
         measured = robot(positions={"left": (.5, -.3, .7), "right": (.1, .4, .9)})
-        result = self.mapper.compute(self.operator, measured, now_monotonic_ns=T0)
+        result = self.mapper.compute(self.operator, now_monotonic_ns=T0)
         for side in SIDES:
             self.assertEqual(result.tool_poses[side].position_m, self.robot.tool_poses[side].payload.position_m)
             self.assertQuaternion(result.tool_poses[side].orientation_xyzw, self.robot.tool_poses[side].payload.orientation_xyzw)
         new_operator = operator(origin="origin-1", sequence=10)
         self.mapper.reset_reference(new_operator, measured)
-        result = self.mapper.compute(new_operator, measured, now_monotonic_ns=T0)
+        result = self.mapper.compute(new_operator, now_monotonic_ns=T0)
         for side in SIDES:
             self.assertEqual(result.tool_poses[side].position_m, measured.tool_poses[side].payload.position_m)
             self.assertQuaternion(result.tool_poses[side].orientation_xyzw, measured.tool_poses[side].payload.orientation_xyzw)
@@ -177,7 +136,7 @@ class MappingTests(unittest.TestCase):
         positions = {side: tuple(p+.25 for p in self.operator.wrists[side].payload.pose.position_m) for side in SIDES}
         rotations = {side: product(axis_quat("x", 90), self.operator.wrists[side].payload.pose.orientation_xyzw)
                      for side in SIDES}
-        result = self.mapper.compute(operator(positions=positions, rotations=rotations), self.robot, now_monotonic_ns=T0)
+        result = self.mapper.compute(operator(positions=positions, rotations=rotations), now_monotonic_ns=T0)
         for side in SIDES:
             initial = self.robot.tool_poses[side].payload
             self.assertAlmostEqual(math.dist(result.tool_poses[side].position_m, initial.position_m), math.sqrt(3)*.25)
@@ -186,19 +145,19 @@ class MappingTests(unittest.TestCase):
 
     def test_origin_tracking_and_exact_dual_side_requirements(self):
         with self.assertRaisesRegex(ValueError, "origin changed"):
-            self.mapper.compute(operator(origin="origin-1"), self.robot, now_monotonic_ns=T0)
+            self.mapper.compute(operator(origin="origin-1"), now_monotonic_ns=T0)
         left = self.operator.wrists["left"]
         invalid = replace(self.operator, wrists={**self.operator.wrists,
                           "left": replace(left, payload=replace(left.payload, position_tracked=False))})
         with self.assertRaisesRegex(ValueError, "untracked"):
-            self.mapper.compute(invalid, self.robot, now_monotonic_ns=T0)
+            self.mapper.compute(invalid, now_monotonic_ns=T0)
         with self.assertRaisesRegex(ValueError, "exactly"):
-            self.mapper.compute(replace(self.operator, wrists={"left": left}), self.robot, now_monotonic_ns=T0)
+            self.mapper.compute(replace(self.operator, wrists={"left": left}), now_monotonic_ns=T0)
 
     def test_source_deadline_and_reference_provenance_are_preserved(self):
         current = operator(sequence=7, received_ns=T0+10_000_000)
-        a = self.mapper.compute(current, self.robot, now_monotonic_ns=T0+20_000_000)
-        b = self.mapper.compute(current, self.robot, now_monotonic_ns=T0+100_000_000)
+        a = self.mapper.compute(current, now_monotonic_ns=T0+20_000_000)
+        b = self.mapper.compute(current, now_monotonic_ns=T0+100_000_000)
         self.assertEqual(a.expires_monotonic_ns, T0+110_000_000)
         self.assertEqual(a.expires_monotonic_ns, b.expires_monotonic_ns)
         self.assertIn(current.wrists["left"].header.ref, a.source_refs)
@@ -206,9 +165,9 @@ class MappingTests(unittest.TestCase):
         self.assertIn(self.robot.tool_poses["left"].header.ref, a.source_refs)
         self.assertNotEqual(a.command_id, b.command_id)
         with self.assertRaisesRegex(ValueError, "expired"):
-            self.mapper.compute(current, self.robot, now_monotonic_ns=T0+110_000_000)
+            self.mapper.compute(current, now_monotonic_ns=T0+110_000_000)
         with self.assertRaisesRegex(ValueError, "future"):
-            self.mapper.compute(current, self.robot, now_monotonic_ns=T0)
+            self.mapper.compute(current, now_monotonic_ns=T0)
 
 
 class InterpolationTests(unittest.TestCase):
@@ -244,12 +203,12 @@ class InterpolationTests(unittest.TestCase):
         self.interpolator.set_goal(target(self.poses(.05), created_ns=T0+10_000_000))
         rejected = self.interpolator.sample(T0+15_000_000)
         later = self.interpolator.sample(T0+50_000_000)
-        self.assertEqual(self.interpolator.accepted_poses, self.initial)
+        self.assertEqual(self.interpolator._accepted, self.initial)
         self.assertAlmostEqual(later.tool_poses["left"].position_m[0], .05)
         with self.assertRaises(ValueError):
             self.interpolator.accept(rejected)
         self.interpolator.accept(later)
-        self.assertEqual(self.interpolator.accepted_poses, later.tool_poses)
+        self.assertEqual(self.interpolator._accepted, later.tool_poses)
 
     def test_engagement_anchor_is_held_until_the_delayed_timeline_advances(self):
         first = self.interpolator.sample(T0)

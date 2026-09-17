@@ -1,7 +1,8 @@
-"""Address and SDK-user options shared by Wuji viewer and calibration."""
+"""Device addresses, SDK users and hand-control configuration."""
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from bimanual_teleop.paths import PROJECT_ROOT
@@ -35,3 +36,36 @@ def add_glove_arguments(parser, *, include_sdk_user=True):
     parser.add_argument("--address", help="override the selected glove address")
     if include_sdk_user:
         parser.add_argument("--user-name", help="按已有 SDK 用户名选择用户；默认从配置文件读取")
+
+
+def load_config(path):
+    config = load_yaml_config(path)
+    validate_control_config(config)
+    config.setdefault("profile_id", "wuji-hand2")
+    return config
+
+
+def validate_control_config(config):
+    if not isinstance(config, dict):
+        raise ValueError("Wuji configuration must be an object")
+    if "profile_id" in config and not config["profile_id"]:
+        raise ValueError("Wuji profile_id must be nonempty when supplied")
+    if config.get("mode", "mit") != "mit":
+        raise ValueError("Hand2 control mode must be mit")
+    sdk_user_name(config)
+    for key, default in (("control_hz", 120), ("transition_s", .75),
+                         ("glove_timeout_s", .25), ("hand_timeout_s", .5)):
+        value = config.get(key, default)
+        if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{key} must be finite and positive")
+    parameters = config.get("parameters", {})
+    for key in ("kp", "kd", "current_limit_a"):
+        value = parameters.get(key)
+        if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{key} must be finite and positive")
+    devices = config.get("devices", {})
+    for side in ("left", "right"):
+        for kind in ("glove", "hand"):
+            address = devices.get(side, {}).get(kind)
+            if not isinstance(address, str) or not address:
+                raise ValueError(f"devices.{side}.{kind} requires an address")

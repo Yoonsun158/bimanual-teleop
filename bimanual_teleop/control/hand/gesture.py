@@ -1,4 +1,4 @@
-"""Sample-driven commands: both hands V to start, either hand horns to stop."""
+"""Fresh-frame gestures: V starts, horns pause, open palms request homing."""
 
 from __future__ import annotations
 
@@ -46,53 +46,37 @@ def _bend_poses(bends):
             else "uncertain" for finger, bend in enumerate(bends)]
 
 
-def _finger_poses(skeleton):
-    """Legacy inter-bone classification retained for verified rock gestures."""
-    features = _geometry(skeleton)
-    return None if features is None else _bend_poses(features["bend_deg"])
-
-
 def _matches(fingers, expected):
-    if fingers is None:
-        return None
     if any(actual not in (wanted, "uncertain") for actual, wanted in zip(fingers, expected)):
         return False
     return None if "uncertain" in fingers else True
 
 
-def _classify(skeleton):
+def classify_gestures(skeleton: HandSkeleton) -> tuple[bool | None, bool | None, bool | None]:
+    """Return rock, V and open-palm states; None means uncertain or invalid."""
     features = _geometry(skeleton)
     if features is None:
-        return None, None
+        return None, None, None
     fingers = _bend_poses(features["bend_deg"])
     rock = _matches(fingers, _ROCK)
     # Projection includes MCP flexion, which inter-bone angles alone omit.
     v_fingers = [fingers[0]] + ["straight" if reach >= .75 else "bent" if reach <= .5
                               else "uncertain" for reach in features["reach"][1:]]
     v = False if rock is True else _matches(v_fingers, _V)
-    return rock, v
-
-
-def rock_gesture(skeleton: HandSkeleton) -> bool | None:
-    """True for horns, False for a clear different pose, None if uncertain."""
-    return _matches(_finger_poses(skeleton), _ROCK)
-
-
-def v_gesture(skeleton: HandSkeleton) -> bool | None:
-    """True when only the index and middle fingers extend away from the palm."""
-    return _classify(skeleton)[1]
+    opened = _matches([fingers[0], *v_fingers[1:]], ("straight",) * 5)
+    return rock, v, opened
 
 
 @dataclass
 class _Hand:
     identity: tuple | None = None
     received_ns: int | None = None
-    poses: tuple = (None, None)
-    since: tuple = (None, None)
+    poses: tuple = (None, None, None)
+    since: tuple = (None, None, None)
     rock_armed: bool = True
 
     def invalidate(self):
-        self.poses = self.since = (None, None)
+        self.poses = self.since = (None, None, None)
 
 
 class GestureCommands:
@@ -110,14 +94,20 @@ class GestureCommands:
         self.timeout_ns, self.hold_ns = (round(v * 1e9) for v in (timeout_s, hold_s))
         self._hands = {side: _Hand() for side in sources}
         self._start_armed = True
+        self._home_armed = False
 
     def inhibit(self):
-        """Require a fresh, clearly non-V frame before allowing another start."""
+        """Restart dwell; a held V or open pair must release before reuse."""
         self._start_armed = False
+        self._home_armed = any(hand.poses[2] is False for hand in self._hands.values())
         for hand in self._hands.values():
-            hand.since = (hand.since[0], None)
+            hand.since = (hand.since[0], None, None)
 
-    def poll(self, now_ns=None, *, start_ready=True):
+    def poll(self, now_ns=None, *, start_ready=True, home_ready=False):
+        if not home_ready:
+            self._home_armed = False
+            for hand in self._hands.values():
+                hand.since = (*hand.since[:2], None)
         # The snapshot can be newer than a timestamp taken before reading it.
         samples = {side: read() for side, read in self.sources.items()}
         now_ns = time.monotonic_ns() if now_ns is None else now_ns
@@ -147,7 +137,7 @@ class GestureCommands:
                 continue
             continuous = (previous is not None and previous[0] == identity[0]
                           and received - hand.received_ns < self.timeout_ns)
-            poses = _classify(sample.payload)
+            poses = classify_gestures(sample.payload)
             hand.since = tuple(None if pose is not True else
                                since if continuous and old is True and since is not None else received
                                for pose, old, since in zip(poses, hand.poses, hand.since))
@@ -156,10 +146,12 @@ class GestureCommands:
                 hand.rock_armed = True
             if poses[1] is False:
                 self._start_armed = True
+            if home_ready and poses[2] is False:
+                self._home_armed = True
 
         if not start_ready:
             for hand in self._hands.values():
-                hand.since = (hand.since[0], None)
+                hand.since = (hand.since[0], None, hand.since[2])
 
         sides = tuple(side for side, hand in self._hands.items()
                       if hand.rock_armed and hand.poses[0] is True and hand.since[0] is not None
@@ -168,14 +160,17 @@ class GestureCommands:
             for side in sides:
                 self._hands[side].rock_armed = False
             return "pause", sides
-        if start_ready and self._start_armed and self._v_hold_ns(now_ns) >= self.hold_ns:
+        if home_ready and self._home_armed and self._overlap_ns(now_ns, 2) >= 1_000_000_000:
+            self._home_armed = False
+            return "home", tuple(self.sources)
+        if start_ready and self._start_armed and self._overlap_ns(now_ns, 1) >= self.hold_ns:
             self._start_armed = False
             return "engage", tuple(self.sources)
         return None
 
-    def _v_hold_ns(self, now_ns):
-        if any(h.poses[1] is not True or h.since[1] is None
+    def _overlap_ns(self, now_ns, index):
+        if any(h.poses[index] is not True or h.since[index] is None
                or not 0 <= now_ns - h.received_ns < self.timeout_ns for h in self._hands.values()):
             return 0
         return max(0, min(h.received_ns for h in self._hands.values())
-                   - max(h.since[1] for h in self._hands.values()))
+                   - max(h.since[index] for h in self._hands.values()))

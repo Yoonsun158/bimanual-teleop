@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+
+from bimanual_teleop.common.config import positive_number
 import math
 from pathlib import Path
 import time
@@ -11,7 +13,7 @@ from bimanual_teleop.common.terminal import NonblockingTerminal, confirm_motion
 from bimanual_teleop.common.console import configure_runtime_logging, print_message
 from bimanual_teleop.devices.wuji.adapter import JOINT_LIMITS_RAD, JOINT_NAMES, WujiHandDriver
 from bimanual_teleop.devices.wuji.config import DEFAULT_CONFIG
-from bimanual_teleop.control.hand.follow import load_config
+from bimanual_teleop.devices.wuji.config import load_config
 from bimanual_teleop.types import ControlProfile, DeviceCommand, JointTarget
 
 
@@ -20,16 +22,10 @@ PERIOD_NS = round(1e9 / CONTROL_HZ)
 COMMAND_TTL_NS = 50_000_000
 
 
-def _positive(value: float, name: str) -> float:
-    if not math.isfinite(value) or value <= 0:
-        raise ValueError(f"{name} must be finite and positive")
-    return value
-
-
 def home_target(start_rad: tuple[float, ...], elapsed_s: float,
                 duration_s: float = 3.) -> JointTarget:
     """Smoothstep from measured position to the Hand2-defined joint zero."""
-    _positive(duration_s, "duration_s")
+    positive_number(duration_s, "duration_s")
     if len(start_rad) != len(JOINT_NAMES) or any(not math.isfinite(q) for q in start_rad):
         raise ValueError("Hand2 needs 20 finite measured joint angles")
     if any(not low <= q <= high for q, (low, high) in zip(start_rad, JOINT_LIMITS_RAD)):
@@ -53,9 +49,9 @@ def run_home(hand: WujiHandDriver, profile: ControlProfile, *, duration_s: float
              tolerance_rad: float = math.radians(5), settle_timeout_s: float = 2.,
              hold_at_zero: bool = True, terminal=None, emit=None) -> bool:
     """Return True on arrival without holding, False on Q/EOF; always disable."""
-    _positive(duration_s, "duration_s")
-    _positive(tolerance_rad, "tolerance_rad")
-    _positive(settle_timeout_s, "settle_timeout_s")
+    positive_number(duration_s, "duration_s")
+    positive_number(tolerance_rad, "tolerance_rad")
+    positive_number(settle_timeout_s, "settle_timeout_s")
     terminal = terminal or NonblockingTerminal()
     say = emit or print_message
     try:
@@ -127,9 +123,9 @@ def main(argv=None) -> int:
     error = None
     try:
         configure_runtime_logging(wuji=True)
-        duration_s = _positive(args.duration_s, "--duration-s")
-        tolerance_rad = math.radians(_positive(args.tolerance_deg, "--tolerance-deg"))
-        settle_timeout_s = _positive(args.settle_timeout_s, "--settle-timeout-s")
+        duration_s = positive_number(args.duration_s, "--duration-s")
+        tolerance_rad = math.radians(positive_number(args.tolerance_deg, "--tolerance-deg"))
+        settle_timeout_s = positive_number(args.settle_timeout_s, "--settle-timeout-s")
         config = load_config(args.config)
         profile = ControlProfile(config["profile_id"], config.get("mode", "mit"), config["parameters"])
         sides = ("left", "right") if args.side == "both" else (args.side,)

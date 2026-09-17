@@ -7,7 +7,8 @@ import unittest
 import yaml
 
 from bimanual_teleop.common.config import load_yaml_config
-from bimanual_teleop.control.hand.follow import create_wuji_teleop, load_config as load_wuji_config
+from bimanual_teleop.control.hand.follow import create_wuji_teleop
+from bimanual_teleop.devices.wuji.config import load_config as load_wuji_config
 from bimanual_teleop.devices.tianji.config import load_config as load_tianji_config
 from bimanual_teleop.devices.tianji.model import MotionProfile
 from bimanual_teleop.devices.wuji.config import DEFAULT_CONFIG as WUJI_CONFIG, glove_settings

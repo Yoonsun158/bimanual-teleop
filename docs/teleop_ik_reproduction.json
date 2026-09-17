@@ -1,0 +1,185 @@
+[
+  {
+    "schema": "tianji_ik_failure_v1",
+    "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+    "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+    "side": "left",
+    "target": {
+      "parent_frame": "tianji_left_base",
+      "child_frame": "tianji_left_flange",
+      "position_m": [
+        0.5931255924570427,
+        0.1145815180848431,
+        0.2103861063699193
+      ],
+      "orientation_xyzw": [
+        -0.03651068803800828,
+        0.6985135993124377,
+        -0.0042636245173832505,
+        0.7146520431234694
+      ]
+    },
+    "reference_deg": [
+      35.028520053849356,
+      -56.032352201979904,
+      -39.82684260821335,
+      -69.73731441154322,
+      32.216063232376825,
+      25.158856572655925,
+      -7.1674341745477825
+    ],
+    "result_deg": [
+      35.315653386780276,
+      -55.8174744214752,
+      -39.98759462306682,
+      -70.64707261308465,
+      32.23974722303075,
+      26.019443002762404,
+      -7.540916284945343
+    ],
+    "status": 0,
+    "solution_count": 4,
+    "out_of_range": 0,
+    "singular_mask": 0,
+    "limit_mask": 0,
+    "audit": {
+      "origin": "synthetic_full_runtime_replay_not_hardware_recording",
+      "scenario": "late_ticks",
+      "original_error": "IK: no continuous IK solution within joint limits and step bounds",
+      "rejected_budget_deg": [
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9
+      ],
+      "target_interval_ms": 10.0,
+      "target_delta_mm": 2.6168244194065524,
+      "target_delta_deg": 0.3960348270643113
+    }
+  },
+  {
+    "schema": "tianji_ik_failure_v1",
+    "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+    "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+    "side": "left",
+    "target": {
+      "parent_frame": "tianji_left_base",
+      "child_frame": "tianji_left_flange",
+      "position_m": [
+        0.659338631957768,
+        0.16719494385957775,
+        0.2568743790391129
+      ],
+      "orientation_xyzw": [
+        -0.06302588354866914,
+        0.6847832333003213,
+        0.007964418228868324,
+        0.7259726092876665
+      ]
+    },
+    "reference_deg": [
+      23.518531223164388,
+      -69.46189541715182,
+      -31.63764730916429,
+      -29.06006145207093,
+      24.806940787679206,
+      7.358814306623243,
+      3.436831337675314
+    ],
+    "result_deg": [
+      23.328619716027816,
+      -69.74060070807735,
+      -31.571436783760216,
+      -28.329182931961927,
+      24.68354450862598,
+      7.105643111149062,
+      3.619057519099967
+    ],
+    "status": 0,
+    "solution_count": 4,
+    "out_of_range": 0,
+    "singular_mask": 0,
+    "limit_mask": 0,
+    "audit": {
+      "origin": "synthetic_full_runtime_replay_not_hardware_recording",
+      "scenario": "compute_1ms",
+      "original_error": "IK: no continuous IK solution within joint limits and step bounds",
+      "rejected_budget_deg": [
+        0.72,
+        0.72,
+        0.72,
+        0.72,
+        0.72,
+        0.72,
+        0.72
+      ],
+      "target_interval_ms": 5.0,
+      "target_delta_mm": 1.0356891884250166,
+      "target_delta_deg": 0.14997479052410753
+    }
+  },
+  {
+    "schema": "tianji_ik_failure_v1",
+    "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+    "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+    "side": "left",
+    "target": {
+      "parent_frame": "tianji_left_base",
+      "child_frame": "tianji_left_flange",
+      "position_m": [
+        0.6626528429997016,
+        0.16948547216494667,
+        0.2617206897665625
+      ],
+      "orientation_xyzw": [
+        -0.06541264417162591,
+        0.6801289816718727,
+        0.004156637758086894,
+        0.7301564740759378
+      ]
+    },
+    "reference_deg": [
+      22.315593332427408,
+      -71.35602368864153,
+      -31.474775028623196,
+      -24.21719548437321,
+      24.320132255738443,
+      5.576474542234236,
+      4.629336872068883
+    ],
+    "result_deg": [
+      22.072554861070397,
+      -71.7225869461468,
+      -31.397794502151623,
+      -23.280598574186318,
+      24.202251769852197,
+      5.221262190773145,
+      4.872711586140078
+    ],
+    "status": 0,
+    "solution_count": 4,
+    "out_of_range": 0,
+    "singular_mask": 0,
+    "limit_mask": 0,
+    "audit": {
+      "origin": "synthetic_full_runtime_replay_not_hardware_recording",
+      "scenario": "ideal",
+      "original_error": "IK: no continuous IK solution within joint limits and step bounds",
+      "rejected_budget_deg": [
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9
+      ],
+      "target_interval_ms": 5.0,
+      "target_delta_mm": 1.0543136250894711,
+      "target_delta_deg": 0.14639130894636312
+    }
+  }
+]

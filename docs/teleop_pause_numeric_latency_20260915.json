@@ -1,0 +1,362 @@
+{
+  "schema": "tianji_numeric_latency_ablation_review_v1",
+  "date": "2026-09-15",
+  "hardware_access": false,
+  "method": "15 s per fresh process, standalone M6 SDK dual arm at 200 Hz, built-in Wuji RetargetSession dual hand at 120 Hz; measured gesture fixtures; no SdkManager, discovery, device, subscription, network or ADB. Numerical stage wrappers included in timing. Sequential runs on shared workstation, not isolated CPU.",
+  "script_sha256": "5fd9f88ca84fed5807b82393a20573ade79c4c6eda023df54a767dabb994c97d",
+  "percentiles": [
+    50,
+    95,
+    99,
+    99.9,
+    100
+  ],
+  "results": {
+    "original_default": {
+      "mode": "original",
+      "source_sha": "7803056ec9ae2c4dde8b35dcf987a23187a911d06a2a4fd8722e7ebd702c00e0",
+      "duration": 15.0,
+      "backends": [
+        [
+          "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          20
+        ],
+        [
+          "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          20
+        ]
+      ],
+      "threads": 60,
+      "arms": 3000,
+      "hand_cycles": 1801,
+      "arm_wall_ms": [
+        1.5742165,
+        2.8477802,
+        3.3143021999999984,
+        3.838014454000006,
+        4.073777
+      ],
+      "arm_cpu_ms": [
+        1.5694365,
+        2.8091909499999996,
+        3.24159575,
+        3.7297102590000013,
+        3.975685
+      ],
+      "arm_intervals_ms": [
+        4.999854001653148,
+        5.108700600248994,
+        5.129069258837262,
+        5.171642070628881,
+        5.223151998507092
+      ],
+      "hand_wall_ms": [
+        0.730737,
+        1.411383,
+        1.704751,
+        2.189338800000025,
+        2.356089
+      ],
+      "over20": 0,
+      "over50": 0,
+      "stages_ms": {
+        "pinv": [
+          0.075951,
+          0.12568000000000001,
+          0.20079353,
+          0.24050450500000056,
+          0.292335
+        ],
+        "svd": [
+          0.026222,
+          0.05212510000000001,
+          0.12714225000000035,
+          0.16326897600000106,
+          0.20267
+        ],
+        "cholesky": [
+          0.008151,
+          0.0150582,
+          0.018463010000000002,
+          0.024609373000001527,
+          0.037911
+        ],
+        "solve": [
+          0.010882,
+          0.019230700000000003,
+          0.022787050000000003,
+          0.027860613000000683,
+          0.091982
+        ]
+      },
+      "spikes": [],
+      "hand_errors": []
+    },
+    "triangular_default": {
+      "mode": "triangular",
+      "source_sha": "869a1093494cebe7a3cc178a3ae7509c73c1a05a14cea9ff421f2d6ea25b8807",
+      "duration": 15.0,
+      "backends": [
+        [
+          "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          20
+        ],
+        [
+          "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          20
+        ]
+      ],
+      "threads": 60,
+      "arms": 3000,
+      "hand_cycles": 1801,
+      "arm_wall_ms": [
+        1.450765,
+        2.5950746000000002,
+        2.978275199999993,
+        4.2129753100000045,
+        4.274195
+      ],
+      "arm_cpu_ms": [
+        1.445335,
+        2.5809938999999997,
+        2.849088999999995,
+        4.105614678,
+        4.180861
+      ],
+      "arm_intervals_ms": [
+        4.999931999918772,
+        5.106612899544416,
+        5.131254939260543,
+        5.161401715471585,
+        5.177363997063367
+      ],
+      "hand_wall_ms": [
+        0.619813,
+        1.236345,
+        1.571974,
+        2.529592800000063,
+        2.782509
+      ],
+      "over20": 0,
+      "over50": 0,
+      "stages_ms": {
+        "pinv": [
+          0.068142,
+          0.11202120000000002,
+          0.1573425000000006,
+          0.2210598010000031,
+          0.982479
+        ],
+        "svd": [
+          0.023437,
+          0.04464510000000001,
+          0.06721831000000002,
+          0.15673500800000445,
+          0.202612
+        ],
+        "cholesky": [
+          0.007547,
+          0.0133731,
+          0.018454310000000005,
+          0.02746583300000204,
+          0.069288
+        ],
+        "solve_triangular": [
+          0.019303,
+          0.029585900000000002,
+          0.04205239000000003,
+          0.07508111800000791,
+          1.637213
+        ]
+      },
+      "spikes": [],
+      "hand_errors": []
+    },
+    "original_single": {
+      "mode": "original",
+      "source_sha": "7803056ec9ae2c4dde8b35dcf987a23187a911d06a2a4fd8722e7ebd702c00e0",
+      "duration": 15.0,
+      "backends": [
+        [
+          "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          1
+        ],
+        [
+          "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          1
+        ]
+      ],
+      "threads": 22,
+      "arms": 2993,
+      "hand_cycles": 1800,
+      "arm_wall_ms": [
+        1.76019,
+        3.3635354,
+        4.017311519999991,
+        7.389892488000533,
+        12.602528
+      ],
+      "arm_cpu_ms": [
+        1.740947,
+        3.2669642000000003,
+        3.77219344,
+        5.412291320000015,
+        7.083487
+      ],
+      "arm_intervals_ms": [
+        5.000473500331282,
+        5.104486799791629,
+        5.1693135600726245,
+        7.421888060966958,
+        12.63221000044723
+      ],
+      "hand_wall_ms": [
+        0.776957,
+        1.7218995999999998,
+        2.4704652699999996,
+        3.693375920000003,
+        5.760499
+      ],
+      "over20": 0,
+      "over50": 0,
+      "stages_ms": {
+        "pinv": [
+          0.0879525,
+          0.1586615,
+          0.2454789499999997,
+          0.4105297950000067,
+          1.225721
+        ],
+        "svd": [
+          0.0301085,
+          0.09191325,
+          0.16285959999999985,
+          0.22436530500000018,
+          7.541361
+        ],
+        "cholesky": [
+          0.00927,
+          0.01811875,
+          0.02271279999999998,
+          0.03714862000000036,
+          0.06503
+        ],
+        "solve": [
+          0.012269,
+          0.020714,
+          0.02618664999999993,
+          0.03831805000000009,
+          0.050269
+        ]
+      },
+      "spikes": [
+        {
+          "index": 1986,
+          "wall_ms": 12.336869,
+          "cpu_ms": 4.509592,
+          "interval_ms": 9.418870002264157,
+          "stages_ms": {
+            "pinv": 0.393821,
+            "svd": 0.161121,
+            "cholesky": 0.041663,
+            "solve": 0.053066
+          }
+        },
+        {
+          "index": 1987,
+          "wall_ms": 12.602528,
+          "cpu_ms": 4.24338,
+          "interval_ms": 12.385005997202825,
+          "stages_ms": {
+            "pinv": 1.361033,
+            "svd": 7.614185,
+            "cholesky": 0.056766,
+            "solve": 0.055078
+          }
+        }
+      ],
+      "hand_errors": []
+    },
+    "triangular_single": {
+      "mode": "triangular",
+      "source_sha": "869a1093494cebe7a3cc178a3ae7509c73c1a05a14cea9ff421f2d6ea25b8807",
+      "duration": 15.0,
+      "backends": [
+        [
+          "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+          1
+        ],
+        [
+          "/home/yuchen/anaconda3/envs/bimanual-teleop/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so",
+          1
+        ]
+      ],
+      "threads": 22,
+      "arms": 3000,
+      "hand_cycles": 1801,
+      "arm_wall_ms": [
+        1.6513065,
+        2.7523606499999986,
+        3.4951088999999977,
+        5.53501441100003,
+        6.240901
+      ],
+      "arm_cpu_ms": [
+        1.640349,
+        2.6771854,
+        3.3962214099999986,
+        5.331968283000017,
+        6.134643
+      ],
+      "arm_intervals_ms": [
+        4.999460998078575,
+        5.124228701970424,
+        5.153466861011111,
+        5.576300757180492,
+        6.277928001509281
+      ],
+      "hand_wall_ms": [
+        0.715215,
+        1.582991,
+        2.25553,
+        3.435577400000072,
+        3.663639
+      ],
+      "over20": 0,
+      "over50": 0,
+      "stages_ms": {
+        "pinv": [
+          0.077386,
+          0.14553365000000001,
+          0.24190304000000074,
+          0.3883280210000067,
+          0.980248
+        ],
+        "svd": [
+          0.026868,
+          0.07141635000000007,
+          0.16704589000000042,
+          0.2106090330000056,
+          0.276324
+        ],
+        "cholesky": [
+          0.008423,
+          0.0151302,
+          0.02184372000000004,
+          0.031194482000003874,
+          0.064407
+        ],
+        "solve_triangular": [
+          0.022204,
+          0.0359352,
+          0.047040450000000074,
+          0.09350640200000379,
+          0.157512
+        ]
+      },
+      "spikes": [],
+      "hand_errors": []
+    }
+  },
+  "conclusion": "No >20 ms or >50 ms numeric computation stall was reproduced. The data do not identify BLAS threading/general LU as the cause of the seven real watchdog interruptions. Retain the current numerical solver; prioritize synchronous health/status/locks and capture stop provenance."
+}

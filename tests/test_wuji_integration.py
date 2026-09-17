@@ -16,65 +16,11 @@ from bimanual_teleop.system import SystemState
 from bimanual_teleop.control.arm import quest as arm_runtime
 from bimanual_teleop.control.combined import QuestTianjiWujiTeleop
 from bimanual_teleop.cli import teleop_quest_tianji as cli, teleop_wuji_hand2 as hand_cli
+from bimanual_teleop.cli import runtime as runtime_ui
 from bimanual_teleop.types import Health
 
 
-class Runtime:
-    def __init__(self, name, calls):
-        self.name, self.calls = name, calls
-        self.state = SystemState.DISCONNECTED
-        self.last_error = None
-        self.holding = False
-        self.start_hook = self.engage_hook = self.tick_hook = None
-        self.prepare_hook = self.pause_hook = self.close_hook = None
-
-    def start(self):
-        self.calls.append(f"{self.name}.start")
-        if self.start_hook:
-            self.start_hook()
-        self.state = SystemState.READY
-
-    def prepare_engage(self):
-        self.calls.append(f"{self.name}.prepare")
-        self.holding = True
-        if self.prepare_hook:
-            self.prepare_hook()
-
-    def begin_follow(self):
-        self.calls.append(f"{self.name}.follow")
-        self.holding = False
-        self.state = SystemState.ENGAGED
-
-    def engage(self, profile=None):
-        self.calls.append(f"{self.name}.engage")
-        if self.engage_hook:
-            self.engage_hook()
-        self.state = SystemState.ENGAGED
-
-    def pause(self, reason):
-        self.calls.append(f"{self.name}.pause")
-        self.state, self.last_error = SystemState.PAUSED, reason
-        self.holding = True
-        if self.pause_hook:
-            self.pause_hook()
-
-    def tick(self, now=None):
-        self.calls.append(f"{self.name}.tick")
-        if self.tick_hook:
-            self.tick_hook()
-        return "arm target" if self.state == SystemState.ENGAGED else None
-
-    def health(self):
-        return Health(self.state not in (SystemState.DISCONNECTED, SystemState.CLOSED), 0)
-
-    def status(self, *, include_target=True):
-        return {"state": self.state.value, "last_error": self.last_error}
-
-    def close(self):
-        self.calls.append(f"{self.name}.close")
-        self.state = SystemState.CLOSED
-        if self.close_hook:
-            self.close_hook()
+from tests.support.combined import Runtime
 
 
 def fail(message):
@@ -101,7 +47,7 @@ class CoordinationTests(unittest.TestCase):
         self.hands.prepare_hook = lambda: fail("right hand enable failed")
         with self.assertRaisesRegex(RuntimeError, "right hand enable failed"):
             self.runtime.engage()
-        self.assertEqual(self.calls, ["hands.prepare", "hands.pause", "arms.pause"])
+        self.assertEqual(self.calls, ["hands.prepare", "arms.pause", "hands.pause"])
         self.assertTrue(self.hands.holding)
         self.assertEqual(self.runtime.state, SystemState.PAUSED)
 
@@ -110,7 +56,7 @@ class CoordinationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "arm enable failed"):
             self.runtime.engage()
         self.assertNotIn("hands.follow", self.calls)
-        self.assertEqual(self.calls[-2:], ["hands.pause", "arms.pause"])
+        self.assertEqual(self.calls[-2:], ["arms.pause", "hands.pause"])
 
     def test_arm_self_pause_propagates_to_healthy_hand_hold(self):
         self.runtime.engage()
@@ -151,8 +97,35 @@ class CoordinationTests(unittest.TestCase):
         self.hands.pause_hook = lambda: fail("hand stop unavailable")
         with self.assertRaisesRegex(RuntimeError, "hand stop unavailable"):
             self.runtime.pause("operator stop")
-        self.assertEqual(self.calls[-2:], ["hands.pause", "arms.pause"])
+        self.assertEqual(self.calls[-2:], ["arms.pause", "hands.pause"])
         self.assertEqual(self.runtime.state, SystemState.PAUSED)
+
+    def test_arm_hold_is_requested_before_waiting_for_blocked_hand_pause(self):
+        self.runtime.engage()
+        entered, release = threading.Event(), threading.Event()
+        def blocked_pause():
+            entered.set()
+            if not release.wait(2):
+                raise RuntimeError("test did not release hand pause")
+        self.hands.pause_hook = blocked_pause
+        worker = threading.Thread(target=lambda: self.runtime.pause("operator stop"))
+        worker.start()
+        try:
+            self.assertTrue(entered.wait(1))
+            self.assertEqual(self.arms.state, SystemState.PAUSED)
+            self.assertEqual(self.arms.last_error, "operator stop")
+            self.assertTrue(worker.is_alive())
+        finally:
+            release.set()
+            worker.join(1)
+
+    def test_arm_pause_failure_still_requests_hand_hold(self):
+        self.runtime.engage()
+        self.arms.pause_hook = lambda: fail("arm stop unavailable")
+        with self.assertRaisesRegex(RuntimeError, "arm stop unavailable"):
+            self.runtime.pause("operator stop")
+        self.assertEqual(self.calls[-2:], ["arms.pause", "hands.pause"])
+        self.assertEqual(self.hands.state, SystemState.PAUSED)
 
     def test_close_stops_arms_before_disabling_hands_and_releases_both_on_error(self):
         self.runtime.engage()
@@ -160,10 +133,10 @@ class CoordinationTests(unittest.TestCase):
         self.hands.close_hook = lambda: fail("hand parameter restore failed")
         with self.assertRaisesRegex(RuntimeError, "parameter restore failed"):
             self.runtime.close()
-        self.assertEqual(self.calls, ["hands.pause", "arms.pause", "hands.close", "arms.close"])
+        self.assertEqual(self.calls, ["arms.close", "hands.close"])
         self.assertEqual(self.runtime.state, SystemState.CLOSED)
         self.runtime.close()
-        self.assertEqual(len(self.calls), 4)
+        self.assertEqual(len(self.calls), 2)
 
     def test_partial_start_failure_closes_both_groups(self):
         calls = []
@@ -172,9 +145,16 @@ class CoordinationTests(unittest.TestCase):
         runtime = QuestTianjiWujiTeleop(arms, hands)
         with self.assertRaisesRegex(RuntimeError, "arm connection failed"):
             runtime.start()
-        self.assertEqual(calls, ["hands.start", "arms.start", "hands.pause", "arms.pause",
-                                 "hands.close", "arms.close"])
+        self.assertEqual(calls, ["hands.start", "arms.start", "arms.close", "hands.close"])
         self.assertEqual(runtime.state, SystemState.CLOSED)
+
+    def test_arm_shutdown_failure_survives_hand_cleanup_failure(self):
+        self.arms.close_hook = lambda: fail("arm disable unconfirmed")
+        self.hands.close_hook = lambda: fail("hand close failed")
+        with self.assertRaisesRegex(RuntimeError, "arm disable unconfirmed.*hand close failed"):
+            self.runtime.close()
+        self.assertEqual(self.calls, ["arms.close", "hands.close"])
+        self.assertEqual(self.runtime.state, SystemState.CLOSED)
 
 
 class BackgroundKeyboardTests(unittest.TestCase):
@@ -186,7 +166,7 @@ class BackgroundKeyboardTests(unittest.TestCase):
         self.runtime.start()
         self.calls.clear()
         self.messages = []
-        self.ui = cli.TeleopUI(self.runtime, None, enable_motion=True,
+        self.ui = runtime_ui.TeleopUI(self.runtime, None,
                                   background_engage=True, gesture=Mock(), emit=self.messages.append,
                                   following_message="双臂与双手正在跟随")
 
@@ -209,23 +189,25 @@ class BackgroundKeyboardTests(unittest.TestCase):
             else:
                 self.ui.handle("\n")
             self.assertTrue(entered.wait(1.))
-            self.assertTrue(self.ui._engage_thread.is_alive())
+            self.assertTrue(self.ui._operation_thread.is_alive())
             self.ui.handle("\n")  # Repeated Enter cannot start another enable operation.
             self.ui.handle_gesture("pause") if key == "rock" else self.ui.handle(key)
-            self.assertEqual(self.runtime.state, SystemState.PAUSED)
+            if key == "q":
+                self.runtime.close()
+            self.assertEqual(self.runtime.state, SystemState.CLOSED if key == "q" else SystemState.PAUSED)
             self.assertEqual(self.ui.quit, key == "q")
         finally:
             release.set()
-            if self.ui._engage_thread is not None:
-                self.ui._engage_thread.join(2.)
-                self.assertFalse(self.ui._engage_thread.is_alive())
-                self.ui.poll_engagement()
+            if self.ui._operation_thread is not None:
+                self.ui._operation_thread.join(2.)
+                self.assertFalse(self.ui._operation_thread.is_alive())
+                self.ui.poll_operation()
         self.assertEqual(self.calls.count("hands.prepare"), 1)
         self.assertNotIn("hands.follow", self.calls)
         if stage == "hands":
             self.assertNotIn("arms.engage", self.calls)
         self.assertNotIn("双臂与双手正在跟随", self.messages)
-        self.assertEqual(self.runtime.state, SystemState.PAUSED)
+        self.assertEqual(self.runtime.state, SystemState.CLOSED if key == "q" else SystemState.PAUSED)
         self.ui.close()
 
     def test_space_cancels_blocked_hand_enable_without_waiting(self):
@@ -233,6 +215,18 @@ class BackgroundKeyboardTests(unittest.TestCase):
 
     def test_q_cancels_blocked_arm_enable_without_starting_hand_follow(self):
         self.exercise_cancel(key="q", stage="arms")
+
+    def test_ui_closes_arms_before_joining_blocked_background_worker(self):
+        entered, release = threading.Event(), threading.Event()
+        self.hands.prepare_hook = lambda: (entered.set(), release.wait(1.))
+        self.arms.close_hook = release.set
+        self.ui.handle("\n")
+        self.assertTrue(entered.wait(.5))
+        self.ui.handle("q")
+        self.ui.close()
+        self.assertEqual(self.calls, ["hands.prepare", "arms.close", "hands.close"])
+        self.assertIsNone(self.ui._operation_thread)
+        self.assertEqual(self.runtime.state, SystemState.CLOSED)
 
     def test_rock_gesture_cancels_hand_preparation_without_engaging_arms(self):
         self.exercise_cancel(key="rock", stage="hands")
@@ -242,11 +236,11 @@ class BackgroundKeyboardTests(unittest.TestCase):
 
     def test_background_success_reports_combined_follow_once(self):
         self.ui.handle("\n")
-        self.ui._engage_thread.join(2.)
-        self.ui.poll_engagement()
-        self.ui.poll_engagement()
+        self.ui._operation_thread.join(2.)
+        self.ui.poll_operation()
+        self.ui.poll_operation()
         self.ui.handle("\r")
-        self.assertIsNone(self.ui._engage_thread)
+        self.assertIsNone(self.ui._operation_thread)
         self.assertEqual(self.ui.handle_gesture("engage"), "ignored")
         self.assertEqual(self.calls, ["hands.prepare", "arms.engage", "hands.follow"])
         self.assertEqual(self.runtime.state, SystemState.ENGAGED)
@@ -265,14 +259,14 @@ class GestureControlTests(unittest.TestCase):
 
     def run_phases(self, phases, *, healthy=lambda index: True, stop_at=None, fault_at=None):
         from bimanual_teleop.control.hand.gesture import GestureCommands
-        from test_wuji_gesture import frame
+        from tests.support.gesture import frame
 
         frames = [poses for poses in phases for _ in range(10)]
         index, now = 0, 1_000_000_000
         self.runtime.health = lambda: Health(healthy(index), now, "test tracking")
         gesture = GestureCommands({side: lambda side=side, i=i:
             frame(side, frames[index][i], now, index) for i, side in enumerate(("left", "right"))})
-        ui = cli.TeleopUI(self.runtime, None, gesture=gesture, emit=lambda _: None)
+        ui = runtime_ui.TeleopUI(self.runtime, None, gesture=gesture, emit=lambda _: None)
         events = []
         poll = gesture.poll
         sides_seen = [()]
@@ -307,13 +301,13 @@ class GestureControlTests(unittest.TestCase):
                 return " "
             return None
 
-        with patch.object(cli.time, "monotonic_ns", side_effect=lambda: now):
-            cli.run_loop(self.runtime, ui, Mock(read=read))
+        with patch.object(runtime_ui.time, "monotonic_ns", side_effect=lambda: now):
+            runtime_ui.run_loop(self.runtime, ui, Mock(read=read))
         self.gesture_events = events
         return [event.details for event in self.gesture_events]
 
     def test_both_v_start_either_rock_stops_and_both_v_resume_once(self):
-        from test_wuji_gesture import OPEN, ROCK, V
+        from tests.support.gesture import OPEN, ROCK, V
         events = self.run_phases([(V, OPEN), (V, V), (V, V), (OPEN, ROCK),
                                  (V, V), (V, V), (ROCK, OPEN)])
         self.assertEqual(events, [
@@ -324,11 +318,11 @@ class GestureControlTests(unittest.TestCase):
         ])
         self.assertEqual(self.calls.count("arms.engage"), 2)
         self.assertEqual(self.calls.count("hands.follow"), 2)
-        self.assertEqual(self.calls.count("arms.pause"), 3)  # Two gesture stops and Q.
-        self.assertEqual(self.calls.count("hands.pause"), 3)
+        self.assertEqual(self.calls.count("arms.pause"), 2)
+        self.assertEqual(self.calls.count("hands.pause"), 2)
 
     def test_startup_waits_for_ready_then_confirms_fresh_v_without_consuming_it_early(self):
-        from test_wuji_gesture import V
+        from tests.support.gesture import V
         events = self.run_phases([(V, V), (V, V), (V, V)],
                                  healthy=lambda index: index >= 10)
         self.assertEqual([e["action"] for e in events], ["engage"])
@@ -337,16 +331,16 @@ class GestureControlTests(unittest.TestCase):
         self.assertEqual(self.calls.count("hands.follow"), 1)
 
     def test_health_lost_between_detection_and_engage_does_not_queue_motion(self):
-        ui = cli.TeleopUI(self.runtime, None, gesture=Mock(), emit=lambda _: None)
+        ui = runtime_ui.TeleopUI(self.runtime, None, gesture=Mock(), emit=lambda _: None)
         self.runtime.health = lambda: Health(False, 0, "tracking unavailable")
         self.assertEqual(ui.handle_gesture("engage"), "not_ready")
         self.assertFalse(ui.engage_pending)
         self.runtime.health = lambda: Health(True, 1)
-        ui.poll_engagement()
+        ui.poll_operation()
         self.assertNotIn("arms.engage", self.calls)
 
     def test_recorded_v_starts_after_readiness_and_recorded_rock_stops(self):
-        from test_wuji_gesture import recorded_pose
+        from tests.support.gesture import recorded_pose
         left, right = recorded_pose("v_left_early"), recorded_pose("v_right_early")
         events = self.run_phases([(left, right)] * 3 +
                                  [(left, recorded_pose("rock_right_recorded"))],
@@ -356,7 +350,7 @@ class GestureControlTests(unittest.TestCase):
         self.assertEqual(self.calls.count("hands.follow"), 1)
 
     def test_fault_recovery_cannot_restart_held_v_until_a_new_pose(self):
-        from test_wuji_gesture import OPEN, V
+        from tests.support.gesture import OPEN, V
         events = self.run_phases([(V, V)] * 3 + [(OPEN, OPEN), (V, V)], fault_at=15,
                                  healthy=lambda index: index < 15 or index >= 25)
         self.assertEqual([event["action"] for event in events], ["engage", "engage"])
@@ -364,49 +358,51 @@ class GestureControlTests(unittest.TestCase):
         self.assertEqual(self.calls.count("arms.engage"), 2)
 
     def test_space_before_dwell_completes_cannot_be_undone_by_the_held_gesture(self):
-        from test_wuji_gesture import OPEN, V
+        from tests.support.gesture import OPEN, V
         events = self.run_phases([(V, V), (V, V), (OPEN, OPEN), (V, V)], stop_at=5)
         self.assertEqual([e["action"] for e in events], ["engage"])
-        self.assertEqual(self.calls[0:2], ["hands.pause", "arms.pause"])
+        self.assertEqual(self.calls[0:2], ["arms.pause", "hands.pause"])
         self.assertEqual(self.calls.count("hands.follow"), 1)
 
     def test_rock_while_paused_does_not_start_and_v_while_engaged_does_not_reengage(self):
-        from test_wuji_gesture import OPEN, ROCK, V
+        from tests.support.gesture import OPEN, ROCK, V
         events = self.run_phases([(ROCK, ROCK), (V, V), (OPEN, OPEN), (V, V)])
         self.assertEqual([event["action"] for event in events], ["pause", "engage", "ignored"])
         self.assertEqual(self.calls.count("arms.engage"), 1)
         self.assertEqual(self.calls.count("hands.follow"), 1)
 
-    def test_combined_enter_starts_and_resumes_both_groups_in_preview_and_motion_modes(self):
-        for motion in (False, True):
-            with self.subTest(enable_motion=motion):
-                self.calls.clear()
-                ui = cli.TeleopUI(self.runtime, None, gesture=Mock(), enable_motion=motion,
-                                  emit=lambda _: None)
-                ui.handle("\n")
-                self.assertEqual(self.calls, ["hands.prepare", "arms.engage", "hands.follow"])
-                self.assertEqual(self.runtime.state, SystemState.ENGAGED)
-                ui.handle("\r")
-                self.assertEqual(ui.handle_gesture("engage"), "ignored")
-                self.assertEqual(len(self.calls), 3)
-                ui.handle(" ")
-                self.assertEqual(self.runtime.state, SystemState.PAUSED)
-                ui.handle("\r")
-                self.assertEqual(self.runtime.state, SystemState.ENGAGED)
-                ui.handle("q")
-                self.assertEqual(self.calls, ["hands.prepare", "arms.engage", "hands.follow",
-                                             "hands.pause", "arms.pause"] * 2)
-                self.assertTrue(ui.quit)
+    def test_combined_enter_starts_and_resumes_both_groups(self):
+        self.arms, self.hands = Runtime("arms", self.calls), Runtime("hands", self.calls)
+        self.runtime = QuestTianjiWujiTeleop(self.arms, self.hands)
+        self.runtime.start()
+        self.calls.clear()
+        ui = runtime_ui.TeleopUI(self.runtime, None, gesture=Mock(),
+                          emit=lambda _: None)
+        ui.handle("\n")
+        self.assertEqual(self.calls, ["hands.prepare", "arms.engage", "hands.follow"])
+        self.assertEqual(self.runtime.state, SystemState.ENGAGED)
+        ui.handle("\r")
+        self.assertEqual(ui.handle_gesture("engage"), "ignored")
+        self.assertEqual(len(self.calls), 3)
+        ui.handle(" ")
+        self.assertEqual(self.runtime.state, SystemState.PAUSED)
+        ui.handle("\r")
+        self.assertEqual(self.runtime.state, SystemState.ENGAGED)
+        ui.handle("q")
+        self.assertEqual(self.calls, ["hands.prepare", "arms.engage", "hands.follow",
+                                     "arms.pause", "hands.pause",
+                                     "hands.prepare", "arms.engage", "hands.follow"])
+        self.assertTrue(ui.quit)
 
     def test_combined_enter_waits_for_readiness_and_run_loop_engages_once(self):
         ready, now, reads = False, 1_000_000_000, 0
         self.runtime.health = lambda: Health(ready, now, "tracking unavailable")
-        ui = cli.TeleopUI(self.runtime, None, gesture=Mock(poll=Mock(return_value=None)),
+        ui = runtime_ui.TeleopUI(self.runtime, None, gesture=Mock(poll=Mock(return_value=None)),
                           emit=lambda _: None)
 
         def read(timeout):
             nonlocal ready, now, reads
-            now += cli.PERIOD_NS
+            now += runtime_ui.PERIOD_NS
             reads += 1
             if reads == 1:
                 return "\r"
@@ -419,8 +415,8 @@ class GestureControlTests(unittest.TestCase):
             self.assertEqual(self.runtime.state, SystemState.ENGAGED)
             return "q"
 
-        with patch.object(cli.time, "monotonic_ns", side_effect=lambda: now):
-            cli.run_loop(self.runtime, ui, Mock(read=read))
+        with patch.object(runtime_ui.time, "monotonic_ns", side_effect=lambda: now):
+            runtime_ui.run_loop(self.runtime, ui, Mock(read=read))
         self.assertEqual(self.calls.count("hands.prepare"), 1)
         self.assertEqual(self.calls.count("arms.engage"), 1)
         self.assertEqual(self.calls.count("hands.follow"), 1)
@@ -430,25 +426,46 @@ class GestureControlTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.calls.clear()
                 self.runtime.health = lambda: Health(False, 0, "tracking unavailable")
-                ui = cli.TeleopUI(self.runtime, None, gesture=Mock(), emit=lambda _: None)
+                ui = runtime_ui.TeleopUI(self.runtime, None, gesture=Mock(), emit=lambda _: None)
                 ui.handle("\n")
                 self.assertTrue(ui.engage_pending)
                 self.assertEqual(self.calls, [])
                 ui.handle_gesture("pause") if key == "rock" else ui.handle(key)
                 self.assertFalse(ui.engage_pending)
-                self.assertEqual(self.calls, ["hands.pause", "arms.pause"])
+                self.assertEqual(self.calls, [] if key == "q" else ["arms.pause", "hands.pause"])
                 self.assertEqual(ui.quit, key == "q")
 
 
 class EntryPointTests(unittest.TestCase):
+    def test_viewer_is_opt_in_and_both_entries_close_the_preview(self):
+        for entry, args in ((cli, ["--arms-only"]), (hand_cli, [])):
+            for enabled in (False, True):
+                with self.subTest(entry=entry.__name__, enabled=enabled), \
+                        patch.object(entry, "NonblockingTerminal"), \
+                        patch.object(cli, "create_runtime", return_value=self.runtime), \
+                        patch.object(entry, "run_loop", return_value={"elapsed_s": .1, "motion_pauses": 0}), \
+                        patch("bimanual_teleop.visualization.realsense.RealSensePreview") as preview, \
+                        redirect_stderr(io.StringIO()):
+                    self.assertEqual(entry.main(args + (["--viewer"] if enabled else [])), 0)
+                self.assertEqual(preview.called, enabled)
+                if enabled:
+                    preview.return_value.start.assert_called_once()
+                    preview.return_value.close.assert_called_once()
+
     def setUp(self):
         self.module = ModuleType("bimanual_teleop.control.hand.follow")
         self.config = {"control_hz": 120}
         self.runtime = Runtime("runtime", [])
-        self.module.load_config = Mock(return_value=self.config)
+        self.load_config = Mock(return_value=self.config)
+        config_patch = patch("bimanual_teleop.devices.wuji.config.load_config", self.load_config)
+        config_patch.start()
+        self.addCleanup(config_patch.stop)
         self.module.preflight = Mock()
         self.module.create_wuji_teleop = Mock(return_value=self.runtime)
-        self.patch_module = patch.dict(sys.modules, {self.module.__name__: self.module})
+        self.process_module = ModuleType("bimanual_teleop.control.hand.process")
+        self.process_module.WujiProcess = Mock(return_value=self.runtime)
+        self.patch_module = patch.dict(sys.modules, {self.module.__name__: self.module,
+                                                     self.process_module.__name__: self.process_module})
         self.patch_module.start()
         self.addCleanup(self.patch_module.stop)
         prepare = patch.object(cli, "prepare_initial_pose")
@@ -463,7 +480,7 @@ class EntryPointTests(unittest.TestCase):
             self.addCleanup(logging.stop)
 
     def test_arm_only_factory_does_not_import_wuji_or_construct_hand_runtime(self):
-        args = SimpleNamespace(serial=None, robot_ip="unused", library=None,
+        args = SimpleNamespace(serial=None, robot_ip="unused", sdk_root=None,
                                arms_only=True,
                                wuji_config=Path("absent-wuji.yaml"), coordinate_frame="headset")
         original_import = builtins.__import__
@@ -485,7 +502,7 @@ class EntryPointTests(unittest.TestCase):
         self.module.create_wuji_teleop.assert_not_called()
 
     def test_combined_factory_constructs_both_arm_and_hand_runtimes(self):
-        args = SimpleNamespace(serial=None, robot_ip="unused", library=None, side="both",
+        args = SimpleNamespace(serial=None, robot_ip="unused", sdk_root=None, side="both",
                                arms_only=False, wuji_config=cli.DEFAULT_WUJI_CONFIG,
                                wuji_settings=self.config, coordinate_frame="headset")
         with ExitStack() as stack:
@@ -496,7 +513,9 @@ class EntryPointTests(unittest.TestCase):
             arms = stack.enter_context(patch.object(arm_runtime, "QuestTianjiTeleop"))
             combined = stack.enter_context(patch("bimanual_teleop.control.combined.QuestTianjiWujiTeleop"))
             self.assertIs(cli.create_runtime(args, None, None), combined.return_value)
-        self.module.create_wuji_teleop.assert_called_once_with(self.config, sink=None, enable_motion=True)
+        self.process_module.WujiProcess.assert_called_once_with(
+            self.config, verbose=False)
+        self.module.create_wuji_teleop.assert_not_called()
         self.assertEqual(arms.call_args.kwargs["side"], "both")
         combined.assert_called_once_with(arms.return_value, self.runtime)
 
@@ -512,10 +531,10 @@ class EntryPointTests(unittest.TestCase):
         self.assertTrue(args.arms_only)
         self.assertEqual(args.wuji_config, absent)
         self.assertIsNone(loop.call_args.args[1].gesture)
-        self.module.load_config.assert_not_called()
+        self.load_config.assert_not_called()
         self.module.preflight.assert_not_called()
         self.module.create_wuji_teleop.assert_not_called()
-        cli.configure_runtime_logging.assert_called_once_with(wuji=False)
+        cli.configure_runtime_logging.assert_called_once_with(wuji=False, verbose=False)
 
     def test_combined_single_arm_selection_fails_before_configuration_or_devices(self):
         for side in ("left", "right"):
@@ -528,7 +547,7 @@ class EntryPointTests(unittest.TestCase):
                 self.assertIn("--arms-only", output.getvalue())
                 config.assert_not_called()
                 create.assert_not_called()
-        self.module.load_config.assert_not_called()
+        self.load_config.assert_not_called()
 
     def test_wuji_preflight_failure_precedes_arm_ready_pose_motion(self):
         self.module.preflight.side_effect = RuntimeError("Wuji SDK unavailable")
@@ -543,7 +562,7 @@ class EntryPointTests(unittest.TestCase):
         create.assert_not_called()
 
     def test_invalid_wuji_configuration_does_not_enter_motion_preparation(self):
-        self.module.load_config.side_effect = ValueError("missing right glove")
+        self.load_config.side_effect = ValueError("missing right glove")
         with patch.object(cli, "prepare_initial_pose") as prepare, \
              patch.object(cli, "NonblockingTerminal") as terminal, \
              redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
@@ -563,8 +582,8 @@ class EntryPointTests(unittest.TestCase):
         self.assertIn("wuji_sdk", output.getvalue())
 
     def test_default_combined_entry_prepares_and_waits_for_gesture_or_enter(self):
-        gloves = {side: Mock() for side in ("left", "right")}
-        self.runtime.hands = SimpleNamespace(gloves=gloves, glove_timeout_ns=250_000_000)
+        samples = {side: Mock() for side in ("left", "right")}
+        self.runtime.hands = SimpleNamespace(glove_samples=lambda: samples, glove_timeout_ns=250_000_000)
         with patch.object(cli, "NonblockingTerminal"), \
              patch.object(cli, "prepare_initial_pose") as prepare, \
              patch.object(cli, "create_runtime", return_value=self.runtime) as create, \
@@ -574,21 +593,20 @@ class EntryPointTests(unittest.TestCase):
             code = cli.main([])
         self.assertEqual(code, 0)
         tianji_load.assert_called_once_with(cli.DEFAULT_CONFIG, None)
-        self.module.load_config.assert_called_once_with(cli.DEFAULT_WUJI_CONFIG)
+        self.load_config.assert_called_once_with(cli.DEFAULT_WUJI_CONFIG)
         self.assertEqual(create.call_args.args[0].config, cli.DEFAULT_CONFIG)
         self.assertEqual(create.call_args.args[0].wuji_config, cli.DEFAULT_WUJI_CONFIG)
         self.assertFalse(create.call_args.args[0].arms_only)
         self.assertIs(create.call_args.args[0].wuji_settings, self.config)
         prepare.assert_called_once()
         ui = loop.call_args.args[1]
-        self.assertTrue(ui.enable_motion)
         self.assertTrue(ui.background_engage)
-        self.assertEqual(ui.gesture.sources, {side: glove.get_latest for side, glove in gloves.items()})
+        self.assertEqual({side: read() for side, read in ui.gesture.sources.items()}, samples)
         self.assertNotIn("runtime.engage", self.runtime.calls)
 
     def test_combined_entry_forwards_explicit_config_paths_and_user_name(self):
         settings = cli.load_config(cli.DEFAULT_CONFIG)
-        self.runtime.hands = SimpleNamespace(gloves={side: Mock() for side in ("left", "right")},
+        self.runtime.hands = SimpleNamespace(glove_samples=lambda: {side: Mock() for side in ("left", "right")},
                                              glove_timeout_ns=250_000_000)
         with patch.object(cli, "NonblockingTerminal"), \
                 patch.object(cli, "create_runtime", return_value=self.runtime) as create, \
@@ -598,7 +616,7 @@ class EntryPointTests(unittest.TestCase):
             self.assertEqual(cli.main(["--tianji-config", "custom-tianji.yaml",
                                        "--wuji-config", "custom-wuji.yaml", "--user-name", "Alice"]), 0)
         tianji_load.assert_called_once_with(Path("custom-tianji.yaml"), None)
-        self.module.load_config.assert_called_once_with(Path("custom-wuji.yaml"))
+        self.load_config.assert_called_once_with(Path("custom-wuji.yaml"))
         self.assertEqual(create.call_args.args[0].config, Path("custom-tianji.yaml"))
         self.assertEqual(create.call_args.args[0].wuji_config, Path("custom-wuji.yaml"))
         self.assertEqual(create.call_args.args[0].wuji_settings["sdk_user_name"], "Alice")
@@ -626,22 +644,22 @@ class EntryPointTests(unittest.TestCase):
         code, loop = self.run_hand_cli([])
         self.assertEqual(code, 0)
         self.module.create_wuji_teleop.assert_called_once_with(
-            self.config, sides=("left", "right"), sink=None, enable_motion=True)
+            self.config, sides=("left", "right"), sink=None)
         self.assertEqual(loop.call_args.kwargs["period_ns"], round(1e9 / 120))
         self.assertEqual(self.runtime.calls, ["runtime.start", "runtime.close"])
 
     def test_standalone_accepts_named_wuji_config_and_legacy_alias(self):
         for flag in ("--wuji-config", "--config"):
             with self.subTest(flag=flag):
-                self.module.load_config.reset_mock()
+                self.load_config.reset_mock()
                 self.assertEqual(self.run_hand_cli([flag, "custom-wuji.yaml"])[0], 0)
-                self.module.load_config.assert_called_once_with(Path("custom-wuji.yaml"))
+                self.load_config.assert_called_once_with(Path("custom-wuji.yaml"))
 
     def test_standalone_confirmation_does_not_implicitly_engage(self):
         code, _ = self.run_hand_cli(["--side", "right"])
         self.assertEqual(code, 0)
         self.module.create_wuji_teleop.assert_called_once_with(
-            self.config, sides=("right",), sink=None, enable_motion=True)
+            self.config, sides=("right",), sink=None)
         self.assertNotIn("runtime.engage", self.runtime.calls)
 
     def test_standalone_partial_start_failure_still_closes_runtime(self):
@@ -684,7 +702,6 @@ class EntryPointTests(unittest.TestCase):
         self.assertIn("wuji_left_hand (192.168.1.110:7447) connect failed", message)
         self.assertIn("WujiException: Connection timeout", message)
         self.assertEqual(self.runtime.calls[-1], "runtime.close")
-
 
 
 if __name__ == "__main__":

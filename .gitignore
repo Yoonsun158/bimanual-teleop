@@ -1,3 +1,4 @@
+# Python caches and packaging
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -5,8 +6,43 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
 build/
 dist/
+
+# Native and Android build products
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+*.o
+*.a
+*.so
+*.apk
 .gradle/
 .cxx/
 local.properties
+
+# Required vendored runtime libraries and the distributable Quest app
+!/bimanual_teleop/vendor/tianji/SDK_PYTHON/libKine.so
+!/bimanual_teleop/vendor/tianji/SDK_PYTHON/libMarvinSDK.so
+!/quest_app/artifacts/quest-capture-debug.apk
+
+# Local settings, runtime logs and editor files
+.env
+.env.*
+!.env.example
+!.env.sample
+*.log
+!/docs/**/*.log
+.ipynb_checkpoints/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store

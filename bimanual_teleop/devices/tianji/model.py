@@ -1,28 +1,20 @@
-"""M6 model provenance, explicit motion configuration and local SDK kinematics.
-
-Reading a controller export proves agreement with that file, not live agreement.
-The driver separately downloads and verifies the currently connected controller.
-"""
+"""Pinned M6 model, motion configuration and local SDK kinematics."""
 
 from __future__ import annotations
 
-import configparser
-import ctypes
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import hashlib
+import json
 import math
 from pathlib import Path
 import threading
 from typing import Mapping
 
 from bimanual_teleop.types import ControlProfile, Pose, Side
-from bimanual_teleop.paths import PROJECT_ROOT
+from bimanual_teleop.devices.tianji.sdk import DEFAULT_MODEL, SDK_COMMIT, load_sdk, sdk_root as resolve_sdk_root
 
 
-SDK_COMMIT = "02440e886fb59095711eb9ec6dcbedd8be08922a"
 MODEL_SHA256 = "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52"
-DEFAULT_MODEL = PROJECT_ROOT / "tianji_bridge/models/ccs_m6_40.MvKDCfg"
-DEFAULT_LIBRARY = PROJECT_ROOT / "tianji_bridge/build/libtianji_bridge.so"
 SIDES: tuple[Side, ...] = ("left", "right")
 
 
@@ -30,12 +22,22 @@ class ProfileError(ValueError):
     """A motion parameter or its verification is missing or inconsistent."""
 
 
-class ModelMismatchError(ProfileError):
-    """The controller export differs from the kinematics model."""
-
-
 class KinematicsError(RuntimeError):
     """A local SDK kinematics operation failed or has no usable solution."""
+
+    diagnostic: dict | None = None
+
+    def __str__(self):
+        message = super().__str__()
+        if self.diagnostic is not None:
+            label = "控制诊断" if self.diagnostic.get("schema") == "tianji_cartesian_servo_failure_v1" else "IK诊断"
+            message += f"\n[{label}] " + json.dumps(self.diagnostic, ensure_ascii=False, allow_nan=False,
+                                               separators=(",", ":"))
+        return message
+
+
+class IKTargetError(KinematicsError):
+    """SDK-reported target infeasibility, distinct from an invalid model or input."""
 
 
 def _number(value: object, name: str, *, minimum: float | None = None) -> float:
@@ -87,22 +89,6 @@ class ArmModel:
 
 
 @dataclass(frozen=True)
-class ModelVerification:
-    source: str
-    export_path: str
-    export_digest: str
-    nominal_digest: str
-    sides: tuple[Side, ...]
-    connected_export_checked: bool = False
-    live_parameters_verified: bool = False
-
-    @property
-    def live_verified(self) -> bool:
-        """An exported robot.ini cannot establish unsaved live parameter values."""
-        return self.live_parameters_verified
-
-
-@dataclass(frozen=True)
 class M6Model:
     path: Path
     digest: str
@@ -141,46 +127,6 @@ class M6Model:
         if side not in SIDES:
             raise ProfileError(f"Unknown arm: {side}")
         return self.arms[side]
-
-    def verify_controller_export(
-        self, path: str | Path, sides: tuple[Side, ...] = SIDES, *, source: str = "provided_export",
-    ) -> ModelVerification:
-        if source not in ("provided_export", "downloaded_controller_export"):
-            raise ProfileError("Unknown controller export provenance")
-        path = Path(path).resolve()
-        raw = path.read_bytes()
-        parser = configparser.ConfigParser(interpolation=None)
-        try:
-            parser.read_string(raw.decode("utf-8-sig"))
-        except (UnicodeError, configparser.Error) as error:
-            raise ProfileError(f"Invalid controller export: {path}") from error
-        mismatches = []
-        for side in sides:
-            arm = self.arm(side)
-            prefix = f"R.A{SIDES.index(side)}"
-            expected = [(f"{prefix}.BASIC", "Type", arm.controller_type),
-                        (f"{prefix}.BASIC", "Dof", arm.dof)]
-            for index, dh in enumerate(arm.dh_native):
-                section = f"{prefix}.L{index}.DH" if index < 7 else f"{prefix}.FLANGE"
-                expected.extend((section, key, value) for key, value in zip(("Alpha", "A", "D", "Theta"), dh))
-            for index, limits in enumerate(arm.limits_native):
-                expected.extend((f"{prefix}.L{index}.BASIC", key, value) for key, value in
-                                zip(("LimitPos", "LimitNeg", "VelMax", "AccMax"), limits))
-            for quadrant, coefficients in zip(("PP", "NP", "NN", "PN"), arm.bd67_native):
-                expected.extend((f"{prefix}.CTRL", f"BD67{quadrant}{index}", value)
-                                for index, value in enumerate(coefficients))
-            for section, key, value in expected:
-                try:
-                    actual = parser.getfloat(section, key)
-                except (ValueError, configparser.Error) as error:
-                    raise ProfileError(f"Missing/invalid controller parameter {section}.{key}") from error
-                if not math.isclose(actual, value, rel_tol=1e-9, abs_tol=1e-6):
-                    mismatches.append(f"{section}.{key}: export {actual}, model {value}")
-        if mismatches:
-            raise ModelMismatchError("Controller/model mismatch: " + "; ".join(mismatches))
-        return ModelVerification(source, str(path), hashlib.sha256(raw).hexdigest(), self.digest,
-                                 tuple(sides), connected_export_checked=source == "downloaded_controller_export")
-
 
 @dataclass(frozen=True)
 class ArmMotionProfile:
@@ -240,19 +186,7 @@ class MotionProfile:
         return cls(profile.profile_id, tuple(active), arms, model)
 
 
-class _IkResult(ctypes.Structure):
-    _fields_ = [("q", ctypes.c_double * 7), ("solution_count", ctypes.c_int32),
-                ("out_of_range", ctypes.c_int32), ("singular_mask", ctypes.c_int32),
-                ("limit_mask", ctypes.c_int32)]
-
-
 _KINE_LOCK = threading.RLock()
-_LOADED_MODELS: dict[tuple[str, Side], str] = {}
-_DOUBLE_PTR = ctypes.POINTER(ctypes.c_double)
-
-
-def _array(values):
-    return (ctypes.c_double * len(values))(*values)
 
 
 def _matrix_from_pose(pose: Pose, side: Side) -> tuple[float, ...]:
@@ -292,41 +226,35 @@ def _pose_from_matrix(matrix, side: Side) -> Pose:
 
 
 class TianjiKinematics:
-    """Local official FK/IK; constructing this object explicitly loads the bridge."""
+    """Official offline kinematics, with SI units at the project boundary."""
 
-    def __init__(self, library_path: str | Path | None = None, model_path: str | Path | None = None):
+    def __init__(self, sdk_root: str | Path | None = None, model_path: str | Path | None = None):
         self.model = M6Model.from_file(model_path or DEFAULT_MODEL)
-        self.library_path = Path(library_path or DEFAULT_LIBRARY).resolve()
-        self._lib = ctypes.CDLL(str(self.library_path))
-        self._lib.tj_abi_version.restype = ctypes.c_int
-        self._lib.tj_last_error.restype = ctypes.c_char_p
-        if self._lib.tj_abi_version() != 2:
-            raise KinematicsError("Unsupported Tianji bridge ABI")
-        self._lib.tj_init_kine.argtypes = [ctypes.c_int32, ctypes.c_int32] + [_DOUBLE_PTR]*4
-        self._lib.tj_init_kine.restype = ctypes.c_int
-        self._lib.tj_fk.argtypes = [ctypes.c_int32, _DOUBLE_PTR, _DOUBLE_PTR]
-        self._lib.tj_fk.restype = ctypes.c_int
-        self._lib.tj_ik.argtypes = [ctypes.c_int32, _DOUBLE_PTR, _DOUBLE_PTR, ctypes.POINTER(_IkResult)]
-        self._lib.tj_ik.restype = ctypes.c_int
+        self.sdk_root = resolve_sdk_root(sdk_root)
+        self.library_path = self.sdk_root / "SDK_PYTHON/libKine.so"
+        self._module = load_sdk("kine", self.sdk_root)
+        self._kines = {}
 
-    def _check(self, operation: str, result: int) -> None:
-        if result != 0:
-            detail = self._lib.tj_last_error()
-            raise KinematicsError(f"{operation}: {detail.decode(errors='replace') if detail else result}")
+    @staticmethod
+    def _check(operation, result):
+        if result is False or result is None:
+            raise KinematicsError(f"Official SDK {operation} failed")
 
-    def _initialize(self, side: Side) -> int:
+    def _initialize(self, side):
         if side not in SIDES:
             raise KinematicsError(f"Unknown arm: {side}")
-        arm = self.model.arm(side)
-        key = (str(self.library_path), side)
-        index = SIDES.index(side)
-        if _LOADED_MODELS.get(key) != self.model.digest:
-            identity = _array((1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1))
-            self._check("initialize kinematics", self._lib.tj_init_kine(
-                index, arm.controller_type, _array(sum(arm.dh_native, ())),
-                _array(sum(arm.limits_native, ())), _array(sum(arm.bd67_native, ())), identity))
-            _LOADED_MODELS[key] = self.model.digest
-        return index
+        if side not in self._kines:
+            kine = self._module.Marvin_Kine()
+            kine.log_switch(0)
+            config = kine.load_config(SIDES.index(side), str(self.model.path))
+            self._check("load model", config)
+            arm = self.model.arm(side)
+            self._check("initialize", kine.initial_kine(arm.controller_type, arm.dh_native,
+                                                        arm.limits_native, arm.bd67_native))
+            self._check("remove tool frame", kine.remove_tool_kine())
+            self._check("remove user frame", kine.remove_user_frame_kine())
+            self._kines[side] = kine
+        return self._kines[side]
 
     @staticmethod
     def _joints(joints_rad) -> tuple[float, ...]:
@@ -336,29 +264,77 @@ class TianjiKinematics:
             raise KinematicsError(str(error)) from error
 
     def fk(self, side: Side, joints_rad: tuple[float, ...]) -> Pose:
-        joints = _array(tuple(math.degrees(value) for value in self._joints(joints_rad)))
-        matrix = _array((0.0,)*16)
+        joints = [math.degrees(q) for q in self._joints(joints_rad)]
         with _KINE_LOCK:
-            self._check("FK", self._lib.tj_fk(self._initialize(side), joints, matrix))
-        return _pose_from_matrix(matrix, side)
+            matrix = self._initialize(side).fk(joints)
+            self._check("FK", matrix)
+        return _pose_from_matrix(tuple(value for row in matrix for value in row), side)
+
+    def jacobian(self, side: Side, joints_rad: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
+        """Base-frame geometric Jacobian: linear m/rad, angular rad/rad.
+
+        The official library already returns SI Jacobian units; unlike FK
+        translation, its first three rows must not be divided by 1000.
+        """
+        joints = [math.degrees(q) for q in self._joints(joints_rad)]
+        with _KINE_LOCK:
+            matrix = self._initialize(side).joints2JacobMatrix(joints)
+            self._check("Jacobian", matrix)
+        if len(matrix) != 6 or any(len(row) != 7 or any(not math.isfinite(x) for x in row) for row in matrix):
+            raise KinematicsError("Jacobian returned invalid or nonfinite values")
+        return tuple(tuple(row) for row in matrix)
+
+    def solve(self, side, pose, reference_rad, *, direction=None, angle=None):
+        """Return the official IK flags even on failure; also used by offline replay."""
+        matrix = _matrix_from_pose(pose, side)
+        reference = [math.degrees(q) for q in self._joints(reference_rad)]
+        solve = self._module.FX_InvKineSolvePara()
+        solve.set_input_ik_target_tcp(matrix)
+        solve.set_input_ik_ref_joint(reference)
+        if direction is not None:
+            solve.set_input_ik_zsp_type(1)
+            solve.set_input_ik_zsp_para([*direction, 0., 0., 0.])
+            solve.m_DGR1 = solve.m_DGR2 = solve.m_DGR3 = 5
+        with _KINE_LOCK:
+            kine = self._initialize(side)
+            success = kine.ik(solve) is not False
+            if angle is not None and success and not solve.m_Output_IsOutRange:
+                solve.set_input_zsp_angle(angle)
+                solve.m_Output_IsJntExd, solve.m_Output_JntExdABS = False, 0.
+                success = kine.ik_nsp(solve) is not False
+        return success, solve
 
     def ik(self, side: Side, pose: Pose, reference_rad: tuple[float, ...]) -> tuple[float, ...]:
-        matrix = _array(_matrix_from_pose(pose, side))
-        reference = _array(tuple(math.degrees(value) for value in self._joints(reference_rad)))
-        result = _IkResult()
-        with _KINE_LOCK:
-            self._check("IK", self._lib.tj_ik(self._initialize(side), matrix, reference, ctypes.byref(result)))
-        if result.solution_count <= 0:
-            raise KinematicsError("IK target is unreachable")
-        if result.out_of_range or result.limit_mask:
-            exceeded = ", ".join(f"J{i+1}={q:.2f}deg" for i, q in enumerate(result.q)
-                                  if result.limit_mask & (1 << i))
-            raise KinematicsError(f"{side}: IK violates joint/coupled limits ({exceeded or 'unreachable target'})")
-        if result.singular_mask:
-            raise KinematicsError(f"IK is singular (mask={result.singular_mask})")
-        joints = tuple(math.radians(value) for value in result.q)
-        arm = self.model.arm(side)
-        if any(not math.isfinite(q) or q < low-1e-9 or q > high+1e-9
-               for q, low, high in zip(joints, arm.lower_rad, arm.upper_rad)):
-            raise KinematicsError("IK returned joints outside model limits")
-        return joints
+        success, result = self.solve(side, pose, reference_rad)
+        q = tuple(result.m_Output_RetJoint.to_list())
+        count, outside = result.m_OutPut_Result_Num, result.m_Output_IsOutRange
+        singular = sum(bool(flag) << i for i, flag in enumerate(result.m_Output_IsDeg))
+        limits = sum(bool(flag) << i for i, flag in enumerate(result.m_Output_JntExdTags))
+        try:
+            if not success and not (outside or singular or limits):
+                raise KinematicsError("Official SDK IK failed")
+            if any(not math.isfinite(value) for value in q):
+                raise KinematicsError("IK returned nonfinite joints")
+            if outside or count <= 0:
+                raise IKTargetError(f"{side}: IK target is unreachable")
+            if limits:
+                exceeded = ", ".join(f"J{i+1}={value:.2f}deg" for i, value in enumerate(q) if limits & (1 << i))
+                raise IKTargetError(f"{side}: IK violates joint/coupled limits ({exceeded})")
+            if singular:
+                raise IKTargetError(f"{side}: IK is singular (mask={singular})")
+            joints = tuple(math.radians(value) for value in q)
+            arm = self.model.arm(side)
+            if any(value < low-1e-9 or value > high+1e-9
+                   for value, low, high in zip(joints, arm.lower_rad, arm.upper_rad)):
+                raise KinematicsError("IK returned joints outside model limits")
+            return joints
+        except KinematicsError as error:
+            error.diagnostic = {
+                "schema": "tianji_ik_failure_v1", "sdk_commit": self.model.sdk_commit,
+                "model_sha256": self.model.digest, "side": side, "target": asdict(pose),
+                "reference_deg": [math.degrees(q) for q in reference_rad],
+                "result_deg": [value if math.isfinite(value) else None for value in q],
+                "status": 0 if success else -1, "solution_count": count,
+                "out_of_range": int(outside), "singular_mask": singular, "limit_mask": limits,
+            }
+            raise

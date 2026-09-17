@@ -88,13 +88,6 @@ def _from_matrix(m: Matrix3) -> Quaternion:
     return _quaternion(q)
 
 
-def orientation_distance(a: Quaternion, b: Quaternion) -> float:
-    """Shortest rotation angle; opposite quaternion signs describe one pose."""
-    a, b = _quaternion(a), _quaternion(b)
-    chord = min(math.dist(a, b), math.dist(a, tuple(-x for x in b)))
-    return 4 * math.asin(min(1.0, chord / 2))
-
-
 def slerp(a: Quaternion, b: Quaternion, fraction: float) -> Quaternion:
     a, b = _quaternion(a), _quaternion(b)
     if not math.isfinite(fraction) or not 0 <= fraction <= 1:
@@ -126,8 +119,6 @@ def _selected_sides(sides: Sequence[Side]) -> tuple[Side, ...]:
 
 def _operator_poses(operator: OperatorInput, sides: tuple[Side, ...]) -> dict[Side, Pose]:
     _arms(operator.wrists, "Operator wrists", sides)
-    if operator.hands:
-        raise ValueError("This mapper accepts controller poses only")
     poses = {}
     for side, sample in operator.wrists.items():
         tracked = sample.payload
@@ -176,10 +167,10 @@ class QuestTianjiMapper:
         self._reference_refs = tuple(dict.fromkeys(
             [*self._operator_refs.values(), *(robot.tool_poses[side].header.ref for side in self.sides)]))
 
-    def compute(self, operator: OperatorInput, robot: RobotState, *, now_monotonic_ns: int) -> RobotTarget:
+    def compute(self, operator: OperatorInput, *, now_monotonic_ns: int) -> RobotTarget:
         if not self._operator_reference:
             raise ValueError("Set valid operator and robot references before mapping")
-        poses, robot_poses = _operator_poses(operator, self.controller_sides), _robot_poses(robot, self.sides)
+        poses = _operator_poses(operator, self.controller_sides)
         targets, refs = {}, []
         deadline = min(sample.header.received_monotonic_ns + self.input_timeout_ns
                        for sample in operator.wrists.values())
@@ -194,9 +185,6 @@ class QuestTianjiMapper:
                     (ref.stream, ref.epoch) != (reference_ref.stream, reference_ref.epoch) or
                     ref.sequence < reference_ref.sequence):
                 raise ValueError("Controller stream/origin changed; explicit re-engagement is required")
-            actual = robot_poses[side]
-            if (actual.parent_frame, actual.child_frame) != (b0.parent_frame, b0.child_frame):
-                raise ValueError("Robot tool/base frame changed since engagement")
             c = self.base_from_quest[side]
             delta = rotate_vector(c, tuple(p-q for p, q in zip(pose.position_m, q0.position_m)))
             rotation_delta = matmul(rotation_matrix(pose.orientation_xyzw), transpose(rotation_matrix(q0.orientation_xyzw)))
@@ -205,8 +193,7 @@ class QuestTianjiMapper:
                                     orientation_xyzw=_from_matrix(desired))
             refs.append(ref)
         self._sequence += 1
-        return RobotTarget(f"quest-{self._command_prefix}-{self._sequence}", targets, {},
-                           tuple(dict.fromkeys([*refs, *self._reference_refs])), now_monotonic_ns,
+        return RobotTarget(f"quest-{self._command_prefix}-{self._sequence}", targets, tuple(dict.fromkeys([*refs, *self._reference_refs])), now_monotonic_ns,
                            deadline, self.profile_id)
 
 
@@ -220,8 +207,7 @@ class PoseGoalFilter:
 
     Update once per NEW Quest frame. Retain 0.8 of the prior filtered pose,
     matching the authors' enabled bimanual configuration. This is a noise
-    filter, not a speed or workspace limit. The original audit is retained in
-    the external history archive; the bundled license remains under licenses/.
+    filter, not a speed or workspace limit; the bundled license is under licenses/.
     """
 
     def __init__(self, initial: Mapping[Side, Pose], retention: float = .8):
@@ -256,7 +242,6 @@ class PoseGoalInterpolator:
         _arms(initial, "Initial command poses", self.sides)
         if not math.isfinite(nominal_period_s) or nominal_period_s <= 0:
             raise ValueError("Nominal period must be positive and finite")
-        self.nominal_period_s = nominal_period_s
         self.delay_ns = round(nominal_period_s * 1e9)
         self._accepted = {side: _pose(pose) for side, pose in initial.items()}
         self._accepted_ns: int | None = None
@@ -265,13 +250,9 @@ class PoseGoalInterpolator:
         self._pending: RobotTarget | None = None
         self._sequence = 0
 
-    @property
-    def accepted_poses(self) -> Mapping[Side, Pose]:
-        return dict(self._accepted)
-
     def set_goal(self, target: RobotTarget, *, sample_time_ns: int | None = None) -> None:
         _arms(target.tool_poses, "Goal poses", self.sides)
-        if target.hand_joints or target.expires_monotonic_ns <= target.created_monotonic_ns:
+        if target.expires_monotonic_ns <= target.created_monotonic_ns:
             raise ValueError("Expected an unexpired arm-only target")
         if self._goal and (target.control_profile_id != self._goal.control_profile_id or
                            target.created_monotonic_ns < self._goal.created_monotonic_ns):

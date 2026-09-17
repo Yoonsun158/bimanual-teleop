@@ -1,0 +1,61 @@
+{
+  "schema": "teleop_pause_review_v1",
+  "source": "/home/yuchen/.codex/attachments/2e39e38e-2df9-45f1-a969-58f8b563f83f/pasted-text.txt",
+  "source_sha256": "783897c87109b7106fab5cda007f84e2654939650f2c8229e95b41f67464ceee",
+  "elapsed_s": 225.3,
+  "automatic_pause_counts": {
+    "previous_target_watchdog_expired": 3,
+    "engagement_ended_during_planning": 4
+  },
+  "solver_failure_lines": 0,
+  "stall_warnings": 75,
+  "encoder_quality_warnings": 41,
+  "hardware_access": false,
+  "watchdog_interleaving": [
+    {
+      "atomic_watch": false,
+      "accepted": true,
+      "reason": null,
+      "engaged_after": false,
+      "time_after_ns": 1052000000,
+      "new_deadline_ns": 1099000000,
+      "records": [
+        {
+          "event": "submit_inside_native",
+          "now_ns": 1049000000,
+          "deadline_ns": 1050000000
+        },
+        {
+          "event": "watch_requested_hold",
+          "now_ns": 1051000000,
+          "deadline_ns": 1050000000,
+          "reason": "Accepted target expired or no target arrived within host watchdog interval"
+        },
+        {
+          "event": "hold_completed",
+          "now_ns": 1052000000,
+          "deadline_ns": 1099000000
+        }
+      ]
+    },
+    {
+      "atomic_watch": true,
+      "accepted": true,
+      "reason": null,
+      "engaged_after": true,
+      "time_after_ns": 1052000000,
+      "new_deadline_ns": 1099000000,
+      "records": [
+        {
+          "event": "submit_inside_native",
+          "now_ns": 1049000000,
+          "deadline_ns": 1050000000
+        }
+      ]
+    }
+  ],
+  "hand_status_injected_delay_ms": 80,
+  "original_hand_status_ms": 81.113,
+  "revised_hand_status_ms": 0.1252,
+  "note": "Offline deterministic fault injection proves reachable code defects; historical log lacks per-pause timing, so individual real pauses cannot all be attributed."
+}

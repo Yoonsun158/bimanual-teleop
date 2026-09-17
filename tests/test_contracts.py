@@ -105,9 +105,7 @@ class ContractTests(unittest.TestCase):
 
             raw_ref = SampleRef('glove.left.emf', 'session-a/device-epoch-2', 31)
             skeleton_ref = SampleRef('glove.left.skeleton', 'session-a/device-epoch-2', 9)
-            operator = OperatorInput(
-                wrists={},
-                hands={'left': Sample(
+            hands = {'left': Sample(
                     SampleHeader(skeleton_ref, 5000001, True),
                     HandSkeleton(
                         frame='left_glove',
@@ -116,8 +114,8 @@ class ContractTests(unittest.TestCase):
                         confidences=(0.8,),
                         source_refs=(raw_ref,),
                     ),
-                )},
-            )
+                )}
+            operator = OperatorInput(wrists={})
             feedback = Sample(
                 SampleHeader(
                     ref=SampleRef('hand.left.joints', 'session-a/device-epoch-1', 101),
@@ -132,7 +130,7 @@ class ContractTests(unittest.TestCase):
                     motor_current_a=(0.4, None),
                 ),
             )
-            records = (operator, feedback)
+            records = (operator, hands, feedback)
             restored = pickle.loads(pickle.dumps(records))
             assert restored == records, 'Transport lost missing values or raw provenance'
         """)

@@ -83,14 +83,13 @@ class TianjiJogTests(unittest.TestCase):
                  redirect_stderr(io.StringIO()):
                 self.assertEqual(tianji_jog.main([
                     "--side", "right", "--tianji-config", str(config),
-                    "--ip", "192.0.2.9", "--library", str(library), "--model", str(model)]), 0)
+                    "--ip", "192.0.2.9", "--sdk-root", str(library), "--model", str(model)]), 0)
             self.assertEqual(events, ["prepare", "kinematics", "driver", "start", "jog", "close"])
             prepare.assert_called_once_with(config=config, ip="192.0.2.9", side="right",
-                                            library=library, model=model, terminal=terminal)
+                                            sdk_root=library, model=model, terminal=terminal)
             factory.assert_called_once_with("192.0.2.9", library, model_path=model)
             kinematics.assert_called_once_with(library, model)
             self.assertEqual(run.call_args.kwargs["side"], "right")
-            self.assertTrue(run.call_args.kwargs["enable_motion"])
 
     def test_preparation_failure_or_cancel_prevents_jog_connection(self):
         for reason in ("初始位姿准备失败", "初始位姿准备已取消"):
@@ -171,7 +170,7 @@ class TianjiJogTests(unittest.TestCase):
 
         with patch.object(tianji_jog, "TianjiCartesianExecutor", Executor):
             tianji_jog.run_jog(driver, Limits(), ControlProfile("p", "cartesian_impedance", {}),
-                               side="left", enable_motion=True, translation_m=.005,
+                               side="left", translation_m=.005,
                                rotation_rad=math.radians(2), transition_s=.25,
                                terminal=_Keys("\r", "w", "q"), emit=lambda _: None)
         self.assertEqual(calls[:3], ["configure", "engage", "submit"])
@@ -211,7 +210,7 @@ class TianjiJogTests(unittest.TestCase):
              patch.object(tianji_jog.time, "monotonic_ns", side_effect=count(now, 5_000_000)), \
              patch.object(tianji_jog.time, "sleep"):
             tianji_jog.run_jog(driver, kinematics, ControlProfile("p", "cartesian_impedance", {}),
-                               side="left", enable_motion=True, translation_m=.005,
+                               side="left", translation_m=.005,
                                rotation_rad=math.radians(2), transition_s=.005,
                                terminal=_Keys("\r", "w", "i", "q"), emit=messages.append)
         targets = [item.tool_poses["left"] for item in calls if hasattr(item, "tool_poses")]

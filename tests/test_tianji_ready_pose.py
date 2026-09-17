@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import yaml
 
-from bimanual_teleop.cli import prepare_tianji_teleop as ready
+from bimanual_teleop.cli import home_tianji as ready
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,7 +29,7 @@ class Arm:
 @dataclass
 class Feedback:
     payload: object = field(default_factory=lambda: type("Frame", (), {
-        "arms": {side: Arm() for side in ready.SIDES}})())
+        "arms": {side: Arm() for side in ("left", "right")}})())
 
 
 class Driver:
@@ -48,19 +48,18 @@ class Driver:
     def get_latest(self):
         return self.sample
 
-    def move_joints(self, side, target):
+    def move_joints(self, side, target, **kwargs):
         self.calls.append((side, target))
         if self.failure == side:
             raise RuntimeError("SDK rejected joint target")
         self.sample.payload.arms[side].position_rad = target
         return self.sample
 
-    def reset_released_emergency(self, *, physical_release_confirmed):
-        assert physical_release_confirmed
+    def clear_errors(self, sides, **kwargs):
         self.calls.append("reset")
-        for arm in self.sample.payload.arms.values():
-            arm.error = 0
-        return {"confirmed_disabled": True}
+        for side in sides:
+            self.sample.payload.arms[side].error = 0
+
 
     def close(self):
         self.calls.append("close")
@@ -120,7 +119,7 @@ class ReadyPoseTests(unittest.TestCase):
     def test_motion_uses_selected_target_and_custom_model(self):
         library, model = self.root / "custom.so", self.root / "model.MvKDCfg"
         code, _, factory = self.invoke("--side", "right",
-                                       "--library", str(library), "--model", str(model))
+                                       "--sdk-root", str(library), "--model", str(model))
         self.assertEqual(code, 0)
         factory.assert_called_once_with(self.settings["controller_ip"], library, model_path=model)
         moves = [call for call in self.driver.calls if isinstance(call, tuple)]
@@ -133,7 +132,7 @@ class ReadyPoseTests(unittest.TestCase):
         self.source["order"] = ["right", "left"]
         code, output, _ = self.invoke()
         self.assertEqual(code, 0)
-        self.assertEqual(self.driver.calls[0:2], ["start", "configure"])
+        self.assertEqual(self.driver.calls[0:3], ["start", "reset", "configure"])
         self.assertEqual([call[0] for call in self.driver.calls if isinstance(call, tuple)], ["right", "left"])
         self.assertEqual(self.driver.calls[-1], "close")
         self.assertIn("准备完成", output)
@@ -158,10 +157,24 @@ class ReadyPoseTests(unittest.TestCase):
         code, output, _ = self.invoke()
         self.assertEqual(code, 1)
         self.assertIn("SDK release failed", output)
+        self.assertNotIn("准备完成", output)
 
-    def test_reset_is_explicit_and_precedes_motion(self):
+    def test_success_is_reported_only_after_driver_close(self):
+        close = self.driver.close
+
+        def checked_close():
+            import sys
+            self.assertNotIn("准备完成", sys.stderr.getvalue())
+            close()
+
+        self.driver.close = checked_close
+        code, output, _ = self.invoke()
+        self.assertEqual(code, 0)
+        self.assertIn("准备完成", output)
+
+    def test_reset_is_automatic_and_precedes_motion(self):
         self.driver.sample.payload.arms["left"].error = 13
-        code, _, _ = self.invoke("--reset")
+        code, _, _ = self.invoke()
         self.assertEqual(code, 0)
         self.assertEqual(self.driver.calls[:3], ["start", "reset", "configure"])
 

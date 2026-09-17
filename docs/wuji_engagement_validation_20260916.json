@@ -1,0 +1,39 @@
+{
+  "test": "right_hand_bounded_seed_hold",
+  "parameters": {
+    "kp": 3.0,
+    "kd": 0.05,
+    "current_limit_a": 0.5
+  },
+  "arm_motion": false,
+  "initial_pinky_joint3_deg": -60.169035191231586,
+  "seed_pinky_joint3_deg": -59.99999999999999,
+  "max_correction_deg": 0.1690351912315913,
+  "accepted_commands": 234,
+  "elapsed_s": 2.001148308001575,
+  "all_enabled": true,
+  "error_codes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "fault": null,
+  "disable_confirmed": true
+}

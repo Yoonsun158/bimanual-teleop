@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from importlib.metadata import version
+from importlib.util import find_spec
 import math
 import threading
 import time
@@ -16,52 +17,18 @@ import uuid
 from bimanual_teleop.devices.wuji.adapter import (
     JOINT_LIMITS_RAD, JOINT_NAMES, WujiGloveSource, WujiHandDriver, WujiSdkSession,
 )
-from bimanual_teleop.common.config import load_yaml_config
-from bimanual_teleop.devices.wuji.config import sdk_user_name
+from bimanual_teleop.devices.wuji.config import sdk_user_name, validate_control_config
 from bimanual_teleop.system import SystemState
 from bimanual_teleop.types import ControlProfile, DeviceCommand, Event, Health, JointTarget
 
 
 def preflight():
-    """Check optional dependencies without creating an SDK manager or a device."""
+    """Check installation before motion; the hand process loads native modules."""
     if version("wuji-sdk") != "2026.8.31":
         raise RuntimeError("Install wuji-sdk==2026.8.31 in bimanual-teleop")
-    import numpy
-    import wuji_sdk
-    return wuji_sdk
-
-
-def load_config(path):
-    config = load_yaml_config(path)
-    _validate_config(config)
-    config.setdefault("profile_id", "wuji-hand2")
-    return config
-
-
-def _validate_config(config):
-    if not isinstance(config, dict):
-        raise ValueError("Wuji configuration must be an object")
-    if "profile_id" in config and not config["profile_id"]:
-        raise ValueError("Wuji profile_id must be nonempty when supplied")
-    if config.get("mode", "mit") != "mit":
-        raise ValueError("Hand2 control mode must be mit")
-    sdk_user_name(config)
-    for key, default in (("control_hz", 120), ("transition_s", .75),
-                         ("glove_timeout_s", .25), ("hand_timeout_s", .5)):
-        value = config.get(key, default)
-        if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-            raise ValueError(f"{key} must be finite and positive")
-    parameters = config.get("parameters", {})
-    for key in ("kp", "kd", "current_limit_a"):
-        value = parameters.get(key)
-        if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-            raise ValueError(f"{key} must be finite and positive")
-    devices = config.get("devices", {})
-    for side in ("left", "right"):
-        for kind in ("glove", "hand"):
-            address = devices.get(side, {}).get(kind)
-            if not isinstance(address, str) or not address:
-                raise ValueError(f"devices.{side}.{kind} requires an address")
+    for package in ("numpy", "wuji_sdk"):
+        if find_spec(package) is None:
+            raise ImportError(f"No module named {package!r}")
 
 
 class WujiHandRetargeter:
@@ -107,7 +74,7 @@ a coordinator can engage the arms while this worker keeps both hand targets.
 """
 
     def __init__(self, gloves, hands, retargeters, *, profile, sink=None,
-                 enable_motion=False, control_hz=120., transition_s=.75,
+                 control_hz=120., transition_s=.75,
                  glove_timeout_s=.25, hand_timeout_s=.5, session=None,
                  clock_ns=time.monotonic_ns, threaded=True, metadata=None):
         self.sides = tuple(gloves)
@@ -118,7 +85,7 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                (control_hz, transition_s, glove_timeout_s, hand_timeout_s)):
             raise ValueError("Wuji rates and timeouts must be positive")
         self.gloves, self.hands, self.retargeters = gloves, hands, retargeters
-        self.profile, self.sink, self.enable_motion = profile, sink, enable_motion
+        self.profile, self.sink = profile, sink
         self.session, self.clock_ns, self.threaded = session, clock_ns, threaded
         self.metadata = dict(metadata or {})
         self.period_ns = round(1e9 / control_hz)
@@ -139,6 +106,7 @@ a coordinator can engage the arms while this worker keeps both hand targets.
         self._epoch, self._sequence = uuid.uuid4().hex, 0
         self.cycles = self.last_compute_ns = self.missed_periods = 0
         self._first_cycle_ns = self._last_cycle_ns = None
+        self._cycle_snapshot = (0, None, None, 0, None)
 
     @property
     def state(self):
@@ -169,6 +137,7 @@ a coordinator can engage the arms while this worker keeps both hand targets.
         try:
             if self.session:
                 self.session.open()
+                self._check_session()
                 for device in (*self.gloves.values(), *self.hands.values()):
                     device.manager, device.sdk = self.session.manager, self.session.sdk
                 for retargeter in self.retargeters.values():
@@ -177,8 +146,7 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                 self.gloves[side].start(sink=self.sink)
                 self.hands[side].start(sink=self.sink)
             self._state = SystemState.READY
-            self._event("started", {"motion_enabled": self.enable_motion,
-                        "profile": asdict(self.profile), "control_period_ns": self.period_ns,
+            self._event("started", {                        "profile": asdict(self.profile), "control_period_ns": self.period_ns,
                         "configuration": self.metadata,
                         "session": self.session.metadata if self.session else None,
                         "devices": {s: {"glove": self.gloves[s].metadata,
@@ -202,6 +170,10 @@ a coordinator can engage the arms while this worker keeps both hand targets.
             self.last_error = message
             raise RuntimeError(message) from error
 
+    def glove_samples(self):
+        """Return the latest owned skeleton samples without querying the SDK."""
+        return {side: glove.get_latest() for side, glove in self.gloves.items()}
+
     def _current(self, side, *, glove=False, check_latch=True):
         device = self.gloves[side] if glove else self.hands[side]
         sample = device.get_latest()
@@ -218,8 +190,12 @@ a coordinator can engage the arms while this worker keeps both hand targets.
         return sample
 
     def _check_session(self):
+        """Confirm our SDK user at lifecycle boundaries, outside following."""
         if self.session:
-            health = self.session.health()
+            try:
+                health = self.session.health()
+            except Exception as error:
+                raise RuntimeError(f"Wuji SDK session query failed: {error}") from error
             if not health.ready:
                 raise RuntimeError(health.detail or "Wuji SDK user changed")
 
@@ -227,14 +203,20 @@ a coordinator can engage the arms while this worker keeps both hand targets.
         if self._refs.get(side) != sample.header.ref:
             self._mapped[side] = self.retargeters[side].solve(sample)
             self._refs[side] = sample.header.ref
-            self._event("retargeted", {"side": side, "source_ref": asdict(sample.header.ref),
-                        "target": asdict(self._mapped[side])})
+            if self.sink is not None:
+                self._event("retargeted", {"side": side, "source_ref": asdict(sample.header.ref),
+                            "target": asdict(self._mapped[side])})
 
-    def _cancelled(self, generation):
-        return self._stop.is_set() or generation != self._generation
+    def _cancelled(self, generation, cancelled=None):
+        return (self._stop.is_set() or generation != self._generation
+                or (cancelled is not None and cancelled()))
 
-    def prepare_engage(self):
+    def prepare_engage(self, *, cancelled=None):
         with self._lock:
+            # An asynchronous caller can cancel before this thread is first
+            # scheduled. Check before establishing a new engagement generation.
+            if cancelled is not None and cancelled():
+                raise RuntimeError("Wuji engagement cancelled")
             if self._worker_error:
                 raise RuntimeError(self._worker_error)
             if self.state not in (SystemState.READY, SystemState.PAUSED) or self._preparing:
@@ -257,18 +239,16 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                 self.retargeters[side].reset()
                 self._map(side, self._current(side, glove=True))
             for side in self.sides:
-                if self._cancelled(generation):
+                if self._cancelled(generation, cancelled):
                     raise RuntimeError("Wuji engagement cancelled")
                 hand = self.hands[side]
-                if self.enable_motion and (not hand.enabled or side in self._blocked_hands):
+                if not hand.enabled or side in self._blocked_hands:
                     hand.configure(self.profile)
-                    if self._cancelled(generation):
+                    if self._cancelled(generation, cancelled):
                         raise RuntimeError("Wuji engagement cancelled")
-                    hand.engage(cancelled=lambda: self._cancelled(generation))
+                    hand.engage(cancelled=lambda: self._cancelled(generation, cancelled))
                     self._blocked_hands.discard(side)
             with self._lock:
-                if self._cancelled(generation):
-                    raise RuntimeError("Wuji engagement cancelled")
                 self._origin = {}
                 feedback_refs = {}
                 for side in self.sides:
@@ -277,10 +257,12 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                     hand = self.hands[side]
                     feedback_refs[side] = asdict(feedback.header.ref)
                     # A held target can intentionally differ from measured q under load.
-                    self._origin[side] = hand.last_target if self.enable_motion and hand.enabled else JointTarget(
+                    self._origin[side] = hand.last_target if hand.enabled else JointTarget(
                         JOINT_NAMES, tuple(feedback.payload.position_rad))
+                if self._cancelled(generation, cancelled):
+                    raise RuntimeError("Wuji engagement cancelled")
                 self._prepared_generation = generation
-                self.mode = "hold" if self.enable_motion else "preview_ready"
+                self.mode = "hold"
                 self.last_error = None
                 self._event("prepared", {"origins": {s: asdict(q) for s, q in self._origin.items()},
                             "feedback_refs": feedback_refs,
@@ -288,26 +270,27 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                 if self._observer_error:
                     raise RuntimeError(self._observer_error)
         except BaseException as error:
-            if not self._cancelled(generation):
+            if not self._cancelled(generation, cancelled):
                 self.pause(str(error))
             raise
         finally:
             self._preparing = False
 
-    def begin_follow(self):
+    def begin_follow(self, *, cancelled=None):
         with self._lock:
             if self._prepared_generation != self._generation or self._prepared_generation is None:
-                raise RuntimeError("Prepare the hands before starting following")
+                raise RuntimeError(self.last_error or "Prepare the hands before starting following")
             try:
-                self._check_session()
                 for side in self.sides:
                     self._current(side, glove=True)
                     self._current(side)
-                    if self.enable_motion and not self.hands[side].enabled:
+                    if not self.hands[side].enabled:
                         raise RuntimeError(f"{side} hand lost enable before following")
                 self._transition_start = self.clock_ns()
+                if cancelled is not None and cancelled():
+                    raise RuntimeError("Wuji engagement cancelled")
                 self._state = SystemState.ENGAGED
-                self.mode = "follow" if self.enable_motion else "preview"
+                self.mode = "follow"
                 self._prepared_generation = None
                 self._event("engaged", {"transition_ns": self.transition_ns, "mode": self.mode})
                 if self._observer_error:
@@ -321,9 +304,6 @@ a coordinator can engage the arms while this worker keeps both hand targets.
             raise ValueError("Restart to change the Wuji control profile")
         self.prepare_engage()
         self.begin_follow()
-
-    def resume(self):
-        self.engage()
 
     def pause(self, reason):
         with self._lock:
@@ -389,7 +369,6 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                     self._disable(side, reason)
             if self.state == SystemState.ENGAGED:
                 try:
-                    self._check_session()
                     samples = {s: self._current(s, glove=True) for s in self.sides}
                     for side, sample in samples.items():
                         self._map(side, sample)
@@ -402,17 +381,14 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                     for side in self.sides:
                         self._current(side, glove=True)
                         self._current(side)
-                    if self.enable_motion:
-                        for side in self.sides:
-                            now = self.clock_ns()
-                            deadline = min(now + 50_000_000,
-                                samples[side].header.received_monotonic_ns + self.glove_timeout_ns)
-                            self._submit(side, targets[side], (self._refs[side],), now, deadline)
-                    else:
-                        self._event("preview", {"targets": {s: asdict(q) for s, q in targets.items()}})
+                    for side in self.sides:
+                        now = self.clock_ns()
+                        deadline = min(now + 50_000_000,
+                            samples[side].header.received_monotonic_ns + self.glove_timeout_ns)
+                        self._submit(side, targets[side], (self._refs[side],), now, deadline)
                 except Exception as error:
                     self.pause(str(error))
-            elif self.enable_motion:
+            else:
                 for side, hand in self.hands.items():
                     if hand.enabled and side not in self._blocked_hands and hand.last_target is not None:
                         try:
@@ -426,6 +402,8 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                 self._first_cycle_ns = started
             self._last_cycle_ns = started
             self.last_compute_ns = self.clock_ns() - started
+            self._cycle_snapshot = (self.cycles, self._first_cycle_ns, self._last_cycle_ns,
+                                    self.last_compute_ns, self.clock_ns())
             self._event("cycle", {"compute_ns": self.last_compute_ns, "missed_periods": self.missed_periods})
 
     def _run(self):
@@ -459,7 +437,6 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                 raise RuntimeError(self.state.value)
             if self._worker_error:
                 raise RuntimeError(self._worker_error)
-            self._check_session()
             for side in self.sides:
                 self._current(side, glove=True, check_latch=self.state == SystemState.ENGAGED)
                 self._current(side, check_latch=self.state == SystemState.ENGAGED)
@@ -468,18 +445,22 @@ a coordinator can engage the arms while this worker keeps both hand targets.
             return Health(False, self.clock_ns(), str(error))
 
     def status(self, *, include_target=True):
-        with self._lock:
-            elapsed_ns = (self._last_cycle_ns - self._first_cycle_ns) if self.cycles > 1 else 0
-            return {"state": self.state.value, "motion_enabled": self.enable_motion, "mode": self.mode,
-                    "health": asdict(self.health()), "last_error": self.last_error, "cycles": self.cycles,
-                    "control_hz_actual": (self.cycles - 1) * 1e9 / elapsed_ns if elapsed_ns > 0 else None,
-                    "last_compute_ns": self.last_compute_ns, "missed_periods": self.missed_periods,
-                    "gloves": {s: {"health": asdict(g.health(check_latch=False)),
-                                    "statistics": g.statistics} for s, g in self.gloves.items()},
-                    "hands": {s: {"enabled": h.enabled, "health": asdict(h.health()),
-                        "statistics": h.statistics,
-                        "last_target": asdict(h.last_target) if include_target and h.last_target else None}
-                        for s, h in self.hands.items()}}
+        # The control lock spans native retarget/send calls. UI readers must not
+        # wait for it while the arm group's command deadline is running.
+        cycles, first, last, compute, completed = self._cycle_snapshot
+        elapsed_ns = last-first if cycles > 1 else 0
+        return {"state": self.state.value, "mode": self.mode,
+                "health": asdict(self.health()), "last_error": self.last_error, "cycles": cycles,
+                "control_hz_actual": (cycles-1)*1e9/elapsed_ns if elapsed_ns > 0 else None,
+                "last_compute_ns": compute, "missed_periods": self.missed_periods,
+                "worker_completed_monotonic_ns": completed,
+                "worker_age_ns": self.clock_ns()-completed if completed is not None else None,
+                "gloves": {s: {"health": asdict(g.health(check_latch=False)),
+                                "statistics": g.statistics} for s, g in self.gloves.items()},
+                "hands": {s: {"enabled": h.enabled, "health": asdict(h.health()),
+                    "statistics": h.statistics,
+                    "last_target": asdict(h.last_target) if include_target and h.last_target else None}
+                    for s, h in self.hands.items()}}
 
     def close(self):
         with self._lock:
@@ -510,18 +491,19 @@ a coordinator can engage the arms while this worker keeps both hand targets.
             raise RuntimeError(self.last_error)
 
 
-def create_wuji_teleop(config, sides=("left", "right"), *, sink=None, enable_motion=False):
+def create_wuji_teleop(config, sides=("left", "right"), *, sink=None):
     """Construct without SDK imports, network connections, or parameter changes."""
-    _validate_config(config)
+    validate_control_config(config)
     if not sides or len(set(sides)) != len(sides) or set(sides) - {"left", "right"}:
         raise ValueError("Select left, right, or both hands")
     gloves = {s: WujiGloveSource(s, config["devices"][s]["glove"],
+              streams=("emf", "skeleton") if sink is not None else ("skeleton",),
               timeout_s=config.get("glove_timeout_s", .25)) for s in sides}
     hands = {s: WujiHandDriver(s, config["devices"][s]["hand"],
              timeout_s=config.get("hand_timeout_s", .5)) for s in sides}
     profile = ControlProfile(config.get("profile_id", "wuji-hand2"), "mit", dict(config["parameters"]))
     return WujiTeleop(gloves, hands, {s: WujiHandRetargeter(s) for s in sides},
-        profile=profile, sink=sink, enable_motion=enable_motion,
+        profile=profile, sink=sink,
         session=WujiSdkSession(user_name=sdk_user_name(config)),
         control_hz=config.get("control_hz", 120), transition_s=config.get("transition_s", .75),
         glove_timeout_s=config.get("glove_timeout_s", .25), hand_timeout_s=config.get("hand_timeout_s", .5),

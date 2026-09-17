@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import ipaddress
 from pathlib import Path
 
@@ -31,3 +32,14 @@ def load_config(path: str | Path = DEFAULT_CONFIG, override: str | None = None) 
         profile.setdefault("profile_id", "tianji-teleop")
         profile.setdefault("mode", "cartesian_impedance")
     return source
+
+
+def select_profile_side(profile, side):
+    """Make the selected arm the only native motion target."""
+    if side == "both":
+        return profile
+    if side not in ("left", "right"):
+        raise ValueError("side must be left, right, or both")
+    return replace(profile, profile_id=f"{profile.profile_id}-{side}",
+                   parameters={**profile.parameters, "active_arms": [side],
+                               "arms": {side: profile.parameters["arms"][side]}})

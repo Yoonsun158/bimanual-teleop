@@ -1,0 +1,2391 @@
+{
+  "source": "/home/yuchen/.codex/attachments/44326318-2741-40f4-9061-79867cd735a0/pasted-text.txt",
+  "source_sha256": "43033fc0bfb45576175086dc7546c4979f679e7d84a26b2e1a489158bd7d1c21",
+  "scope": "Seven separate real failure snapshots, not a continuous recorded trajectory; offline calculations only.",
+  "records": [
+    {
+      "index": 1,
+      "input": {
+        "schema": "tianji_ik_failure_v1",
+        "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+        "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+        "side": "right",
+        "target": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.21102920637901848,
+            -0.19500839050585922,
+            0.2252227818773898
+          ],
+          "orientation_xyzw": [
+            0.11518268201873115,
+            0.570738076179654,
+            -0.002090229174635972,
+            0.8130108419349134
+          ]
+        },
+        "reference_deg": [
+          -134.29116617910117,
+          -91.43614369541307,
+          95.777610788848,
+          -144.98952814355047,
+          -82.47976097603735,
+          17.00631028010176,
+          20.0793169753757
+        ],
+        "result_deg": [
+          -134.3495327118106,
+          -91.80427562674923,
+          95.77566186570806,
+          -145.0356570701288,
+          -82.65423436035404,
+          16.709841014804656,
+          20.053430014214353
+        ],
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": 0,
+        "singular_mask": 0,
+        "limit_mask": 8,
+        "command_id": "quest-3c8bb1155b554706937c7b3106cb1557-1185/step-2263",
+        "control_profile_id": "tianji-teleop",
+        "source_refs": [
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 1227
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 44
+          },
+          {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 1042
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 1228
+          }
+        ],
+        "created_monotonic_ns": 16659531089755,
+        "expires_monotonic_ns": 16659581089755,
+        "ik_started_monotonic_ns": 16659531182636,
+        "feedback": {
+          "ref": {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 13216
+          },
+          "received_monotonic_ns": 16659532632504,
+          "joints_deg": [
+            -132.25511169433594,
+            -79.01748657226562,
+            93.05440521240234,
+            -141.595703125,
+            -70.34131622314453,
+            31.436944961547855,
+            12.440911293029785
+          ]
+        }
+      },
+      "original": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 8,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -134.3495327118106,
+          -91.80427562674923,
+          95.77566186570806,
+          -145.0356570701288,
+          -82.65423436035404,
+          16.709841014804656,
+          20.053430014214353
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.3681319313361655,
+        "model_limit_violations": [
+          4
+        ],
+        "effective_limit_violations": [
+          4
+        ],
+        "minimum_effective_limit_margin_deg": -0.03565707012879216,
+        "fk_position_error_m": 8.91650164394374e-08,
+        "fk_orientation_error_deg": 1.5835142153691186e-05
+      },
+      "selected_alternative": null,
+      "target_delta_mm": 0.4193324480405697,
+      "target_delta_deg": 0.028883309827480646,
+      "j4_branches_deg": [
+        -145.03565707,
+        131.296369687
+      ],
+      "shoulder_axis_1_3_dot": -0.02506281103892851
+    },
+    {
+      "index": 2,
+      "input": {
+        "schema": "tianji_ik_failure_v1",
+        "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+        "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+        "side": "right",
+        "target": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.26613762229223437,
+            -0.20363322629083755,
+            0.28480722084967736
+          ],
+          "orientation_xyzw": [
+            0.12460696660544147,
+            0.5352580995143043,
+            -0.07620204165299882,
+            0.8319646144071515
+          ]
+        },
+        "reference_deg": [
+          -127.23352964352469,
+          -31.452411793809684,
+          92.85075934256383,
+          -135.05833219577502,
+          -32.7497901578303,
+          59.938637067274165,
+          3.4624599348217537
+        ],
+        "result_deg": [
+          -127.08549014539281,
+          -31.213471133815343,
+          92.72412865742672,
+          -134.9950254173069,
+          -32.466068258814325,
+          60.0562452537368,
+          3.3036996831550476
+        ],
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": 0,
+        "singular_mask": 0,
+        "limit_mask": 32,
+        "command_id": "quest-fab45e082a7242f695b1526f447495df-133/step-257",
+        "control_profile_id": "tianji-teleop",
+        "source_refs": [
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 1618
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 1487
+          },
+          {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 15887
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 1619
+          }
+        ],
+        "created_monotonic_ns": 16663872339382,
+        "expires_monotonic_ns": 16663922339382,
+        "ik_started_monotonic_ns": 16663872404609,
+        "feedback": {
+          "ref": {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 17228
+          },
+          "received_monotonic_ns": 16663872625713,
+          "joints_deg": [
+            -135.03428649902344,
+            -31.65621566772461,
+            103.42672729492189,
+            -138.96044921875,
+            -39.51177978515625,
+            56.722015380859375,
+            15.831786155700685
+          ]
+        }
+      },
+      "original": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 32,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -127.08549014539281,
+          -31.213471133815343,
+          92.72412865742672,
+          -134.9950254173069,
+          -32.466068258814325,
+          60.0562452537368,
+          3.3036996831550476
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.28372189901597267,
+        "model_limit_violations": [
+          6
+        ],
+        "effective_limit_violations": [
+          6
+        ],
+        "minimum_effective_limit_margin_deg": -0.05624525373679745,
+        "fk_position_error_m": 4.61296157818881e-09,
+        "fk_orientation_error_deg": 0.0
+      },
+      "selected_alternative": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -127.07506959563037,
+          -31.32660931370702,
+          92.7500463697528,
+          -134.9950254173069,
+          -32.67456127071984,
+          59.9998751775623,
+          3.4803374629822477
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 0.158460047894323,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 0.00012482243769795787,
+        "fk_position_error_m": 5.583563246718409e-09,
+        "fk_orientation_error_deg": 0.0,
+        "angle_deg": 0.11850000000001705
+      },
+      "target_delta_mm": 0.482112359994356,
+      "target_delta_deg": 0.051515454826906,
+      "j4_branches_deg": [
+        -134.995025417,
+        121.255738035
+      ],
+      "shoulder_axis_1_3_dot": 0.85307384232803
+    },
+    {
+      "index": 3,
+      "input": {
+        "schema": "tianji_ik_failure_v1",
+        "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+        "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+        "side": "right",
+        "target": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.27643594142867695,
+            -0.2185174056949219,
+            0.33366443657760797
+          ],
+          "orientation_xyzw": [
+            0.14216329915794737,
+            0.5927859501288149,
+            -0.13730548307444443,
+            0.7807314634495651
+          ]
+        },
+        "reference_deg": [
+          -161.037251334445,
+          -11.238977603441866,
+          120.70322124390688,
+          -127.95959335420936,
+          -4.758534466973669,
+          44.69760515610464,
+          -16.103157534628078
+        ],
+        "result_deg": [
+          -172.86127129899631,
+          -8.614040901776603,
+          132.35683639964836,
+          -127.95482189136625,
+          2.0214708818371774,
+          45.2839418044512,
+          -19.186260876552947
+        ],
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": 0,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "command_id": "quest-836f560609914f238b823ad422bc01c6-638/step-1230",
+        "control_profile_id": "tianji-teleop",
+        "source_refs": [
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2438
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 1801
+          },
+          {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 19123
+          }
+        ],
+        "created_monotonic_ns": 16672978578585,
+        "expires_monotonic_ns": 16673028578585,
+        "ik_started_monotonic_ns": 16672978641694,
+        "feedback": {
+          "ref": {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 25640
+          },
+          "received_monotonic_ns": 16672975647351,
+          "joints_deg": [
+            -146.60586547851562,
+            -14.948324203491211,
+            110.31998443603516,
+            -125.93797302246092,
+            -19.17225456237793,
+            38.897823333740234,
+            -3.372459411621094
+          ]
+        }
+      },
+      "original": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -172.86127129899631,
+          -8.614040901776603,
+          132.35683639964836,
+          -127.95482189136625,
+          2.0214708818371774,
+          45.2839418044512,
+          -19.186260876552947
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 11.824019964551326,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -2.8612712989963143,
+        "fk_position_error_m": 3.3538450630143825e-08,
+        "fk_orientation_error_deg": 1.1326587362040635e-05
+      },
+      "selected_alternative": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -160.63004382858344,
+          -11.450344199327047,
+          121.68791878960982,
+          -127.95482189136625,
+          -3.2080127492697104,
+          45.25014889049618,
+          -14.553103509318563
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 1.5505217177039583,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 9.369956171416561,
+        "fk_position_error_m": 3.162472259116239e-08,
+        "fk_orientation_error_deg": 1.9243080705259792e-05,
+        "angle_deg": 3.792500000000017
+      },
+      "target_delta_mm": 4.810586229613284,
+      "target_delta_deg": 2.088970601491208,
+      "j4_branches_deg": [
+        -127.954821891,
+        114.215534509
+      ],
+      "shoulder_axis_1_3_dot": 0.9808227935127208
+    },
+    {
+      "index": 4,
+      "input": {
+        "schema": "tianji_ik_failure_v1",
+        "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+        "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+        "side": "right",
+        "target": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.28375838602556347,
+            -0.22052251475186394,
+            0.3296964879422148
+          ],
+          "orientation_xyzw": [
+            0.13373691059387025,
+            0.5992061406533264,
+            -0.16361189922973196,
+            0.7722030731475972
+          ]
+        },
+        "reference_deg": [
+          -169.70229588771608,
+          -6.633505041634923,
+          129.6190492562913,
+          -127.11301117925225,
+          -0.7699396469051867,
+          46.468423432126286,
+          -15.720737716537606
+        ],
+        "result_deg": [
+          -170.17114200934375,
+          -6.542539173191759,
+          130.08478413827413,
+          -127.07857799016418,
+          -0.7627521719742281,
+          46.413354745053056,
+          -15.53968992418067
+        ],
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": 0,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "command_id": "quest-e3ef9e87a6024a1f8b58c6c70b416058-40/step-55",
+        "control_profile_id": "tianji-teleop",
+        "source_refs": [
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2632
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2594
+          },
+          {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 27261
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2633
+          }
+        ],
+        "created_monotonic_ns": 16675135981879,
+        "expires_monotonic_ns": 16675185981879,
+        "ik_started_monotonic_ns": 16675136103320,
+        "feedback": {
+          "ref": {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 27638
+          },
+          "received_monotonic_ns": 16675136649551,
+          "joints_deg": [
+            -166.15611267089844,
+            -6.522574424743652,
+            126.1802520751953,
+            -126.66010284423827,
+            -1.5752403736114502,
+            45.33307647705078,
+            -16.499507904052734
+          ]
+        }
+      },
+      "original": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.17114200934375,
+          -6.542539173191759,
+          130.08478413827413,
+          -127.07857799016418,
+          -0.7627521719742281,
+          46.413354745053056,
+          -15.53968992418067
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.4688461216276778,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.1711420093437539,
+        "fk_position_error_m": 8.823427951654263e-09,
+        "fk_orientation_error_deg": 4.182619578303746e-06
+      },
+      "selected_alternative": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -169.92582011335853,
+          -6.575969646576201,
+          129.85856373897371,
+          -127.07857799016418,
+          -0.829296873804024,
+          46.41279560635685,
+          -15.48130353246484
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 0.23951448268240938,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 0.07417988664147401,
+        "fk_position_error_m": 8.640143984328987e-09,
+        "fk_orientation_error_deg": 4.182619578303746e-06,
+        "angle_deg": 0.047000000000022725
+      },
+      "target_delta_mm": 0.2423160886954459,
+      "target_delta_deg": 0.19959339082533406,
+      "j4_branches_deg": [
+        -127.07857799,
+        113.339290608
+      ],
+      "shoulder_axis_1_3_dot": 0.9933053845515358
+    },
+    {
+      "index": 5,
+      "input": {
+        "schema": "tianji_ik_failure_v1",
+        "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+        "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+        "side": "right",
+        "target": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.29080869341579035,
+            -0.21538778209751874,
+            0.3295828957134694
+          ],
+          "orientation_xyzw": [
+            0.13001366267889117,
+            0.603309025133772,
+            -0.1538414225607119,
+            0.7716524375737134
+          ]
+        },
+        "reference_deg": [
+          -168.6438629920325,
+          -6.139830330069175,
+          129.70271331339438,
+          -126.58523485367108,
+          -0.005147606360424106,
+          45.572707883821636,
+          -16.287952590459557
+        ],
+        "result_deg": [
+          -170.24996412883047,
+          -5.785224027076311,
+          131.29979311625573,
+          -126.5759186462865,
+          0.35191199788499716,
+          45.787096444962174,
+          -16.196576598469395
+        ],
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": 0,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "command_id": "quest-b9823e078d284b98a9b62a8bb2857f10-7/step-15",
+        "control_profile_id": "tianji-teleop",
+        "source_refs": [
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2735
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2729
+          },
+          {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 28581
+          }
+        ],
+        "created_monotonic_ns": 16676278820283,
+        "expires_monotonic_ns": 16676328820283,
+        "ik_started_monotonic_ns": 16676278895777,
+        "feedback": {
+          "ref": {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 28655
+          },
+          "received_monotonic_ns": 16676280639808,
+          "joints_deg": [
+            -167.8515167236328,
+            -6.327919006347656,
+            128.9260711669922,
+            -126.59163665771483,
+            -0.1801963746547699,
+            45.441993713378906,
+            -16.34484100341797
+          ]
+        }
+      },
+      "original": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.24996412883047,
+          -5.785224027076311,
+          131.29979311625573,
+          -126.5759186462865,
+          0.35191199788499716,
+          45.787096444962174,
+          -16.196576598469395
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 1.6061011367979745,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.24996412883047014,
+        "fk_position_error_m": 1.1751588588348486e-08,
+        "fk_orientation_error_deg": 6.830189170012753e-06
+      },
+      "selected_alternative": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -168.9261602220812,
+          -5.94256171234622,
+          130.0673719994416,
+          -126.5759186462865,
+          0.03884050402472335,
+          45.787749579087816,
+          -15.922024085829417
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 0.3659285046301406,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 1.0738397779188062,
+        "fk_position_error_m": 1.1449886440538031e-08,
+        "fk_orientation_error_deg": 6.15664931839995e-06,
+        "angle_deg": 0.22400000000001138
+      },
+      "target_delta_mm": 0.5490606418923573,
+      "target_delta_deg": 0.33573884788374597,
+      "j4_branches_deg": [
+        -126.575918646,
+        112.836631264
+      ],
+      "shoulder_axis_1_3_dot": 0.9942638330421893
+    },
+    {
+      "index": 6,
+      "input": {
+        "schema": "tianji_ik_failure_v1",
+        "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+        "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+        "side": "right",
+        "target": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2919083888968461,
+            -0.2148591702932824,
+            0.3294814828156031
+          ],
+          "orientation_xyzw": [
+            0.1311710762923241,
+            0.6025816196109167,
+            -0.15246990167897279,
+            0.7722968791426015
+          ]
+        },
+        "reference_deg": [
+          -169.91496899473995,
+          -5.622241040986864,
+          131.14112474820774,
+          -126.4983474592807,
+          0.7892729721965566,
+          45.831532190343594,
+          -16.332862444319463
+        ],
+        "result_deg": [
+          -170.00409611672077,
+          -5.596851406399878,
+          131.22982427654097,
+          -126.49533823220332,
+          0.8250643731537366,
+          45.85246401614707,
+          -16.332950466493916
+        ],
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": 0,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "command_id": "quest-f4b5505c646d4be995a499e5abf95579-11/step-17",
+        "control_profile_id": "tianji-teleop",
+        "source_refs": [
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2921
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2912
+          },
+          {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 30308
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 2922
+          }
+        ],
+        "created_monotonic_ns": 16678348273259,
+        "expires_monotonic_ns": 16678398273259,
+        "ik_started_monotonic_ns": 16678348338223,
+        "feedback": {
+          "ref": {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 30390
+          },
+          "received_monotonic_ns": 16678345622852,
+          "joints_deg": [
+            -167.8516387939453,
+            -6.198869705200195,
+            129.1074981689453,
+            -126.57556915283205,
+            0.07814712822437286,
+            45.408931732177734,
+            -16.38309478759766
+          ]
+        }
+      },
+      "original": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.00409611672077,
+          -5.596851406399878,
+          131.22982427654097,
+          -126.49533823220332,
+          0.8250643731537366,
+          45.85246401614707,
+          -16.332950466493916
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.08912712198082318,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.0040961167207740345,
+        "fk_position_error_m": 2.457367418347643e-08,
+        "fk_orientation_error_deg": 1.4080795695456205e-05
+      },
+      "selected_alternative": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -169.92912058948068,
+          -5.6052118539747084,
+          131.1597404275838,
+          -126.49533823220332,
+          0.8082674989044655,
+          45.85261015388827,
+          -16.318231658403732
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 0.021077963544676948,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 0.07087941051932489,
+        "fk_position_error_m": 2.459109850564932e-08,
+        "fk_orientation_error_deg": 1.4080795695456205e-05,
+        "angle_deg": 0.012000000000022732
+      },
+      "target_delta_mm": 0.040485448151508084,
+      "target_delta_deg": 0.025765699017352508,
+      "j4_branches_deg": [
+        -126.495338232,
+        112.75605085
+      ],
+      "shoulder_axis_1_3_dot": 0.9951894463080593
+    },
+    {
+      "index": 7,
+      "input": {
+        "schema": "tianji_ik_failure_v1",
+        "sdk_commit": "02440e886fb59095711eb9ec6dcbedd8be08922a",
+        "model_sha256": "ce20b1a80974c3ed58cdac4973152625096c8ad93a779e5fd4108c26ce19bd52",
+        "side": "right",
+        "target": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2983328899482107,
+            -0.2077261356278136,
+            0.3281180328049897
+          ],
+          "orientation_xyzw": [
+            0.12793554487490535,
+            0.6029228821932102,
+            -0.14791026355321468,
+            0.7734591446359736
+          ]
+        },
+        "reference_deg": [
+          -169.85213081975155,
+          -5.068419715078109,
+          132.5834747545535,
+          -126.49468036743589,
+          1.3942053764677669,
+          46.14596008307809,
+          -15.968651356685488
+        ],
+        "result_deg": [
+          -170.5363318942882,
+          -4.914172481353207,
+          133.26500725035754,
+          -126.49629534514277,
+          1.5241189580214611,
+          46.276847294975944,
+          -15.893471965183213
+        ],
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": 0,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "command_id": "quest-27c6d6221f974976b4f32a58d518a076-11/step-17",
+        "control_profile_id": "tianji-teleop",
+        "source_refs": [
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 3295
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 3286
+          },
+          {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 33948
+          },
+          {
+            "stream": "quest.poses",
+            "epoch": "df6187b8b1aa4c4e93a1da128109ec09/origin-0",
+            "sequence": 3296
+          }
+        ],
+        "created_monotonic_ns": 16682502072001,
+        "expires_monotonic_ns": 16682552072001,
+        "ik_started_monotonic_ns": 16682502157990,
+        "feedback": {
+          "ref": {
+            "stream": "tianji.feedback",
+            "epoch": "0953159b6be749faabd426c7eed8d162",
+            "sequence": 34024
+          },
+          "received_monotonic_ns": 16682497628968,
+          "joints_deg": [
+            -167.8540802001953,
+            -5.844411849975586,
+            130.59832763671875,
+            -126.52325439453125,
+            0.8099258542060852,
+            45.41246795654297,
+            -16.383623123168945
+          ]
+        }
+      },
+      "original": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.5363318942882,
+          -4.914172481353207,
+          133.26500725035754,
+          -126.49629534514277,
+          1.5241189580214611,
+          46.276847294975944,
+          -15.893471965183213
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.6842010745366451,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.536331894288196,
+        "fk_position_error_m": 5.128136418363483e-08,
+        "fk_orientation_error_deg": 1.1326587362040635e-05
+      },
+      "selected_alternative": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -169.9898921814347,
+          -4.9646151496686475,
+          132.74874131302414,
+          -126.49629534514277,
+          1.4188727087523418,
+          46.278482286755406,
+          -15.801407021718544
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 0.16724433496694324,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 0.010107818565302296,
+        "fk_position_error_m": 4.164973548921384e-08,
+        "fk_orientation_error_deg": 9.80911239371096e-06,
+        "angle_deg": 0.07450000000002271
+      },
+      "target_delta_mm": 0.2853505598240142,
+      "target_delta_deg": 0.17215698255686104,
+      "j4_branches_deg": [
+        -126.496295345,
+        112.757007962
+      ],
+      "shoulder_axis_1_3_dot": 0.9960899117624148
+    }
+  ],
+  "geometric_interpolation_summaries": [
+    {
+      "index": 2,
+      "invalid_points": [],
+      "max_adjacent_delta_deg": 0.002480621346762746,
+      "minimum_margin_deg": 0.00012482243771216872,
+      "max_fk_error_mm": 7.5638255278273795e-06,
+      "max_fk_error_rotation_deg": 1.0998359992012945e-06
+    },
+    {
+      "index": 3,
+      "invalid_points": [],
+      "max_adjacent_delta_deg": 0.024359883387557346,
+      "minimum_margin_deg": 8.962749689380928,
+      "max_fk_error_mm": 3.4703649154604145e-05,
+      "max_fk_error_rotation_deg": 2.122101525674214e-05
+    },
+    {
+      "index": 4,
+      "invalid_points": [],
+      "max_adjacent_delta_deg": 0.003766561755867315,
+      "minimum_margin_deg": 0.07417988664153086,
+      "max_fk_error_mm": 1.684815207278352e-05,
+      "max_fk_error_rotation_deg": 1.004408132467874e-05
+    },
+    {
+      "index": 5,
+      "invalid_points": [],
+      "max_adjacent_delta_deg": 0.0059666910933060535,
+      "minimum_margin_deg": 1.0738397779185789,
+      "max_fk_error_mm": 2.615959454973648e-05,
+      "max_fk_error_rotation_deg": 1.563707611750784e-05
+    },
+    {
+      "index": 6,
+      "invalid_points": [],
+      "max_adjacent_delta_deg": 0.00032953906745802897,
+      "minimum_margin_deg": 0.07087941051932489,
+      "max_fk_error_mm": 2.47842033894949e-05,
+      "max_fk_error_rotation_deg": 1.412945886306535e-05
+    },
+    {
+      "index": 7,
+      "invalid_points": [],
+      "max_adjacent_delta_deg": 0.002666778403636272,
+      "minimum_margin_deg": 0.010107818565302296,
+      "max_fk_error_mm": 4.1663458824941654e-05,
+      "max_fk_error_rotation_deg": 1.2272605389812415e-05
+    }
+  ],
+  "tracking_and_timing_review": [
+    {
+      "n": 1,
+      "line": 19,
+      "since_first_s": 0.0,
+      "step": 2263,
+      "source_since_anchor_frames": 1184,
+      "created_to_ik_ms": 0.092881,
+      "feedback_relative_to_ik_ms": 1.449868,
+      "target_lifetime_ms": 50.0,
+      "reference_minus_feedback_deg": [
+        -2.0360544847652307,
+        -12.41865712314744,
+        2.7232055764456504,
+        -3.393825018550473,
+        -12.138444752892823,
+        -14.430634681446094,
+        7.638405682345915
+      ],
+      "result_minus_reference_deg": [
+        -0.058366532709442254,
+        -0.3681319313361655,
+        -0.0019489231399347773,
+        -0.04612892657831935,
+        -0.17447338431668413,
+        -0.29646926529710527,
+        -0.0258869611613477
+      ],
+      "reference_to_target": {
+        "position_mm": 0.4193324480405697,
+        "orientation_deg": 0.028883309827481038,
+        "translation_mm": [
+          -0.29653246137709144,
+          0.044008316746946274,
+          -0.2932089176448105
+        ]
+      },
+      "feedback_to_target": {
+        "position_mm": 15.393070748768196,
+        "orientation_deg": 6.392903055971869,
+        "translation_mm": [
+          -11.265124561574163,
+          8.978278484783914,
+          -5.425321293570345
+        ]
+      },
+      "feedback_to_reference": {
+        "position_mm": 15.048912702753942,
+        "orientation_deg": 6.417104268353725,
+        "translation_mm": [
+          -10.968592100197071,
+          8.934270168036967,
+          -5.132112375925535
+        ]
+      },
+      "result_to_target": {
+        "position_mm": 8.91650164394374e-05,
+        "orientation_deg": 1.578620195369813e-05,
+        "translation_mm": [
+          5.1099773940022075e-05,
+          7.306623239777821e-05,
+          -7.341274532723929e-07
+        ]
+      },
+      "reference_deg": [
+        -134.29116617910117,
+        -91.43614369541307,
+        95.777610788848,
+        -144.98952814355047,
+        -82.47976097603735,
+        17.00631028010176,
+        20.0793169753757
+      ],
+      "feedback_deg": [
+        -132.25511169433594,
+        -79.01748657226562,
+        93.05440521240234,
+        -141.595703125,
+        -70.34131622314453,
+        31.436944961547855,
+        12.440911293029785
+      ],
+      "fk": {
+        "reference": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.21132573884039557,
+            -0.19505239882260617,
+            0.22551599079503462
+          ],
+          "orientation_xyzw": [
+            0.11509379221565642,
+            0.5707135232703167,
+            -0.002322984427324407,
+            0.8130400341269498
+          ]
+        },
+        "feedback": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.22229433094059264,
+            -0.20398666899064313,
+            0.23064810317096016
+          ],
+          "orientation_xyzw": [
+            0.12890677249263752,
+            0.5501481441936837,
+            0.04673914231365033,
+            0.8237326726684827
+          ]
+        },
+        "result": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.21102915527924454,
+            -0.19500846357209162,
+            0.22522278261151726
+          ],
+          "orientation_xyzw": [
+            0.11518276072019891,
+            0.5707380605210105,
+            -0.0020903411508407586,
+            0.8130108414894981
+          ]
+        }
+      }
+    },
+    {
+      "n": 2,
+      "line": 24,
+      "since_first_s": 4.341249627,
+      "step": 257,
+      "source_since_anchor_frames": 132,
+      "created_to_ik_ms": 0.065227,
+      "feedback_relative_to_ik_ms": 0.221104,
+      "target_lifetime_ms": 50.0,
+      "reference_minus_feedback_deg": [
+        7.800756855498747,
+        0.20380387391492505,
+        -10.575967952358056,
+        3.902117022974977,
+        6.761989627325953,
+        3.21662168641479,
+        -12.369326220878932
+      ],
+      "result_minus_reference_deg": [
+        0.14803949813187955,
+        0.23894065999434133,
+        -0.1266306851371155,
+        0.0633067784681316,
+        0.28372189901597267,
+        0.1176081864626326,
+        -0.15876025166670615
+      ],
+      "reference_to_target": {
+        "position_mm": 0.482112359994356,
+        "orientation_deg": 0.05151545482690556,
+        "translation_mm": [
+          0.4712640499690002,
+          0.06860416881268594,
+          0.0750732368268725
+        ]
+      },
+      "feedback_to_target": {
+        "position_mm": 22.007746645651313,
+        "orientation_deg": 4.933068244804675,
+        "translation_mm": [
+          10.460917477111254,
+          -18.074069667208676,
+          -6.945367061655716
+        ]
+      },
+      "feedback_to_reference": {
+        "position_mm": 21.86861613132453,
+        "orientation_deg": 4.973674515451957,
+        "translation_mm": [
+          9.989653427142253,
+          -18.142673836021363,
+          -7.020440298482589
+        ]
+      },
+      "result_to_target": {
+        "position_mm": 4.6129615781888095e-06,
+        "orientation_deg": 3.9988537755652185e-07,
+        "translation_mm": [
+          -3.834814743530757e-06,
+          8.480680879774383e-07,
+          -2.4195848657981855e-06
+        ]
+      },
+      "reference_deg": [
+        -127.23352964352469,
+        -31.452411793809684,
+        92.85075934256383,
+        -135.05833219577502,
+        -32.7497901578303,
+        59.938637067274165,
+        3.4624599348217537
+      ],
+      "feedback_deg": [
+        -135.03428649902344,
+        -31.65621566772461,
+        103.42672729492189,
+        -138.96044921875,
+        -39.51177978515625,
+        56.722015380859375,
+        15.831786155700685
+      ],
+      "fk": {
+        "reference": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.26566635824226537,
+            -0.20370183045965023,
+            0.2847321476128505
+          ],
+          "orientation_xyzw": [
+            0.12480030394997775,
+            0.5352784775947782,
+            -0.07579672525743923,
+            0.8319595494962828
+          ]
+        },
+        "feedback": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2556767048151231,
+            -0.18555915662362887,
+            0.29175258791133307
+          ],
+          "orientation_xyzw": [
+            0.12904629329973308,
+            0.5444237417315065,
+            -0.11645287566887363,
+            0.8206025660288389
+          ]
+        },
+        "result": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2661376261270491,
+            -0.20363322713890564,
+            0.2848072232692622
+          ],
+          "orientation_xyzw": [
+            0.12460696675239256,
+            0.5352580998926941,
+            -0.07620203818741947,
+            0.8319646144591211
+          ]
+        }
+      }
+    },
+    {
+      "n": 3,
+      "line": 28,
+      "since_first_s": 13.44748883,
+      "step": 1230,
+      "source_since_anchor_frames": 637,
+      "created_to_ik_ms": 0.063109,
+      "feedback_relative_to_ik_ms": -2.994343,
+      "target_lifetime_ms": 50.0,
+      "reference_minus_feedback_deg": [
+        -14.431385855929364,
+        3.7093466000493454,
+        10.383236807871725,
+        -2.021620331748437,
+        14.413720095404262,
+        5.799781822364409,
+        -12.730698123006984
+      ],
+      "result_minus_reference_deg": [
+        -11.824019964551326,
+        2.6249367016652627,
+        11.653615155741477,
+        0.004771462843109475,
+        6.780005348810846,
+        0.5863366483465597,
+        -3.0831033419248683
+      ],
+      "reference_to_target": {
+        "position_mm": 4.810586229613284,
+        "orientation_deg": 2.0889706014912064,
+        "translation_mm": [
+          2.565743298290901,
+          2.9050326078208233,
+          2.8494713101412383
+        ]
+      },
+      "feedback_to_target": {
+        "position_mm": 12.091324705105691,
+        "orientation_deg": 8.778235810182725,
+        "translation_mm": [
+          -10.378072312529241,
+          2.7030662659615623,
+          5.584727474285012
+        ]
+      },
+      "feedback_to_reference": {
+        "position_mm": 13.23120475442965,
+        "orientation_deg": 7.0559379224974546,
+        "translation_mm": [
+          -12.943815610820142,
+          -0.201966341859261,
+          2.7352561641437734
+        ]
+      },
+      "result_to_target": {
+        "position_mm": 3.3538450630143826e-05,
+        "orientation_deg": 1.1387280697260685e-05,
+        "translation_mm": [
+          -2.1658610849240034e-05,
+          -2.2069889110687413e-05,
+          1.2986617781152177e-05
+        ]
+      },
+      "reference_deg": [
+        -161.037251334445,
+        -11.238977603441866,
+        120.70322124390688,
+        -127.95959335420936,
+        -4.758534466973669,
+        44.69760515610464,
+        -16.103157534628078
+      ],
+      "feedback_deg": [
+        -146.60586547851562,
+        -14.948324203491211,
+        110.31998443603516,
+        -125.93797302246092,
+        -19.17225456237793,
+        38.897823333740234,
+        -3.372459411621094
+      ],
+      "fk": {
+        "reference": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.27387019813038604,
+            -0.22142243830274272,
+            0.33081496526746673
+          ],
+          "orientation_xyzw": [
+            0.12805711241210724,
+            0.6029588126487974,
+            -0.13774322328187721,
+            0.7752863023746416
+          ]
+        },
+        "feedback": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2868140137412062,
+            -0.22122047196088346,
+            0.32807970910332296
+          ],
+          "orientation_xyzw": [
+            0.10691267417283119,
+            0.6402934052372382,
+            -0.16688632091089764,
+            0.742120604217226
+          ]
+        },
+        "result": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2764359630872878,
+            -0.21851738362503279,
+            0.3336644235909902
+          ],
+          "orientation_xyzw": [
+            0.14216330021455056,
+            0.5927860166463437,
+            -0.13730542087720024,
+            0.7807314236908895
+          ]
+        }
+      }
+    },
+    {
+      "n": 4,
+      "line": 32,
+      "since_first_s": 15.604892124,
+      "step": 55,
+      "source_since_anchor_frames": 39,
+      "created_to_ik_ms": 0.121441,
+      "feedback_relative_to_ik_ms": 0.546231,
+      "target_lifetime_ms": 50.0,
+      "reference_minus_feedback_deg": [
+        -3.5461832168176386,
+        -0.11093061689127026,
+        3.4387971810960067,
+        -0.4529083350139871,
+        0.8053007267062635,
+        1.135346955075505,
+        0.7787701875151285
+      ],
+      "result_minus_reference_deg": [
+        -0.4688461216276778,
+        0.09096586844316334,
+        0.46573488198282575,
+        0.03443318908807669,
+        0.007187474930958615,
+        -0.05506868707323065,
+        0.18104779235693513
+      ],
+      "reference_to_target": {
+        "position_mm": 0.2423160886954459,
+        "orientation_deg": 0.19959339082533517,
+        "translation_mm": [
+          0.1356032934570761,
+          -0.2007944933165029,
+          -0.003225693417263642
+        ]
+      },
+      "feedback_to_target": {
+        "position_mm": 3.3559114071731018,
+        "orientation_deg": 1.91093811351019,
+        "translation_mm": [
+          -2.8860796172849867,
+          -0.870330029896893,
+          1.4748598084382003
+        ]
+      },
+      "feedback_to_reference": {
+        "position_mm": 3.4298078952923783,
+        "orientation_deg": 1.813681194040444,
+        "translation_mm": [
+          -3.021682910742063,
+          -0.6695355365803901,
+          1.478085501855464
+        ]
+      },
+      "result_to_target": {
+        "position_mm": 8.823427951654262e-06,
+        "orientation_deg": 4.711405341567642e-06,
+        "translation_mm": [
+          -2.3520963510215154e-06,
+          1.3124586417667672e-06,
+          8.402260165407682e-06
+        ]
+      },
+      "reference_deg": [
+        -169.70229588771608,
+        -6.633505041634923,
+        129.6190492562913,
+        -127.11301117925225,
+        -0.7699396469051867,
+        46.468423432126286,
+        -15.720737716537606
+      ],
+      "feedback_deg": [
+        -166.15611267089844,
+        -6.522574424743652,
+        126.1802520751953,
+        -126.66010284423827,
+        -1.5752403736114502,
+        45.33307647705078,
+        -16.499507904052734
+      ],
+      "fk": {
+        "reference": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2836227827321064,
+            -0.22032172025854743,
+            0.32969971363563205
+          ],
+          "orientation_xyzw": [
+            0.13294387422635595,
+            0.5989212076996706,
+            -0.16223246792057563,
+            0.7728518225543977
+          ]
+        },
+        "feedback": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.28664446564284846,
+            -0.21965218472196704,
+            0.3282216281337766
+          ],
+          "orientation_xyzw": [
+            0.12459647679527276,
+            0.6085810958584467,
+            -0.15402556964019218,
+            0.76836247411684
+          ]
+        },
+        "result": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2837583883776598,
+            -0.22052251606432258,
+            0.3296964795399546
+          ],
+          "orientation_xyzw": [
+            0.1337369234439851,
+            0.5992061699175235,
+            -0.16361188576235883,
+            0.7722030510673954
+          ]
+        }
+      }
+    },
+    {
+      "n": 5,
+      "line": 37,
+      "since_first_s": 16.747730528,
+      "step": 15,
+      "source_since_anchor_frames": 6,
+      "created_to_ik_ms": 0.075494,
+      "feedback_relative_to_ik_ms": 1.744031,
+      "target_lifetime_ms": 50.0,
+      "reference_minus_feedback_deg": [
+        -0.7923462683996831,
+        0.1880886762784817,
+        0.776642146402196,
+        0.006401804043747461,
+        0.1750487682943458,
+        0.13071417044272948,
+        0.056888412958411294
+      ],
+      "result_minus_reference_deg": [
+        -1.6061011367979745,
+        0.3546063029928632,
+        1.5970798028613444,
+        0.00931620738458605,
+        0.35705960424542127,
+        0.21438856114053806,
+        0.09137599199016222
+      ],
+      "reference_to_target": {
+        "position_mm": 0.5490606418923573,
+        "orientation_deg": 0.33573884788374525,
+        "translation_mm": [
+          0.48174648231930073,
+          0.018026798436543423,
+          -0.2627983062851724
+        ]
+      },
+      "feedback_to_target": {
+        "position_mm": 0.7805886059929471,
+        "orientation_deg": 0.5330446435224213,
+        "translation_mm": [
+          0.6914698911819617,
+          -0.02640579240917318,
+          -0.3612349588869579
+        ]
+      },
+      "feedback_to_reference": {
+        "position_mm": 0.23589815160293715,
+        "orientation_deg": 0.1976915994235405,
+        "translation_mm": [
+          0.20972340886266094,
+          -0.0444325908457166,
+          -0.09843665260178547
+        ]
+      },
+      "result_to_target": {
+        "position_mm": 1.1751588588348485e-05,
+        "orientation_deg": 6.621533307581469e-06,
+        "translation_mm": [
+          -2.858286385354347e-06,
+          1.4479763776886756e-06,
+          1.1306343250527817e-05
+        ]
+      },
+      "reference_deg": [
+        -168.6438629920325,
+        -6.139830330069175,
+        129.70271331339438,
+        -126.58523485367108,
+        -0.005147606360424106,
+        45.572707883821636,
+        -16.287952590459557
+      ],
+      "feedback_deg": [
+        -167.8515167236328,
+        -6.327919006347656,
+        128.9260711669922,
+        -126.59163665771483,
+        -0.1801963746547699,
+        45.441993713378906,
+        -16.34484100341797
+      ],
+      "fk": {
+        "reference": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.29032694693347105,
+            -0.2154058088959553,
+            0.32984569401975455
+          ],
+          "orientation_xyzw": [
+            0.12899075886678227,
+            0.6040676177306618,
+            -0.15120466548027547,
+            0.7717518036734173
+          ]
+        },
+        "feedback": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2901172235246084,
+            -0.21536137630510957,
+            0.32994413067235634
+          ],
+          "orientation_xyzw": [
+            0.1284930623231942,
+            0.6045705506746644,
+            -0.14963126124491596,
+            0.7717476711011161
+          ]
+        },
+        "result": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.29080869627407674,
+            -0.21538778354549512,
+            0.32958288440712613
+          ],
+          "orientation_xyzw": [
+            0.13001368097816238,
+            0.6033090659254114,
+            -0.15384140331034418,
+            0.7716524064358382
+          ]
+        }
+      }
+    },
+    {
+      "n": 6,
+      "line": 41,
+      "since_first_s": 18.817183504,
+      "step": 17,
+      "source_since_anchor_frames": 10,
+      "created_to_ik_ms": 0.064964,
+      "feedback_relative_to_ik_ms": -2.715371,
+      "target_lifetime_ms": 50.0,
+      "reference_minus_feedback_deg": [
+        -2.0633302007946384,
+        0.5766286642133309,
+        2.0336265792624317,
+        0.07722169355135122,
+        0.7111258439721837,
+        0.42260045816586,
+        0.05023234327819637
+      ],
+      "result_minus_reference_deg": [
+        -0.08912712198082318,
+        0.025389634586986176,
+        0.08869952833322259,
+        0.003009227077370724,
+        0.03579140095718003,
+        0.020931825803472748,
+        -8.802217445236238e-05
+      ],
+      "reference_to_target": {
+        "position_mm": 0.040485448151508084,
+        "orientation_deg": 0.02576569901735223,
+        "translation_mm": [
+          0.03805560506719985,
+          -0.010295232762358442,
+          -0.009211439483958195
+        ]
+      },
+      "feedback_to_target": {
+        "position_mm": 0.9192001765903125,
+        "orientation_deg": 0.598799416164387,
+        "translation_mm": [
+          0.8608276314246988,
+          -0.28707321535348385,
+          -0.14660737582405936
+        ]
+      },
+      "feedback_to_reference": {
+        "position_mm": 0.8788842371589168,
+        "orientation_deg": 0.5733160971899116,
+        "translation_mm": [
+          0.8227720263574989,
+          -0.2767779825911254,
+          -0.13739593634010117
+        ]
+      },
+      "result_to_target": {
+        "position_mm": 2.457367418347643e-05,
+        "orientation_deg": 1.4083147893833304e-05,
+        "translation_mm": [
+          -1.073354449765418e-05,
+          -5.739804104232249e-06,
+          2.134739174319833e-05
+        ]
+      },
+      "reference_deg": [
+        -169.91496899473995,
+        -5.622241040986864,
+        131.14112474820774,
+        -126.4983474592807,
+        0.7892729721965566,
+        45.831532190343594,
+        -16.332862444319463
+      ],
+      "feedback_deg": [
+        -167.8516387939453,
+        -6.198869705200195,
+        129.1074981689453,
+        -126.57556915283205,
+        0.07814712822437286,
+        45.408931732177734,
+        -16.38309478759766
+      ],
+      "fk": {
+        "reference": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2918703332917789,
+            -0.21484887506052003,
+            0.32949069425508704
+          ],
+          "orientation_xyzw": [
+            0.1310622799904869,
+            0.6026974674242099,
+            -0.15231639051127197,
+            0.7722552419412615
+          ]
+        },
+        "feedback": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2910475612654214,
+            -0.2145720970779289,
+            0.32962809019142714
+          ],
+          "orientation_xyzw": [
+            0.12894997612363807,
+            0.6049095066546253,
+            -0.1484047349587946,
+            0.7716426809465512
+          ]
+        },
+        "result": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2919083996303906,
+            -0.21485916455347828,
+            0.32948146146821133
+          ],
+          "orientation_xyzw": [
+            0.13117110594176623,
+            0.6025817069821706,
+            -0.15246985062958027,
+            0.772296816014064
+          ]
+        }
+      }
+    },
+    {
+      "n": 7,
+      "line": 45,
+      "since_first_s": 22.970982246,
+      "step": 17,
+      "source_since_anchor_frames": 10,
+      "created_to_ik_ms": 0.085989,
+      "feedback_relative_to_ik_ms": -4.529022,
+      "target_lifetime_ms": 50.0,
+      "reference_minus_feedback_deg": [
+        -1.9980506195562384,
+        0.7759921348974768,
+        1.9851471178347424,
+        0.02857402709535961,
+        0.5842795222616817,
+        0.7334921265351184,
+        0.41497176648345757
+      ],
+      "result_minus_reference_deg": [
+        -0.6842010745366451,
+        0.15424723372490234,
+        0.6815324958040492,
+        -0.0016149777068790172,
+        0.12991358155369426,
+        0.13088721189785701,
+        0.07517939150227448
+      ],
+      "reference_to_target": {
+        "position_mm": 0.2853505598240142,
+        "orientation_deg": 0.17215698255686124,
+        "translation_mm": [
+          0.19483646497087115,
+          -0.037787383962817334,
+          -0.2050263581171441
+        ]
+      },
+      "feedback_to_target": {
+        "position_mm": 1.885946011286238,
+        "orientation_deg": 1.0525000136355918,
+        "translation_mm": [
+          1.2879660327034248,
+          -0.4873578645125942,
+          -1.2885721431050712
+        ]
+      },
+      "feedback_to_reference": {
+        "position_mm": 1.6034704041540713,
+        "orientation_deg": 0.8805293105995488,
+        "translation_mm": [
+          1.0931295677325537,
+          -0.4495704805497769,
+          -1.083545784987927
+        ]
+      },
+      "result_to_target": {
+        "position_mm": 5.128136418363483e-05,
+        "orientation_deg": 1.114722986180411e-05,
+        "translation_mm": [
+          -3.051705210754818e-05,
+          -4.00015162105305e-05,
+          9.91799092853185e-06
+        ]
+      },
+      "reference_deg": [
+        -169.85213081975155,
+        -5.068419715078109,
+        132.5834747545535,
+        -126.49468036743589,
+        1.3942053764677669,
+        46.14596008307809,
+        -15.968651356685488
+      ],
+      "feedback_deg": [
+        -167.8540802001953,
+        -5.844411849975586,
+        130.59832763671875,
+        -126.52325439453125,
+        0.8099258542060852,
+        45.41246795654297,
+        -16.383623123168945
+      ],
+      "fk": {
+        "reference": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.29813805348323985,
+            -0.2076883482438508,
+            0.32832305916310683
+          ],
+          "orientation_xyzw": [
+            0.12744455258642365,
+            0.6033593159037635,
+            -0.14655914836269637,
+            0.7734570692413316
+          ]
+        },
+        "feedback": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.2970449239155073,
+            -0.20723877776330102,
+            0.32940660494809476
+          ],
+          "orientation_xyzw": [
+            0.12498247500922857,
+            0.605855734893429,
+            -0.1397276620023023,
+            0.7731716432388612
+          ]
+        },
+        "result": {
+          "parent_frame": "tianji_right_base",
+          "child_frame": "tianji_right_flange",
+          "position_m": [
+            0.29833292046526283,
+            -0.2077260956262974,
+            0.32811802288699876
+          ],
+          "orientation_xyzw": [
+            0.12793552189324656,
+            0.6029229385588647,
+            -0.14791019246704346,
+            0.7734591180933923
+          ]
+        }
+      }
+    }
+  ],
+  "actual_reference_comparison": [
+    {
+      "n": 1,
+      "old": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 8,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -134.3495327118106,
+          -91.80427562674923,
+          95.77566186570806,
+          -145.0356570701288,
+          -82.65423436035404,
+          16.709841014804656,
+          20.053430014214353
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.3681319313361655,
+        "model_limit_violations": [
+          4
+        ],
+        "effective_limit_violations": [
+          4
+        ],
+        "minimum_effective_limit_margin_deg": -0.03565707012879216,
+        "fk_position_error_m": 8.91650164394374e-08,
+        "fk_orientation_error_deg": 1.5835142153691186e-05
+      },
+      "actual_seed": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 8,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -135.3244520134865,
+          -79.91935704468767,
+          93.59615757699544,
+          -145.03565707012876,
+          -76.8386658673823,
+          27.588847217811296,
+          17.932125178244007
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 6.497349644237772,
+        "model_limit_violations": [
+          4
+        ],
+        "effective_limit_violations": [
+          4
+        ],
+        "minimum_effective_limit_margin_deg": -0.035657070128763735,
+        "fk_position_error_m": 5.9243627425100685e-08,
+        "fk_orientation_error_deg": 1.3445240826417657e-05
+      },
+      "actual_to_ref_qmax_deg": 14.430634681446094
+    },
+    {
+      "n": 2,
+      "old": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 32,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -127.08549014539281,
+          -31.213471133815343,
+          92.72412865742672,
+          -134.9950254173069,
+          -32.466068258814325,
+          60.0562452537368,
+          3.3036996831550476
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.28372189901597267,
+        "model_limit_violations": [
+          6
+        ],
+        "effective_limit_violations": [
+          6
+        ],
+        "minimum_effective_limit_margin_deg": -0.05624525373679745,
+        "fk_position_error_m": 4.61296157818881e-09,
+        "fk_orientation_error_deg": 0.0
+      },
+      "actual_seed": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -125.09393864395554,
+          -47.43329775457897,
+          96.20469127573416,
+          -134.99502541730686,
+          -55.87517113123255,
+          49.456819083412825,
+          22.016474204259055
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 16.3633913460763,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 10.004974582693137,
+        "fk_position_error_m": 1.017862722606388e-08,
+        "fk_orientation_error_deg": 5.399738656763832e-06
+      },
+      "actual_to_ref_qmax_deg": 12.369326220878932
+    },
+    {
+      "n": 3,
+      "old": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -172.86127129899631,
+          -8.614040901776603,
+          132.35683639964836,
+          -127.95482189136625,
+          2.0214708818371774,
+          45.2839418044512,
+          -19.186260876552947
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 11.824019964551326,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -2.8612712989963143,
+        "fk_position_error_m": 3.3538450630143825e-08,
+        "fk_orientation_error_deg": 1.1326587362040635e-05
+      },
+      "actual_seed": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -149.77513547448098,
+          -16.497576522153906,
+          113.35760593863756,
+          -127.95482189136622,
+          -11.493837883443405,
+          44.579886029218585,
+          -7.226033461580357
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 7.678416678934525,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 15.420113970781415,
+        "fk_position_error_m": 1.8318725558204078e-08,
+        "fk_orientation_error_deg": 1.1066171232981565e-05
+      },
+      "actual_to_ref_qmax_deg": 14.431385855929364
+    },
+    {
+      "n": 4,
+      "old": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.17114200934375,
+          -6.542539173191759,
+          130.08478413827413,
+          -127.07857799016418,
+          -0.7627521719742281,
+          46.413354745053056,
+          -15.53968992418067
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.4688461216276778,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.1711420093437539,
+        "fk_position_error_m": 8.823427951654263e-09,
+        "fk_orientation_error_deg": 4.182619578303746e-06
+      },
+      "actual_seed": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -169.01542730242312,
+          -6.703947871128662,
+          129.02073765790203,
+          -127.07857799016413,
+          -1.0820632659077205,
+          46.410245684769336,
+          -15.259528330353874
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 2.8593146315246827,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 0.9845726975768798,
+        "fk_position_error_m": 7.90530189226509e-09,
+        "fk_orientation_error_deg": 3.4150945850063755e-06
+      },
+      "actual_to_ref_qmax_deg": 3.5461832168176386
+    },
+    {
+      "n": 5,
+      "old": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.24996412883047,
+          -5.785224027076311,
+          131.29979311625573,
+          -126.5759186462865,
+          0.35191199788499716,
+          45.787096444962174,
+          -16.196576598469395
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 1.6061011367979745,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.24996412883047014,
+        "fk_position_error_m": 1.1751588588348486e-08,
+        "fk_orientation_error_deg": 6.830189170012753e-06
+      },
+      "actual_seed": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.07919280963205,
+          -5.804906461649978,
+          131.14054829851938,
+          -126.57591864628647,
+          0.31242617765809655,
+          45.78723649704398,
+          -16.16194907208478
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 2.227676085999235,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.07919280963204756,
+        "fk_position_error_m": 1.4871172297195854e-08,
+        "fk_orientation_error_deg": 6.830189170012753e-06
+      },
+      "actual_to_ref_qmax_deg": 0.7923462683996831
+    },
+    {
+      "n": 6,
+      "old": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.00409611672077,
+          -5.596851406399878,
+          131.22982427654097,
+          -126.49533823220332,
+          0.8250643731537366,
+          45.85246401614707,
+          -16.332950466493916
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.08912712198082318,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.0040961167207740345,
+        "fk_position_error_m": 2.457367418347643e-08,
+        "fk_orientation_error_deg": 1.4080795695456205e-05
+      },
+      "actual_seed": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 0,
+        "sdk_joint_limit_exceeded": false,
+        "result_deg": [
+          -169.71122202706925,
+          -5.62969827231899,
+          130.95613882608313,
+          -126.49533823220334,
+          0.7591740775271205,
+          45.85302004796722,
+          -16.275211958238177
+        ],
+        "legal_single_pose": true,
+        "max_joint_delta_deg": 1.8595832331239421,
+        "model_limit_violations": [],
+        "effective_limit_violations": [],
+        "minimum_effective_limit_margin_deg": 0.28877797293074536,
+        "fk_position_error_m": 2.4115922388199717e-08,
+        "fk_orientation_error_deg": 1.4080795695456205e-05
+      },
+      "actual_to_ref_qmax_deg": 2.0633302007946384
+    },
+    {
+      "n": 7,
+      "old": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.5363318942882,
+          -4.914172481353207,
+          133.26500725035754,
+          -126.49629534514277,
+          1.5241189580214611,
+          46.276847294975944,
+          -15.893471965183213
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 0.6842010745366451,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.536331894288196,
+        "fk_position_error_m": 5.128136418363483e-08,
+        "fk_orientation_error_deg": 1.1326587362040635e-05
+      },
+      "actual_seed": {
+        "status": 0,
+        "solution_count": 4,
+        "out_of_range": false,
+        "singular_mask": 0,
+        "limit_mask": 1,
+        "sdk_joint_limit_exceeded": true,
+        "result_deg": [
+          -170.524363172611,
+          -4.9152621490096635,
+          133.2536937750251,
+          -126.49629534514276,
+          1.521836059542295,
+          46.27688400103483,
+          -15.891474997077864
+        ],
+        "legal_single_pose": false,
+        "max_joint_delta_deg": 2.6702829724156913,
+        "model_limit_violations": [
+          1
+        ],
+        "effective_limit_violations": [
+          1
+        ],
+        "minimum_effective_limit_margin_deg": -0.5243631726110038,
+        "fk_position_error_m": 5.571771167059925e-08,
+        "fk_orientation_error_deg": 1.183023466776879e-05
+      },
+      "actual_to_ref_qmax_deg": 1.9980506195562384
+    }
+  ]
+}

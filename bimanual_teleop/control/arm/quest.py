@@ -14,8 +14,8 @@ import time
 import uuid
 
 from bimanual_teleop.devices.quest.adapter import QuestFrame, QuestSource
-from bimanual_teleop.devices.tianji.driver import TianjiDriver, TianjiFrame
-from bimanual_teleop.devices.tianji.model import MotionProfile, TianjiKinematics
+from bimanual_teleop.devices.tianji.driver import TianjiDriver
+from bimanual_teleop.devices.tianji.model import MotionProfile
 from bimanual_teleop.devices.interfaces import RealtimeObserver
 from bimanual_teleop.system import SystemState
 from bimanual_teleop.control.arm.mapping import (
@@ -69,7 +69,7 @@ def operator_input(sample: Sample[QuestFrame], *, sides=SIDES, coordinate_frame=
         wrists[side] = Sample(header, TrackedPose(
             pose, tracked.position_valid, tracked.orientation_valid,
             tracked.position_tracked, tracked.orientation_tracked))
-    return OperatorInput(wrists, {})
+    return OperatorInput(wrists)
 
 
 class QuestInputMonitor:
@@ -135,6 +135,15 @@ class QuestInputMonitor:
                     self._latch("Quest reference changed; press Enter to re-engage")
                 elif frame.sequence <= old.sequence or frame.query_monotonic_ns <= old.query_monotonic_ns:
                     self._latch("Quest sequence or source query time did not advance")
+                if frame.session == old.session:
+                    # A fresh frame must not conceal a timeout that happened
+                    # between control polls. Differences stay within each clock
+                    # domain; the absolute host/device offset cancels out.
+                    receive_gap = sample.header.received_monotonic_ns - previous.header.received_monotonic_ns
+                    query_gap = frame.query_monotonic_ns - old.query_monotonic_ns
+                    if max(receive_gap, query_gap) >= self.timeout_ns:
+                        self._latch(f"Quest input stream gap reached {self.timeout_ns / 1_000_000:g} ms; "
+                                    "re-engage after fresh frames return")
             offset = sample.header.received_monotonic_ns - frame.query_monotonic_ns
             self._baseline_ns = offset if self._baseline_ns is None else min(offset, self._baseline_ns)
             self.latest = sample
@@ -223,14 +232,14 @@ class QuestInputMonitor:
 
 
 class QuestTianjiTeleop:
-    """One owner of the selected arms; preview never configures or submits."""
+    """Own the selected arms; start receives feedback and engage explicitly starts control."""
 
     def __init__(self, quest: QuestSource, driver: TianjiDriver,
-                 executor: TianjiCartesianExecutor, kinematics: TianjiKinematics, *,
+                 executor: TianjiCartesianExecutor, *,
                  profile: ControlProfile, sink: RealtimeObserver | None = None,
-                 enable_motion: bool = False, clock_ns=time.monotonic_ns, side="both",
-                 coordinate_frame="headset"):
-        self.quest, self.driver, self.executor, self.kinematics = quest, driver, executor, kinematics
+                 clock_ns=time.monotonic_ns, side="both",
+                 coordinate_frame="headset", ready_pose=None):
+        self.quest, self.driver, self.executor = quest, driver, executor
         if side not in ("left", "right", "both"):
             raise ValueError("side must be left, right, or both")
         if coordinate_frame not in ("headset", "world"):
@@ -240,10 +249,13 @@ class QuestTianjiTeleop:
         self.controller_sides = tuple(CONTROLLER_FOR_ARM[s] for s in self.sides)
         self.coordinate_frame = coordinate_frame
         self.profile = profile
-        self.motion_profile = MotionProfile.from_control_profile(profile, driver.model_path)
-        if set(self.motion_profile.active_arms) != set(self.sides):
+        self.ready_pose = ready_pose
+        self._home_cancel = None
+        self._needs_reconfigure = False
+        motion_profile = MotionProfile.from_control_profile(profile, driver.model_path)
+        if set(motion_profile.active_arms) != set(self.sides):
             raise ValueError("Quest teleoperation profile must configure exactly the selected arms")
-        self.sink, self.enable_motion, self.clock_ns = sink, enable_motion, clock_ns
+        self.sink, self.clock_ns = sink, clock_ns
         self.input = QuestInputMonitor(sink, sides=self.controller_sides,
                                        require_head=coordinate_frame == "headset")
         self._state = SystemState.DISCONNECTED
@@ -255,16 +267,23 @@ class QuestTianjiTeleop:
         self._last_input_ref = None
         self._source_time_offset_ns = None
         self._last_target = None
-        self._preview_q = {}
-        self._robot_fault = None
+        self._requested_target = None
+        self._tracking_status = {}
         self._observer_error = None
         self._owns_motion = False
         self.cycles = 0
         self.last_compute_ns = 0
+        self.cycle_timing = {}
+        self.last_pause_diagnostic = None
 
     @property
     def state(self):
         return self._state
+
+    @property
+    def tracking_status(self):
+        """Requested-versus-commanded tracking, without polling device health."""
+        return dict(self._tracking_status)
 
     def _event(self, kind, details):
         if self.sink is None or self._observer_error is not None:
@@ -281,7 +300,6 @@ class QuestTianjiTeleop:
             return
         self._observer_error = (f"Realtime observer failed: {error}" if error else
                                 "Realtime observer rejected live data")
-        self._robot_fault = self._observer_error
         if self.state == SystemState.ENGAGED:
             self.pause(self._observer_error)
 
@@ -303,16 +321,7 @@ class QuestTianjiTeleop:
             raise RuntimeError(self._observer_error)
 
     def try_publish(self, sample):
-        # Called by Tianji's receiver, including every feedback packet in a burst.
-        if self._owns_motion and isinstance(sample.payload, TianjiFrame):
-            if ((self.side == "both" and not sample.header.valid) or
-                    any(sample.payload.arms[s].error or any(q is None for q in
-                        (*sample.payload.arms[s].joints.position_rad,
-                         *sample.payload.arms[s].joints.velocity_rad_s)) for s in self.sides)):
-                self._robot_fault = "Invalid Tianji feedback or controller error"
-            elif self.state == SystemState.ENGAGED and any(
-                    sample.payload.arms[s].state != 3 or sample.payload.arms[s].impedance_type != 2 for s in self.sides):
-                self._robot_fault = "Tianji Cartesian impedance mode changed"
+        # The driver owns hardware fault classification and transient latches.
         if self.sink is None:
             return True
         if self._observer_error is not None:
@@ -344,10 +353,10 @@ class QuestTianjiTeleop:
         if self.state != SystemState.DISCONNECTED:
             raise RuntimeError("Create a new runtime after start/close")
         try:
-            self.driver.start(sink=self)
+            self.driver.start(sink=self, record_reported_config=self.sink is not None)
             self.quest.start(sink=self.input)
             self._state = SystemState.READY
-            self._event("started", {"motion_enabled": self.enable_motion, "profile": asdict(self.profile),
+            self._event("started", {"profile": asdict(self.profile),
                                    "coordinate_frame": self.coordinate_frame,
                                    "quest": dict(self.quest.metadata), "tianji": dict(self.driver.metadata)})
             if self._observer_error:
@@ -355,21 +364,6 @@ class QuestTianjiTeleop:
         except BaseException:
             self.close()
             raise
-
-    def _robot_state(self):
-        status = self.driver.health(sides=self.sides)
-        if not status.ready:
-            raise RuntimeError(status.detail)
-        sample = self.driver.get_latest()
-        if sample is None:
-            raise RuntimeError("Waiting for Tianji feedback")
-        joints, poses = {}, {}
-        header = sample.header if self.side == "both" else replace(sample.header, valid=True)
-        for side in self.sides:
-            joint = sample.payload.arms[side].joints
-            joints[f"{side}_arm"] = Sample(header, joint)
-            poses[side] = Sample(header, self.kinematics.fk(side, joint.position_rad))
-        return RobotState(joints, poses)
 
     def _quest(self, *, acknowledge=False, check_latch=False):
         status = self.quest.health(sides=self.controller_sides, require_head=self.coordinate_frame == "headset")
@@ -380,33 +374,43 @@ class QuestTianjiTeleop:
     def _operator_input(self, sample):
         return operator_input(sample, sides=self.controller_sides, coordinate_frame=self.coordinate_frame)
 
+    def _guard_step(self):
+        """Catch latched receiver/observer faults that arrived during planning."""
+        if self.state != SystemState.ENGAGED:
+            raise RuntimeError(self.last_error or "Teleoperation was paused during planning")
+        if self._observer_error:
+            raise RuntimeError(self._observer_error)
+        status = self.driver.health(sides=self.sides)
+        if not status.ready:
+            raise RuntimeError(status.detail)
+        self._quest(check_latch=True)
+
     def _activate_robot(self):
         # Configuration is explicitly deferred until a live keyboard action.
-        if self.driver.profile is None:
+        if self.driver.profile is None or self._needs_reconfigure:
             self.executor.configure(self.profile)
+            self._needs_reconfigure = False
         self._owns_motion = True
-        self._robot_fault = None
         self.executor.engage()
-        if self._robot_fault:
-            raise RuntimeError(self._robot_fault)
-        return RobotState({}, {s: Sample(SampleHeader(self.executor.engagement_ref,
+        if self._observer_error:
+            raise RuntimeError(self._observer_error)
+        status = self.driver.health(sides=self.sides)
+        if not status.ready:
+            raise RuntimeError(status.detail)
+        return RobotState({s: Sample(SampleHeader(self.executor.engagement_ref,
             self.driver.engagement_sample.header.received_monotonic_ns, True), pose)
             for s, pose in self.executor.engagement_poses.items()})
 
     def engage(self, profile: ControlProfile | None = None):
+        if self._home_cancel is not None:
+            raise RuntimeError("等待机械臂回位结束后再接合")
         if profile is not None and profile != self.profile:
             raise ValueError("Restart with the intended profile; profiles cannot change while running")
         if self.state not in (SystemState.READY, SystemState.PAUSED):
             raise RuntimeError("Pause before engaging again")
         _, _, generation = self._quest(acknowledge=True)
-        robot = self._robot_state()
         try:
-            if self.enable_motion:
-                robot = self._activate_robot()
-            else:
-                self._preview_q = {s: tuple(robot.joints[f"{s}_arm"].payload.position_rad) for s in self.sides}
-                for side in self.sides:
-                    self.kinematics.ik(side, robot.tool_poses[side].payload, self._preview_q[side])
+            robot = self._activate_robot()
             sample, deadline, after = self._quest(check_latch=True)
             if generation != after:
                 raise RuntimeError("Quest became invalid during engagement")
@@ -420,14 +424,20 @@ class QuestTianjiTeleop:
             # Fixed timeline alignment only; this is not clock synchronization
             # or an estimate of one-way transport latency.
             self._source_time_offset_ns = sample.header.received_monotonic_ns - sample.payload.query_monotonic_ns
-            anchor = self._mapper.compute(operator, robot, now_monotonic_ns=now)
+            anchor = self._mapper.compute(operator, now_monotonic_ns=now)
             anchor = replace(anchor, expires_monotonic_ns=min(anchor.expires_monotonic_ns, deadline))
             self._interpolator.set_goal(self._filter.update(anchor), sample_time_ns=sample.header.received_monotonic_ns)
             self._last_target = None
+            self._requested_target = None
+            self._tracking_status = {}
             self._last_input_ref = sample.header.ref
+            if self.state == SystemState.CLOSED:
+                raise RuntimeError("Teleoperation closed during engagement")
             self._state = SystemState.ENGAGED
-            self.mode = "follow" if self.enable_motion else "preview"
+            self.mode = "follow"
             self.last_error = None
+            self.last_pause_diagnostic = None
+            self.cycle_timing = {}
             self._event("engaged", {"mode": self.mode, "side": self.side, "quest_anchor": asdict(sample),
                                     "robot_anchors": asdict(robot), "mapping_id": MAPPING_ID,
                                     "coordinate_frame": self.coordinate_frame,
@@ -440,22 +450,58 @@ class QuestTianjiTeleop:
             self.pause(str(error))
             raise
 
-    def resume(self):
-        self.engage()
+    def home(self, cancel):
+        """Use this session's connection; hands/Quest are not motion inputs here."""
+        from .preparation import load_targets, ready_profile, move_to_ready_pose
+
+        if (self.state != SystemState.PAUSED or self._home_cancel is not None
+                or self.ready_pose is None):
+            raise RuntimeError("请先暂停遥操作再回位")
+        source, order, targets = load_targets(self.ready_pose, self.side)
+        profile = ready_profile(self.profile, source, order)
+        self._home_cancel = cancel
+        self._state, self._owns_motion = SystemState.HOMING, True
+        try:
+            move_to_ready_pose(self.driver, profile, targets, cancel=cancel)
+            self.last_error = None
+        except BaseException as error:
+            self.last_error = str(error)
+            self.driver.request_hold("home interrupted")
+            raise
+        finally:
+            self._needs_reconfigure = True
+            self._owns_motion = False
+            self._home_cancel = None
+            if self.state != SystemState.CLOSED:
+                self._state = SystemState.PAUSED
 
     def pause(self, reason):
         if self.state == SystemState.CLOSED:
             return
+        if self._home_cancel is not None:
+            self._home_cancel.set()
         owned = self._owns_motion
+        stopped_ns = self.clock_ns()
+        timing = dict(self.cycle_timing)
         self._owns_motion = False
         self._state, self.mode, self.last_error = SystemState.PAUSED, None, reason
         self._mapper = self._interpolator = self._filter = None
         self._last_input_ref = None
         self._last_target = None
+        self._requested_target = None
+        self._tracking_status = {}
         try:
             if owned:
                 self.executor.request_hold(reason)
         finally:
+            if owned:
+                # Keep the first stop snapshot when the combined runtime calls
+                # pause again. A successful SDK hold does not erase its cause.
+                self.last_pause_diagnostic = {
+                    "schema": "teleop_pause_v1", "reason": reason, "monotonic_ns": stopped_ns,
+                    "driver_stop": getattr(self.driver, "motion_stop", None),
+                    "cycle": timing, "executor": dict(self.executor.timing_status),
+                }
             self._event("paused", {"reason": reason, "stop_requested": owned,
                                    "physical_stop_confirmed": False})
 
@@ -464,52 +510,70 @@ class QuestTianjiTeleop:
         if self.state != SystemState.ENGAGED:
             return None
         now = self.clock_ns() if now_monotonic_ns is None else now_monotonic_ns
+        entered_ns = self.clock_ns()
+        previous = self.cycle_timing.get("started_ns")
+        self.cycle_timing = {"started_ns": entered_ns, "host_tick_started_ns": now,
+                             "dispatch_delay_ns": entered_ns - now,
+                             "tick_gap_ns": entered_ns - previous if previous is not None else None}
+        stage_started = entered_ns
         try:
-            if self._robot_fault:
-                raise RuntimeError(self._robot_fault)
-            if self._owns_motion and not self.driver.engaged:
-                raise RuntimeError("Tianji driver stopped accepting motion")
-            robot = self._robot_state()
-            latest, _, _ = self._quest(check_latch=True)
-            for sample, deadline in self.input.since(self._last_input_ref, latest.header.ref):
-                goal = self._mapper.compute(self._operator_input(sample), robot,
-                                            now_monotonic_ns=self.clock_ns())
+            mapper, interpolator, filter_ = self._mapper, self._interpolator, self._filter
+            last_input_ref = self._last_input_ref
+            self._guard_step()
+            if not self.driver.engaged:
+                stop = getattr(self.driver, "motion_stop", None)
+                raise RuntimeError(stop["reason"] if stop else "Tianji driver stopped accepting motion")
+            self.cycle_timing["input_check_ns"] = self.clock_ns() - stage_started
+            stage_started = self.clock_ns()
+            latest, input_deadline, _ = self._quest(check_latch=True)
+            for sample, deadline in self.input.since(last_input_ref, latest.header.ref):
+                goal = mapper.compute(self._operator_input(sample),
+                                      now_monotonic_ns=self.clock_ns())
                 goal = replace(goal, expires_monotonic_ns=min(goal.expires_monotonic_ns, deadline))
-                self._interpolator.set_goal(self._filter.update(goal),
+                interpolator.set_goal(filter_.update(goal),
                     sample_time_ns=sample.payload.query_monotonic_ns + self._source_time_offset_ns)
                 self._publish_target("goals", goal)
                 self._last_input_ref = sample.header.ref
             step_ns = self.clock_ns()
-            target = self._interpolator.sample(step_ns)
-            # A receiver may have reported a transient fault while FK/mapping ran.
-            self._quest(check_latch=True)
-            if self._owns_motion:
-                result = self.executor.submit(target, before_submit=lambda: self._quest(check_latch=True))
-                if not result.accepted:
-                    raise RuntimeError(result.reason)
-            else:
-                q = {s: self.kinematics.ik(s, target.tool_poses[s], self._preview_q[s]) for s in self.sides}
-                if self.clock_ns() >= target.expires_monotonic_ns:
-                    raise RuntimeError("Preview target expired during IK")
-                self._quest(check_latch=True)
-                self._preview_q = q
-            self._interpolator.accept(target)
-            self._last_target = target
-            self._publish_target("commands" if self._owns_motion else "preview", target)
+            target = interpolator.sample(step_ns)
+            self.cycle_timing["mapping_ns"] = self.clock_ns() - stage_started
+            self.cycle_timing["source_age_ns"] = step_ns - latest.header.received_monotonic_ns
+            self.cycle_timing["input_remaining_ns"] = input_deadline - step_ns
+            self.cycle_timing["target_remaining_ns"] = target.expires_monotonic_ns - step_ns
+            # A receiver may have reported a transient fault while mapping ran.
+            self._guard_step()
+            stage_started = self.clock_ns()
+            try:
+                result = self.executor.submit(target, before_submit=self._guard_step)
+            finally:
+                self.cycle_timing["executor_ns"] = self.clock_ns() - stage_started
+            if not result.accepted:
+                raise RuntimeError(result.reason)
+            applied = self.executor.applied_poses
+            self._tracking_status = dict(self.executor.tracking_status)
+            self._guard_step()
+            interpolator.accept(target)
+            self._requested_target = target
+            self._last_target = replace(target, tool_poses=applied)
+            self._publish_target("commands", self._last_target)
             self.cycles += 1
             self.last_compute_ns = self.clock_ns() - now
-            return target
+            self.cycle_timing["elapsed_ns"] = self.clock_ns() - entered_ns
+            return self._last_target
         except (RuntimeError, ValueError) as error:
+            self.cycle_timing["elapsed_ns"] = self.clock_ns() - entered_ns
             self.pause(str(error))
             return None
 
     def health(self):
         now = self.clock_ns()
         try:
+            if self._home_cancel is not None:
+                return Health(False, now, "机械臂正在回位；Space 可中止")
             if self.state in (SystemState.DISCONNECTED, SystemState.CLOSED):
                 raise RuntimeError(self.state.value)
-            if self._robot_fault:
-                raise RuntimeError(self._robot_fault)
+            if self._observer_error:
+                raise RuntimeError(self._observer_error)
             status = self.driver.health(sides=self.sides)
             if not status.ready:
                 raise RuntimeError(status.detail)
@@ -520,28 +584,33 @@ class QuestTianjiTeleop:
             return Health(False, now, str(error))
 
     def status(self, *, include_target=True):
-        return {"state": self.state.value, "motion_enabled": self.enable_motion, "mode": self.mode,
+        return {"state": self.state.value, "mode": self.mode,
                 "side": self.side,
                 "coordinate_frame": self.coordinate_frame,
                 "controller_for_arm": {s: CONTROLLER_FOR_ARM[s] for s in self.sides},
                 "mapping_id": MAPPING_ID, "reference_ready": self._mapper is not None,
                 "last_error": self.last_error, "health": asdict(self.health()),
+                "last_pause_diagnostic": self.last_pause_diagnostic,
                 "cycles": self.cycles, "last_compute_ns": self.last_compute_ns,
                 "pose_filter_retention": .8,
+                "cartesian_tracking": self._tracking_status,
+                "feedback_observation_issues": self.driver.metadata.get("feedback_observation_issues", []),
+                "requested_target": asdict(self._requested_target) if include_target and self._requested_target else None,
                 "interpolation_delay_ns": self._interpolator.delay_ns if self._interpolator else None,
                 "last_target": asdict(self._last_target) if include_target and self._last_target else None}
 
     def close(self):
         if self.state == SystemState.CLOSED:
             return
+        self._state, self.mode, self._owns_motion = SystemState.CLOSED, None, False
+        if self._home_cancel is not None:
+            self._home_cancel.set()
         try:
-            self.pause("Teleoperation closed")
+            # Exit goes directly to servo-off. Pause/RSTA can change modes and
+            # must not run before the driver's shutdown request.
+            self.driver.close()
         finally:
             try:
-                self.driver.close()
+                self.quest.close()
             finally:
-                try:
-                    self.quest.close()
-                finally:
-                    self._state = SystemState.CLOSED
-                    self._event("closed", {"physical_stop_confirmed": False})
+                self._event("closed", {"physical_stop_confirmed": False})

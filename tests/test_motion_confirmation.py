@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from bimanual_teleop.common import terminal
-from bimanual_teleop.cli import prepare_tianji_teleop as ready, teleop_quest_tianji as quest
+from bimanual_teleop.cli import home_tianji as ready, teleop_quest_tianji as quest
 from bimanual_teleop.cli import teleop_wuji_hand2 as hands
 from bimanual_teleop.control.arm import jog
 from bimanual_teleop.control.hand import home, follow
@@ -108,7 +108,7 @@ class MotionEntryTests(unittest.TestCase):
         entries = (lambda args: ready.parser().parse_args(args), quest.main, hands.main,
                    jog.main, home.main, calibrate_wuji_glove.main, view_quest.main,
                    view_wuji_glove.main, read_tianji_right_force.main)
-        removed = ("--enable-motion", "--execute", "--verbose", "--user-id", "--sdk-user-id")
+        removed = ("--enable-motion", "--execute", "--user-id", "--sdk-user-id")
         for entry in entries:
             with self.subTest(entry=entry), redirect_stdout(io.StringIO()) as output:
                 with self.assertRaises(SystemExit) as result:

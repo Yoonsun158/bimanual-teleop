@@ -7,103 +7,31 @@ import threading
 import time
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from bimanual_teleop.devices.wuji.adapter import JOINT_LIMITS_RAD, JOINT_NAMES
 from bimanual_teleop.system import SystemState
-from bimanual_teleop.control.hand.follow import WujiHandRetargeter, WujiTeleop, create_wuji_teleop
-from bimanual_teleop.types import (
-    ControlProfile, HandSkeleton, Health, JointState, JointTarget, Sample,
-    SampleHeader, SampleRef, Submission,
-)
+from bimanual_teleop.control.hand.follow import WujiHandRetargeter, WujiTeleop, create_wuji_teleop, preflight
+from bimanual_teleop.types import ControlProfile, HandSkeleton, Health, Sample, SampleHeader, SampleRef
 
 
-class Clock:
-    def __init__(self): self.now = 1_000_000_000
-    def __call__(self): return self.now
-    def advance(self, seconds): self.now += round(seconds * 1e9)
+from tests.support.wuji import Sink, Device, Mapper
+from tests.support.clock import Clock
 
 
-class Sink:
-    def __init__(self): self.events, self.samples = [], []
-    def try_event(self, event): self.events.append(event); return True
-    def try_publish(self, sample): self.samples.append(sample); return True
+class PreflightTests(unittest.TestCase):
+    def test_checks_installation_without_importing_native_modules(self):
+        with patch("bimanual_teleop.control.hand.follow.version", return_value="2026.8.31"), \
+                patch("bimanual_teleop.control.hand.follow.find_spec", return_value=object()) as spec, \
+                patch("builtins.__import__", side_effect=AssertionError("preflight imported a module")):
+            preflight()
+        self.assertEqual([call.args[0] for call in spec.call_args_list], ["numpy", "wuji_sdk"])
 
-
-class Device:
-    def __init__(self, side, clock, *, glove=False):
-        self.side, self.clock, self.glove = side, clock, glove
-        self.device_id = f"wuji_{side}_{'glove' if glove else 'hand'}"
-        self.metadata, self.statistics = {}, {}
-        self.fault, self.latest, self.sink = None, None, None
-        self.sequence, self.q = 0, .1
-        self.ready, self.closed = True, False
-        self.enabled, self.profile, self.last_target = False, None, None
-        self.commands, self.calls = [], []
-        self.accept, self.engage_hook, self.disable_hook, self.close_error = True, None, None, None
-
-    def start(self, sink=None): self.sink = sink; self.calls.append("start"); self.emit()
-
-    def emit(self, *, valid=True, q=None):
-        if q is not None: self.q = q
-        self.sequence += 1
-        payload = HandSkeleton(f"{self.side}_wrist", tuple(f"p{i}" for i in range(21)),
-            ((self.q, 0., 0.),)*21, (1.,)*21, ()) if self.glove else JointState(JOINT_NAMES, (self.q,)*20)
-        self.latest = Sample(SampleHeader(SampleRef(self.device_id, "test", self.sequence),
-                                         self.clock(), valid), payload)
-        if not valid: self.fault = "invalid sample"
-        if self.sink: self.sink.try_publish(self.latest)
-        return self.latest
-
-    def get_latest(self): return self.latest
-
-    def health(self, *, check_latch=False):
-        ready = self.ready and self.latest is not None and self.latest.header.valid
-        if check_latch and self.fault: ready = False
-        return Health(ready, self.clock(), None if ready else self.fault or "unavailable")
-
-    def clear_fault(self):
-        if not self.health().ready: raise RuntimeError("not currently healthy")
-        self.fault = None
-
-    def configure(self, profile): self.profile = profile; self.calls.append("configure")
-
-    def engage(self, *, cancelled=None):
-        self.calls.append("engage")
-        if self.engage_hook: self.engage_hook()
-        if cancelled and cancelled(): raise RuntimeError("cancelled")
-        self.last_target = JointTarget(JOINT_NAMES, self.latest.payload.position_rad)
-        self.enabled = True
-
-    def submit(self, command):
-        if not self.accept: return Submission(command.command_id, False, f"{self.side} send failed")
-        if self.clock() >= command.expires_monotonic_ns:
-            return Submission(command.command_id, False, "expired")
-        self.commands.append(command)
-        self.last_target = command.payload
-        return Submission(command.command_id, True)
-
-    def request_hold(self, reason): self.calls.append("hold")
-
-    def disable(self, reason="requested"):
-        self.calls.append("disable")
-        self.enabled = False
-        if self.disable_hook: self.disable_hook()
-
-    def close(self):
-        self.calls.append("close")
-        self.enabled, self.closed = False, True
-        if self.close_error: raise self.close_error
-
-
-class Mapper:
-    def __init__(self): self.calls, self.resets = 0, 0; self.fail = False; self.hook = None
-    def reset(self): self.resets += 1
-    def solve(self, sample):
-        self.calls += 1
-        if self.hook: self.hook()
-        if self.fail: raise ValueError("invalid retarget output")
-        return JointTarget(JOINT_NAMES, (sample.payload.positions_m[0][0],)*20)
+    def test_missing_package_fails_before_runtime_construction(self):
+        with patch("bimanual_teleop.control.hand.follow.version", return_value="2026.8.31"), \
+                patch("bimanual_teleop.control.hand.follow.find_spec", return_value=None):
+            with self.assertRaisesRegex(ImportError, "numpy"):
+                preflight()
 
 
 class StartupTests(unittest.TestCase):
@@ -139,7 +67,7 @@ class StartupTests(unittest.TestCase):
 
 
 class RuntimeTests(unittest.TestCase):
-    def make(self, *, motion=True, sides=("left", "right"), threaded=False, clock=None):
+    def make(self, *, sides=("left", "right"), threaded=False, clock=None):
         self.clock = clock or Clock()
         self.gloves = {s: Device(s, self.clock, glove=True) for s in sides}
         self.hands = {s: Device(s, self.clock) for s in sides}
@@ -147,7 +75,7 @@ class RuntimeTests(unittest.TestCase):
         self.sink = Sink()
         self.runtime = WujiTeleop(self.gloves, self.hands, self.maps,
             profile=ControlProfile("tested", "mit", {"kp": 5., "kd": .05, "current_limit_a": 1.5}),
-            sink=self.sink, enable_motion=motion, clock_ns=self.clock, threaded=threaded)
+            sink=self.sink, clock_ns=self.clock, threaded=threaded)
         self.addCleanup(self.runtime.close)
         self.runtime.start()
         return self.runtime
@@ -158,14 +86,14 @@ class RuntimeTests(unittest.TestCase):
     def join_disables(self):
         for thread in tuple(self.runtime._disable_threads.values()): thread.join(1)
 
-    def test_start_is_acquisition_only_and_preview_never_enables(self):
-        runtime = self.make(motion=False)
+    def test_start_is_acquisition_only_until_explicit_engagement(self):
+        runtime = self.make()
         self.assertEqual(runtime.state, SystemState.READY)
         self.assertTrue(all(h.calls == ["start"] for h in self.hands.values()))
         runtime.engage()
         runtime._step()
-        self.assertTrue(all(not h.enabled and not h.commands for h in self.hands.values()))
-        self.assertEqual(runtime.mode, "preview")
+        self.assertTrue(all(h.enabled and h.commands for h in self.hands.values()))
+        self.assertEqual(runtime.mode, "follow")
 
     def test_realtime_observer_failure_pauses_before_hand_submission(self):
         runtime = self.make()
@@ -185,14 +113,14 @@ class RuntimeTests(unittest.TestCase):
         runtime.engage()
         runtime._step()
         self.assertTrue(all(h.last_target.position_rad == (.1,)*20 for h in self.hands.values()))
-        self.clock.advance(.375); self.refresh(); runtime._step()
+        self.clock.advance_s(.375); self.refresh(); runtime._step()
         self.assertAlmostEqual(self.hands["left"].last_target.position_rad[0], .2)
         self.assertAlmostEqual(self.hands["right"].last_target.position_rad[0], .3)
-        self.clock.advance(.375); self.refresh(); runtime._step()
+        self.clock.advance_s(.375); self.refresh(); runtime._step()
         self.assertEqual(self.hands["left"].last_target.position_rad, (.3,)*20)
         self.assertEqual(self.hands["right"].last_target.position_rad, (.5,)*20)
         # Following after takeover has no added velocity limiter.
-        self.gloves["left"].emit(q=.6); self.clock.advance(.008); runtime._step()
+        self.gloves["left"].emit(q=.6); self.clock.advance_s(.008); runtime._step()
         self.assertEqual(self.hands["left"].last_target.position_rad, (.6,)*20)
 
     def test_repeated_latest_and_caller_tick_do_not_resolve_or_add_raw_samples(self):
@@ -217,7 +145,7 @@ class RuntimeTests(unittest.TestCase):
     def test_pause_resume_starts_at_held_command_not_loaded_actual_position(self):
         runtime = self.make()
         self.gloves["left"].emit(q=.4)
-        runtime.engage(); self.clock.advance(.75); self.refresh(); runtime._step()
+        runtime.engage(); self.clock.advance_s(.75); self.refresh(); runtime._step()
         runtime.pause("Space")
         self.hands["left"].emit(q=.05)
         self.gloves["left"].emit(q=.7)
@@ -226,6 +154,16 @@ class RuntimeTests(unittest.TestCase):
         runtime.engage(); runtime._step()
         self.assertEqual(self.hands["left"].last_target.position_rad, (.4,)*20)
         self.assertEqual(self.hands["left"].calls.count("configure"), 1)
+
+    def test_hold_failure_between_prepare_and_follow_preserves_the_cause(self):
+        runtime = self.make()
+        runtime.prepare_engage()
+        self.hands["right"].accept = False
+        runtime._step()
+        with self.assertRaisesRegex(RuntimeError, "right send failed"):
+            runtime.begin_follow()
+        self.assertEqual(runtime.state, SystemState.PAUSED)
+        self.join_disables()
 
     def test_resume_after_disable_references_new_actual_position(self):
         runtime = self.make()
@@ -251,7 +189,7 @@ class RuntimeTests(unittest.TestCase):
         runtime = self.make()
         runtime.engage(); runtime._step()
         source = self.gloves["left"].latest.header
-        self.clock.advance(.25)
+        self.clock.advance_s(.25)
         for hand in self.hands.values(): hand.emit()
         runtime._step(); runtime._step()
         self.assertEqual(runtime.state, SystemState.PAUSED)
@@ -327,6 +265,85 @@ class RuntimeTests(unittest.TestCase):
         runtime._step()
         self.assertTrue(self.hands["left"].enabled)
 
+    def test_cancelled_before_prepare_lock_never_establishes_new_generation(self):
+        runtime = self.make()
+        entered, cancelled = threading.Event(), threading.Event()
+        errors = []
+
+        def prepare():
+            entered.set()
+            try:
+                runtime.prepare_engage(cancelled=cancelled.is_set)
+            except RuntimeError as error:
+                errors.append(str(error))
+
+        # Hold the exact lock used before prepare captures its generation.
+        # The caller's pause wins while the new worker is still outside it.
+        with runtime._lock:
+            thread = threading.Thread(target=prepare)
+            thread.start()
+            self.assertTrue(entered.wait(1.))
+            cancelled.set()
+            runtime.pause("Space")
+            cancelled_generation = runtime._generation
+        thread.join(2.)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, ["Wuji engagement cancelled"])
+        self.assertEqual(runtime._generation, cancelled_generation)
+        self.assertIsNone(runtime._prepared_generation)
+        self.assertTrue(all(not hand.enabled and hand.profile is None for hand in self.hands.values()))
+        self.assertTrue(all(mapper.calls == 0 for mapper in self.maps.values()))
+        with self.assertRaises(RuntimeError):
+            runtime.begin_follow()
+
+    def test_external_cancel_prevents_enable_before_pause_changes_generation(self):
+        for stage in ("before_configure", "after_configure", "during_enable"):
+            with self.subTest(stage=stage):
+                runtime = self.make()
+                cancelled = threading.Event()
+                expected_generation = runtime._generation + 1
+                if stage == "before_configure":
+                    self.maps["right"].hook = cancelled.set
+                elif stage == "after_configure":
+                    original_configure = self.hands["left"].configure
+
+                    def configure(profile):
+                        original_configure(profile)
+                        cancelled.set()
+
+                    self.hands["left"].configure = configure
+                else:
+                    self.hands["left"].engage_hook = cancelled.set
+                with self.assertRaisesRegex(RuntimeError, "cancelled"):
+                    runtime.prepare_engage(cancelled=cancelled.is_set)
+                self.assertEqual(runtime._generation, expected_generation)
+                self.assertTrue(all(not hand.enabled for hand in self.hands.values()))
+                self.assertIsNone(self.hands["right"].profile)
+                self.assertIsNone(runtime._prepared_generation)
+
+    def test_external_cancel_during_final_locked_reads_prevents_prepare_commit(self):
+        runtime = self.make()
+        cancelled = threading.Event()
+        expected_generation = runtime._generation + 1
+        original_current = runtime._current
+
+        def current(side, *, glove=False, **kwargs):
+            sample = original_current(side, glove=glove, **kwargs)
+            if side == "right" and not glove and all(hand.enabled for hand in self.hands.values()):
+                # Both enables already finished. The command loop has cancelled,
+                # but its pause is still waiting for this final preparation lock.
+                cancelled.set()
+            return sample
+
+        with patch.object(runtime, "_current", side_effect=current):
+            with self.assertRaisesRegex(RuntimeError, "cancelled"):
+                runtime.prepare_engage(cancelled=cancelled.is_set)
+        self.assertEqual(runtime._generation, expected_generation)
+        self.assertIsNone(runtime._prepared_generation)
+        self.assertFalse(any(event.kind == "wuji.prepared" for event in self.sink.events))
+        with self.assertRaises(RuntimeError):
+            runtime.begin_follow()
+
     def test_pause_between_prepare_and_follow_invalidates_token(self):
         runtime = self.make()
         runtime.prepare_engage(); runtime.pause("Space")
@@ -345,14 +362,157 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "parameter restore failed"): runtime.close()
         self.assertTrue(all(d.closed for d in (*self.hands.values(), *self.gloves.values())))
 
-    def test_default_model_change_pauses_following(self):
+    def test_sdk_user_checked_at_engagement_without_control_loop_polling(self):
+        runtime = self.make()
+        query = Mock(return_value=Health(True, self.clock()))
+        runtime.session = SimpleNamespace(health=query, close=lambda: None)
+        runtime._step()
+        query.assert_not_called()
+        runtime.engage()
+        self.assertEqual(query.call_count, 1)  # Preparation owns the SDK user check.
+        query.side_effect = AssertionError("control loop queried SDK user")
+        runtime._step()
+        self.assertTrue(runtime.health().ready)
+        runtime.status(include_target=False)
+        runtime.pause("operator")
+        runtime._step()
+        self.assertEqual(query.call_count, 1)
+        query.side_effect = None
+        query.return_value = Health(False, self.clock(), "SDK user changed")
+        with self.assertRaisesRegex(RuntimeError, "SDK user changed"):
+            runtime.engage()
+        self.assertEqual(runtime.state, SystemState.PAUSED)
+
+    def test_health_and_status_do_not_wait_for_blocked_retarget_or_call_sdk(self):
         runtime = self.make()
         runtime.engage()
-        runtime.session = SimpleNamespace(health=lambda: Health(False, self.clock(), "SDK user changed"),
-                                          close=lambda: None)
+        runtime._step()
+        self.refresh()
+        entered, release, read_done = threading.Event(), threading.Event(), threading.Event()
+        def blocked():
+            entered.set()
+            if not release.wait(2):
+                raise RuntimeError("test did not release retarget")
+        self.maps["left"].hook = blocked
+        worker = threading.Thread(target=runtime._step)
+        worker.start()
+        result = {}
+        try:
+            self.assertTrue(entered.wait(1))
+            self.clock.advance_s(.08)
+            self.refresh()
+            def read():
+                try:
+                    result["health"] = runtime.health()
+                    result["status"] = runtime.status(include_target=False)
+                finally:
+                    read_done.set()
+            reader = threading.Thread(target=read)
+            reader.start()
+            self.assertTrue(read_done.wait(.1), "UI waited for the hand control lock")
+            reader.join(.1)
+            self.assertTrue(result["health"].ready)
+            self.assertEqual(result["status"]["worker_age_ns"], 80_000_000)
+            self.assertEqual(runtime.state, SystemState.ENGAGED)
+            self.clock.advance_s(.251)
+            self.assertFalse(runtime.health().ready, "cached health concealed expired live input")
+            self.refresh()
+            self.gloves["left"].emit(valid=False)
+            self.gloves["left"].emit()
+            self.assertFalse(runtime.health().ready, "a fresh packet erased a latched fault")
+        finally:
+            release.set()
+            worker.join(1)
+
+    def test_following_checks_live_data_after_long_preparation(self):
+        runtime = self.make()
+        runtime.prepare_engage()
+        self.clock.advance_s(2.)
+        self.refresh()
+        runtime.begin_follow()
+        self.assertTrue(runtime.health().ready)
+
+    def test_expired_solved_input_cannot_be_renewed_by_new_feedback(self):
+        runtime = self.make()
+        runtime.engage()
+        self.refresh()
+        before = {side: len(hand.commands) for side, hand in self.hands.items()}
+        def delayed_solve():
+            self.clock.advance_s(.251)
+            self.refresh()
+        self.maps["left"].hook = delayed_solve
         runtime._step()
         self.assertEqual(runtime.state, SystemState.PAUSED)
-        self.assertFalse(runtime.health().ready)
+        self.assertIn("expired", runtime.last_error)
+        self.assertEqual({side: len(hand.commands) for side, hand in self.hands.items()}, before)
+
+    def test_begin_follow_has_no_repeated_sdk_user_round_trip(self):
+        runtime = self.make()
+        query = Mock(return_value=Health(True, self.clock()))
+        runtime.session = SimpleNamespace(health=query, close=lambda: None)
+        runtime.prepare_engage()
+        query.side_effect = AssertionError("following queried SDK user")
+        runtime.begin_follow()
+        self.assertEqual(query.call_count, 1)
+        self.assertEqual(runtime.state, SystemState.ENGAGED)
+
+    def test_follow_cancellation_is_checked_while_pause_waits_for_control_lock(self):
+        runtime = self.make()
+        runtime.prepare_engage()
+        entered, release = threading.Event(), threading.Event()
+        cancelled, pause_entered = threading.Event(), threading.Event()
+        original_current = runtime._current
+        errors = []
+
+        def current(*args, **kwargs):
+            entered.set()
+            if not release.wait(2.):
+                raise RuntimeError("test did not release following")
+            return original_current(*args, **kwargs)
+
+        def follow():
+            try:
+                runtime.begin_follow(cancelled=cancelled.is_set)
+            except RuntimeError as error:
+                errors.append(str(error))
+
+        def pause():
+            # The process command loop updates its cancellation identity before
+            # calling pause, which can itself be waiting on this same lock.
+            cancelled.set()
+            pause_entered.set()
+            runtime.pause("Space")
+
+        with patch.object(runtime, "_current", side_effect=current):
+            follower = threading.Thread(target=follow)
+            follower.start()
+            self.assertTrue(entered.wait(1.))
+            stopper = threading.Thread(target=pause)
+            stopper.start()
+            self.assertTrue(pause_entered.wait(1.))
+            release.set()
+            follower.join(2.)
+            stopper.join(2.)
+        self.assertFalse(follower.is_alive() or stopper.is_alive())
+        self.assertEqual(errors, ["Wuji engagement cancelled"])
+        self.assertEqual(runtime.state, SystemState.PAUSED)
+        self.assertFalse(any(event.kind == "wuji.engaged" for event in self.sink.events))
+
+    def test_glove_samples_are_the_latest_owned_samples(self):
+        runtime = self.make()
+        initial = runtime.glove_samples()
+        self.assertEqual(initial, {side: glove.get_latest() for side, glove in self.gloves.items()})
+        self.gloves["left"].emit()
+        latest = runtime.glove_samples()
+        self.assertIs(latest["left"], self.gloves["left"].get_latest())
+        self.assertIsNot(latest["left"], initial["left"])
+        self.assertIs(latest["right"], initial["right"])
+
+    def test_unobserved_retarget_does_not_serialize_events(self):
+        runtime = self.make()
+        runtime.sink = None
+        with patch("bimanual_teleop.control.hand.follow.asdict", side_effect=AssertionError("unused event")):
+            runtime._map("left", self.gloves["left"].get_latest())
 
     def test_worker_runs_independently_and_skips_overdue_periods(self):
         runtime = self.make(clock=time.monotonic_ns, threaded=True)
@@ -379,7 +539,7 @@ class RuntimeTests(unittest.TestCase):
     def test_actual_rate_counts_only_worker_cycles(self):
         runtime = self.make()
         runtime._step()
-        self.clock.advance(.01)
+        self.clock.advance_s(.01)
         runtime._step()
         for _ in range(50): runtime.tick()
         self.assertEqual(runtime.status()["control_hz_actual"], 100.)
@@ -468,6 +628,9 @@ class RetargetTests(unittest.TestCase):
         self.assertIsNone(runtime.session.manager)
         self.assertEqual(runtime.session.user_name, "yuchen")
         self.assertIsNone(runtime.retargeters["left"]._session)
+        self.assertEqual(runtime.gloves["left"].streams, ("skeleton",))
+        recorded = create_wuji_teleop(config, sides=("left",), sink=Sink())
+        self.assertEqual(recorded.gloves["left"].streams, ("emf", "skeleton"))
         for selection in ({"sdk_user_name": 123}, {"sdk_user_name": " "},
                           {"sdk_user_id": "ambiguous"}):
             with self.assertRaises(ValueError):
