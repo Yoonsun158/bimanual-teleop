@@ -100,6 +100,8 @@ class FeedbackSnapshot:
     acceleration_ratio: list = field(default_factory=lambda: [0] * 2)
     force_type: list = field(default_factory=lambda: [0] * 2)
     impedance_rotation: list = field(default_factory=lambda: [0.] * 14)
+    force_tag: list = field(default_factory=lambda: [0.] * 2)
+    wrench_raw: list = field(default_factory=lambda: [0.] * 12)
 
     @classmethod
     def from_dcss(cls, dcss, observed_ns, index):
@@ -109,7 +111,7 @@ class FeedbackSnapshot:
             for name, value in (("sequence", out.m_OutFrameSerial), ("input_sequence", inp.m_InFrameSerial),
                                 ("state", state.m_CurState), ("commanded_state", state.m_CmdState),
                                 ("error", state.m_ERRCode), ("impedance_type", inp.m_ImpType),
-                                ("low_speed", out.m_LowSpdFlag[0]),
+                                ("low_speed", out.m_LowSpdFlag[0]), ("force_tag", out.m_EST_Joint_Firc[0]),
                                 ("velocity_ratio", inp.m_Joint_Vel_Ratio),
                                 ("acceleration_ratio", inp.m_Joint_Acc_Ratio), ("force_type", inp.m_Force_Type)):
                 getattr(result, name)[arm] = value
@@ -119,7 +121,8 @@ class FeedbackSnapshot:
                                  ("cart_k", [*inp.m_Cart_K, inp.m_Cart_KN]),
                                  ("cart_d", [*inp.m_Cart_D, inp.m_Cart_DN]),
                                  ("tool_pose", inp.m_ToolKine), ("tool_dynamics", inp.m_ToolDyn),
-                                 ("impedance_rotation", inp.m_Force_PIDUL)):
+                                 ("impedance_rotation", inp.m_Force_PIDUL),
+                                 ("wrench_raw", out.m_EST_Joint_Firc_Dot[:6])):
                 width = len(values)
                 getattr(result, name)[arm * width:(arm + 1) * width] = values
         return result

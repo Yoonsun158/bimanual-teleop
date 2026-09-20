@@ -46,3 +46,7 @@ local.properties
 *.swo
 *~
 .DS_Store
+
+# Local demonstration datasets
+/recordings/
+/datasets/

@@ -130,6 +130,35 @@ class TianjiDriverTests(unittest.TestCase, TianjiFixture):
         self.assertTrue(any(name == "hold" for name, _ in self.native.calls))
         self.assertFalse(self.events("tianji.joint_move_completed"))
 
+    def test_position_transition_preserves_controller_fault_before_or_after_watchdog(self):
+        for watchdog_first in (False, True):
+            with self.subTest(watchdog_first=watchdog_first):
+                fixture = TianjiFixture()
+                driver, native = fixture.driver, fixture.native
+                self.addCleanup(driver.close)
+                fixture.configure()
+                native.complete_joint_move = False
+
+                def fault(_):
+                    p = deepcopy(driver._packet)
+                    p.packet_index += 1
+                    p.sequence[0] += 1
+                    p.received_ns = time.monotonic_ns()
+                    p.state[0], p.error[0] = 100, 4
+                    driver._on_feedback(p)
+                    if watchdog_first:
+                        with patch.object(driver._stop, "wait", side_effect=(False, True)):
+                            driver._watch()
+                        self.assertFalse(driver.engaged)
+
+                with patch.object(driver._stop, "wait", side_effect=fault):
+                    with self.assertRaisesRegex(RuntimeError, "left controller error 4") as raised:
+                        driver.move_joints("left", (0.,) * 7)
+                self.assertEqual(driver.motion_stop["reason"], str(raised.exception))
+                self.assertFalse(any(name == "submit" for name, _ in native.calls))
+                self.assertEqual([args[0] for name, args in native.calls if name == "hold"], [1])
+                self.assertEqual(driver.get_latest().payload.arms["right"].error, 0)
+
     def test_joint_move_waits_for_final_internal_target_and_low_speed_without_stream_expiry(self):
         self.configure()
         self.position_feedback()

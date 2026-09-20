@@ -174,7 +174,8 @@ class TianjiCartesianExecutor:
             return self._reject(target, "target expired during IK")
         command = DeviceCommand(
             device_id="tianji", command_id=target.command_id,
-            payload=TianjiJointCommand(targets=targets, cartesian_targets={s: step.pose for s, step in steps.items()}),
+            payload=TianjiJointCommand(targets=targets, cartesian_targets={s: step.pose for s, step in steps.items()},
+                                      requested_cartesian_targets=poses),
             source_refs=tuple(target.source_refs), created_monotonic_ns=target.created_monotonic_ns,
             expires_monotonic_ns=target.expires_monotonic_ns,
             control_profile_id=target.control_profile_id,

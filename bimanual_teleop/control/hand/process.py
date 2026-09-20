@@ -1,7 +1,9 @@
 """Run the complete Wuji device/control domain in its own interpreter.
 
-Only lifecycle requests and sampled observations cross the process boundary.
-The parent never owns a Wuji SDK handle or sends hand joint commands.
+Lifecycle requests and sampled observations use separate channels. An optional
+recording sink receives original hand samples inside the child, independently of
+the observation snapshots. The parent never owns a Wuji SDK handle or sends hand
+joint commands.
 """
 
 from __future__ import annotations
@@ -42,14 +44,16 @@ def _receive(channel):
     return pickle.loads(channel.recv(_PACKET_BYTES))
 
 
-def _create_runtime(config, *, verbose=False):
+def _create_runtime(config, *, verbose=False, record_sink=None):
     from bimanual_teleop.common.console import configure_runtime_logging
     configure_runtime_logging(wuji=True, verbose=verbose)
     from .follow import create_wuji_teleop
-    return create_wuji_teleop(config)
+    if record_sink is None:
+        return create_wuji_teleop(config)
+    return create_wuji_teleop(config, hand_sink=record_sink)
 
 
-def _serve(config, control, observations, heartbeat, runtime_factory, verbose):
+def _serve(config, control, observations, heartbeat, runtime_factory, verbose, record_sink=None):
     runtime = None
     sequence = command_id = 0
     operation = None
@@ -97,7 +101,10 @@ def _serve(config, control, observations, heartbeat, runtime_factory, verbose):
         operation_result = (request_id, error)
 
     try:
-        runtime = runtime_factory(config, verbose=verbose)
+        options = {"verbose": verbose}
+        if record_sink is not None:
+            options["record_sink"] = record_sink
+        runtime = runtime_factory(config, **options)
         runtime.start()
         reply(0)
         next_snapshot = time.monotonic()
@@ -171,10 +178,11 @@ def _serve(config, control, observations, heartbeat, runtime_factory, verbose):
 class WujiProcess:
     """Fixed hand-runtime interface with nonblocking cached observations."""
 
-    def __init__(self, config, *, verbose=False,
+    def __init__(self, config, *, verbose=False, record_sink=None,
                  _runtime_factory=_create_runtime):
         self.config = dict(config)
         self.verbose = verbose
+        self._record_sink = record_sink
         self.glove_timeout_ns = round(config.get("glove_timeout_s", .25) * 1e9)
         self.hand_timeout_ns = round(config.get("hand_timeout_s", .5) * 1e9)
         self._factory = _runtime_factory
@@ -273,7 +281,7 @@ class WujiProcess:
         self._touch()
         self._process = self._context.Process(target=_serve,
             args=(self.config, child_control, child_observations,
-                  self._heartbeat, self._factory, self.verbose), name="wuji-teleop")
+                  self._heartbeat, self._factory, self.verbose, self._record_sink), name="wuji-teleop")
         self._process.start()
         child_control.close()
         child_observations.close()

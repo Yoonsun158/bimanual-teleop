@@ -39,12 +39,14 @@ adb install -r quest_app/artifacts/quest-capture-debug.apk
 python scripts/view_quest.py
 python scripts/view_wuji_glove.py --side left
 python scripts/home_tianji.py --inspect
-python scripts/read_tianji_right_force.py
+python scripts/read_tianji_force.py
 ```
 
 查看命令分别运行，同一设备一次只运行一个入口。手套右侧使用 `--side right`；关闭窗口退出。压力颜色表示相对值，不是牛顿；`CONTACT UNKNOWN` 表示缺少有效接触信息，仍可显示压力。触觉来自手套，Hand2 Beta2 不提供触觉反馈。
 
-右臂六维力约每 0.2 秒输出一次，单位 N、N·m，Ctrl+C 退出。所有天机入口默认使用随包官方 SDK；可用 `--sdk-root PATH` 指定配套的同版本官方目录。旧 `--library` 已移除。
+腕部六维力默认同时读取双臂，可加 `--side left` 或 `--side right` 只读单侧（`--side both` 为双侧）。每侧约每 0.2 秒输出一次，行首标明 `left`／`right`，`F[N]` 为 Fx、Fy、Fz，`T[N·m]` 为 Tx、Ty、Tz，`raw` 为原始值；Ctrl+C 退出。任一所选侧连续 3 秒没有新帧或反馈通道不匹配时，报错并退出。原命令 `python scripts/read_tianji_right_force.py` 保留，默认只读右臂，也支持 `--side`。
+
+所有天机入口默认使用随包官方 SDK；可用 `--sdk-root PATH` 指定配套的同版本官方目录。旧 `--library` 已移除。
 
 ## 遥操作与回位
 
@@ -100,6 +102,21 @@ Hand2 双侧回零按先左后右执行，每侧到位并去使能后继续，�
 `quest.coordinate_frame` 支持 `headset`（默认）和 `world`。`headset` 的原点和水平朝向跟随头显，忽略俯仰、侧倾；`world` 使用 Quest LOCAL 世界坐标，重新定位可能改变原点。查看器始终显示 LOCAL 位姿。
 
 **左手柄控制右臂，右手柄控制左臂。** `--side` 指机器人侧；Wuji 始终左手套对应左 Hand2、右手套对应右 Hand2。参考系的前、左、上映射到机器人相同物理方向，位置和旋转以接合姿态为基准。在 `headset` 模式下，移动头显或改变其 yaw 也会改变手柄相对位姿。
+
+## 数据采集
+
+```bash
+# 双臂双手遥操作，同时启用原始数据采集和共享相机预览
+python scripts/teleop_quest_tianji.py --record --viewer
+
+# 采集后分别导出两种动作空间；输出路径不得已存在
+python scripts/convert_recording.py --input recordings/<session> --output datasets/episodes_eef.zarr --action-space eef
+python scripts/convert_recording.py --input recordings/<session> --output datasets/episodes_joint.zarr --action-space joint
+```
+
+接合后按 **C** 开始、**S** 保存、**X** 作废当前条；手动暂停保存，故障暂停标记不完整。三路 RGB 为 640×480、30 Hz，只有主 D435 默认采深度；低维状态默认记录 200 Hz，控制目标沿用机械臂 200 Hz、手部 120 Hz。相机序列号及输出位置见 [采集配置](configs/recording.yaml)。
+
+原始数据保持各流真实时间戳，离线统一到主 RGB 帧时间，导出 DP Zarr。字段、时间语义、恢复操作和训练接口见[数据采集指南](docs/data_collection.md)。已有环境补装依赖：`PIP_USER=false python -m pip install -e '.[recording]'`。
 
 ## 手套标定
 

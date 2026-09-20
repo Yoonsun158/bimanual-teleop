@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import ctypes as ct
 from copy import deepcopy
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 import logging
 import math
 from pathlib import Path
@@ -42,6 +42,8 @@ class TianjiArmState:
     low_speed: int
     controller_target_rad: tuple[float | None, ...]
     native_current_permille: tuple[float | None, ...]
+    wrench: tuple[float, ...] | None = None  # Fx, Fy, Fz in N; Tx, Ty, Tz in Nm, sensor axes.
+    force_tag: float | None = None
 
 
 @dataclass(frozen=True)
@@ -140,6 +142,7 @@ def classify_feedback(sample: Sample[TianjiFrame], sides: tuple[Side, ...] = SID
 class TianjiJointCommand:
     targets: Mapping[Side, tuple[float, ...]]
     cartesian_targets: Mapping[Side, Pose]
+    requested_cartesian_targets: Mapping[Side, Pose] = field(default_factory=dict)
 
 
 def decode_feedback(packet: FeedbackSnapshot, epoch: str) -> Sample[TianjiFrame]:
@@ -153,10 +156,16 @@ def decode_feedback(packet: FeedbackSnapshot, epoch: str) -> Sample[TianjiFrame]
             tuple(f"{side}_joint_{j + 1}" for j in range(7)), radians("q"), radians("dq"),
             measured_torque_nm=values("torque"), estimated_external_torque_nm=values("external_torque"),
         )
+        force_tag = packet.force_tag[index]
+        force_tag = force_tag if math.isfinite(force_tag) else None
+        wrench_raw = packet.wrench_raw[index * 6:(index + 1) * 6]
+        wrench = (tuple(value / 10_000.0 for value in wrench_raw)
+                  if force_tag == (116, 216)[index] and len(wrench_raw) == 6
+                  and all(math.isfinite(value) for value in wrench_raw) else None)
         arms[side] = TianjiArmState(
             joints, packet.sequence[index], packet.input_sequence[index], packet.state[index],
             packet.commanded_state[index], packet.error[index], packet.impedance_type[index],
-            packet.low_speed[index], radians("target"), values("current"),
+            packet.low_speed[index], radians("target"), values("current"), wrench, force_tag,
         )
     # Optional observation loss does not invalidate usable numeric motion state.
     # Errors, mode and freshness are checked independently before any command.
@@ -176,7 +185,7 @@ class TianjiDriver:
 
     def __init__(self, controller_ip: str, sdk_root: str | Path | None = None,
                  *, model_path: str | Path | None = None, watchdog_s: float = 0.05,
-                 engagement_timeout_s: float = 1.0):
+                 engagement_timeout_s: float = 1.0, record_force: bool = False):
         if not math.isfinite(watchdog_s) or watchdog_s <= 0:
             raise ValueError("watchdog_s must be positive and finite")
         if not math.isfinite(engagement_timeout_s) or engagement_timeout_s <= 0:
@@ -184,6 +193,7 @@ class TianjiDriver:
         self.controller_ip = controller_ip
         self.sdk_root = resolve_sdk_root(sdk_root)
         self.model_path = model_path
+        self.record_force = record_force
         self.watchdog_ns = int(watchdog_s * 1e9)
         self.engagement_timeout_ns = int(engagement_timeout_s * 1e9)
         self.profile: MotionProfile | None = None
@@ -276,6 +286,10 @@ class TianjiDriver:
             sdk.open(self.controller_ip)
             opened = True
             self._sdk = sdk
+            if self.record_force:
+                for arm, channel in (("A", 116), ("B", 216)):
+                    if not sdk.robot.set_user_specified_data(arm, channel):
+                        raise RuntimeError(f"failed to select arm {arm} six-axis force data (channel {channel})")
             sdk_version, controller = sdk.versions()
             self._metadata.update(sdk_version=sdk_version, controller_version=controller)
             self._motion_stop = None
@@ -684,7 +698,8 @@ class TianjiDriver:
             if time.monotonic() >= deadline:
                 raise RuntimeError(f"{side} joint move timed out after {timeout_s:g} s")
             if not self.engaged:
-                raise RuntimeError("Tianji joint move stopped")
+                raise RuntimeError(self._motion_stop["reason"] if self._motion_stop
+                                   else "Tianji joint move stopped")
             self._require_feedback((side,))
 
         with self._lock:
@@ -758,8 +773,8 @@ class TianjiDriver:
                         self._event("tianji.joint_move_completed", {"side": side, "feedback": asdict(sample)})
                         return sample
                 self._stop.wait(.005)
-        except BaseException:
-            self.request_hold("joint move interrupted")
+        except BaseException as error:
+            self.request_hold(str(error) or type(error).__name__)
             raise
         finally:
             with self._lock:
@@ -861,7 +876,9 @@ class TianjiDriver:
             raise RuntimeError(self._problem)
         self._connected()
         self._motion_sides.update(profile.active_arms)
-        self._invoke(operation, self._mask(profile.active_arms), q, expires, token=token)
+        submitted = self._invoke(operation, self._mask(profile.active_arms), q, expires, token=token)
+        if operation == "submit":
+            self._event("tianji_command_submitted", {"command": command}, submitted)
         # A seed target may hold still while the servo enables, but must still
         # be submitted within watchdog_s. Runtime targets keep the shorter limit.
         self._deadline_ns = (min(command.expires_monotonic_ns, now + self.engagement_timeout_ns)

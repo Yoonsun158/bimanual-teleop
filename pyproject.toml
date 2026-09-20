@@ -14,6 +14,7 @@ dependencies = ["PyYAML>=6,<7", "numpy>=1.23,<2", "scipy>=1.10,<2", "quadprog==0
 visualization = ["matplotlib>=3.10,<4"]
 realsense = ["pyrealsense2==2.58.4.10922", "matplotlib>=3.10,<4"]
 wuji = ["wuji-sdk==2026.8.31"]
+recording = ["av>=14,<17", "zarr>=2.18,<3", "numcodecs>=0.12,<0.16"]
 
 [tool.setuptools.packages.find]
 where = ["."]

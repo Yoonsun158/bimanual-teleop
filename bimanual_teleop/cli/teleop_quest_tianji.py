@@ -39,7 +39,8 @@ def create_runtime(args, profile, sink):
     from bimanual_teleop.control.arm.cartesian import TianjiCartesianExecutor
 
     quest = QuestSource(serial=args.serial)
-    driver = TianjiDriver(args.robot_ip, args.sdk_root)
+    driver_options = {"record_force": True} if getattr(args, "record", False) else {}
+    driver = TianjiDriver(args.robot_ip, args.sdk_root, **driver_options)
     kinematics = TianjiKinematics(args.sdk_root)
     executor = TianjiCartesianExecutor(driver, kinematics)
     arms = QuestTianjiTeleop(quest, driver, executor, profile=profile, sink=sink,
@@ -50,7 +51,8 @@ def create_runtime(args, profile, sink):
         return arms
     from bimanual_teleop.control.hand.process import WujiProcess
     from bimanual_teleop.control.combined import QuestTianjiWujiTeleop
-    hands = WujiProcess(args.wuji_settings, verbose=getattr(args, "verbose", False))
+    hand_options = {"record_sink": sink} if getattr(args, "record", False) else {}
+    hands = WujiProcess(args.wuji_settings, verbose=getattr(args, "verbose", False), **hand_options)
     return QuestTianjiWujiTeleop(arms, hands)
 
 
@@ -68,14 +70,20 @@ def main(argv=None):
     parser.add_argument("--user-name", help="联合控制使用的已有 Wuji SDK 用户名；默认从配置文件读取")
     parser.add_argument("--arms-only", action="store_true", help="只控制机械臂，不连接 Wuji 手套和灵巧手")
     parser.add_argument("--viewer", action="store_true", help="显示已连接 RealSense 的彩色图像；默认关闭")
+    parser.add_argument("--record", action="store_true", help="启用原始采集；C 开始、S 保存、X 作废")
+    parser.add_argument("--recording-config", type=Path,
+                        help="采集配置 YAML；默认 configs/recording.yaml")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="输出跟随受限提示、SDK 告警及完整诊断；默认只显示关键状态和故障")
     args = parser.parse_args(argv)
     if not args.arms_only and args.side != "both":
         parser.error("联合控制需要 --side both；单臂控制请加 --arms-only")
+    if args.record and (args.arms_only or args.side != "both"):
+        parser.error("数据采集需要双臂双手联合遥操作")
     combined = not args.arms_only
     runtime = ui = None
     preview = None
+    recorder = None
     error = None
     timing = None
     try:
@@ -94,17 +102,30 @@ def main(argv=None):
                 from bimanual_teleop.devices.wuji.config import sdk_user_name
                 args.wuji_settings["sdk_user_name"] = sdk_user_name({}, user_name=args.user_name)
             preflight()
+        if args.record:
+            from bimanual_teleop.recording.config import load_config as load_recording_config, DEFAULT_CONFIG as RECORDING_CONFIG
+            from bimanual_teleop.recording.recorder import Recorder
+            recorder = Recorder(load_recording_config(args.recording_config or RECORDING_CONFIG),
+                sdk_root=args.sdk_root, viewer=args.viewer,
+                metadata={"tianji_config": settings, "wuji_config": args.wuji_settings})
+            recorder.start()
         with NonblockingTerminal() as terminal:
             if not confirm_motion(terminal, "开始初始回位，完成后等待遥操作接合"):
                 return 0
-            if args.viewer:
+            if args.viewer and not args.record:
                 from bimanual_teleop.visualization.realsense import RealSensePreview
                 preview = RealSensePreview()
                 preview.start()
             prepare_initial_pose(args, terminal)
-            runtime = create_runtime(args, profile, None)
+            runtime = create_runtime(args, profile, recorder.sink if recorder else None)
             help_text = GESTURE_HELP if combined else ARM_HELP
             print_message("实机遥操作\n" + help_text)
+            ui_type = TeleopUI
+            ui_options = {}
+            if recorder is not None:
+                from bimanual_teleop.recording.ui import RecordingUI, HELP as RECORDING_HELP
+                ui_type, ui_options = RecordingUI, {"recorder": recorder}
+                print_message(RECORDING_HELP)
             runtime.start()
             gesture = None
             if combined:
@@ -112,7 +133,7 @@ def main(argv=None):
                 gesture = GestureCommands({side: lambda side=side: runtime.hands.glove_samples()[side]
                     for side in ("left", "right")},
                     timeout_s=runtime.hands.glove_timeout_ns / 1e9)
-            ui = TeleopUI(runtime, profile, gesture=gesture,
+            ui = ui_type(runtime, profile, gesture=gesture, **ui_options,
                             home_enabled=True,
                             verbose=args.verbose,
                             background_engage=combined,
@@ -136,6 +157,8 @@ def main(argv=None):
                 error = f"{error + '; ' if error else ''}关闭运行模块失败：{problem}"
         if preview is not None:
             preview.close()
+        if recorder is not None and ui is None:
+            recorder.close()
     if error:
         print_message(runtime_message(error, verbose=args.verbose), "error")
     else:

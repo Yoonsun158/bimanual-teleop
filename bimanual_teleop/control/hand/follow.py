@@ -73,7 +73,7 @@ prepare_engage enables hands at their current pose. begin_follow is separate so
 a coordinator can engage the arms while this worker keeps both hand targets.
 """
 
-    def __init__(self, gloves, hands, retargeters, *, profile, sink=None,
+    def __init__(self, gloves, hands, retargeters, *, profile, sink=None, hand_sink=None,
                  control_hz=120., transition_s=.75,
                  glove_timeout_s=.25, hand_timeout_s=.5, session=None,
                  clock_ns=time.monotonic_ns, threaded=True, metadata=None):
@@ -86,6 +86,7 @@ a coordinator can engage the arms while this worker keeps both hand targets.
             raise ValueError("Wuji rates and timeouts must be positive")
         self.gloves, self.hands, self.retargeters = gloves, hands, retargeters
         self.profile, self.sink = profile, sink
+        self.hand_sink = hand_sink
         self.session, self.clock_ns, self.threaded = session, clock_ns, threaded
         self.metadata = dict(metadata or {})
         self.period_ns = round(1e9 / control_hz)
@@ -144,7 +145,7 @@ a coordinator can engage the arms while this worker keeps both hand targets.
                     retargeter.sdk = self.session.sdk
             for side in self.sides:
                 self.gloves[side].start(sink=self.sink)
-                self.hands[side].start(sink=self.sink)
+                self.hands[side].start(sink=self.sink if self.hand_sink is None else self.hand_sink)
             self._state = SystemState.READY
             self._event("started", {                        "profile": asdict(self.profile), "control_period_ns": self.period_ns,
                         "configuration": self.metadata,
@@ -491,8 +492,8 @@ a coordinator can engage the arms while this worker keeps both hand targets.
             raise RuntimeError(self.last_error)
 
 
-def create_wuji_teleop(config, sides=("left", "right"), *, sink=None):
-    """Construct without SDK imports, network connections, or parameter changes."""
+def create_wuji_teleop(config, sides=("left", "right"), *, sink=None, hand_sink=None):
+    """Construct without connecting; hand_sink does not enable glove telemetry."""
     validate_control_config(config)
     if not sides or len(set(sides)) != len(sides) or set(sides) - {"left", "right"}:
         raise ValueError("Select left, right, or both hands")
@@ -503,7 +504,7 @@ def create_wuji_teleop(config, sides=("left", "right"), *, sink=None):
              timeout_s=config.get("hand_timeout_s", .5)) for s in sides}
     profile = ControlProfile(config.get("profile_id", "wuji-hand2"), "mit", dict(config["parameters"]))
     return WujiTeleop(gloves, hands, {s: WujiHandRetargeter(s) for s in sides},
-        profile=profile, sink=sink,
+        profile=profile, sink=sink, hand_sink=hand_sink,
         session=WujiSdkSession(user_name=sdk_user_name(config)),
         control_hz=config.get("control_hz", 120), transition_s=config.get("transition_s", .75),
         glove_timeout_s=config.get("glove_timeout_s", .25), hand_timeout_s=config.get("hand_timeout_s", .5),

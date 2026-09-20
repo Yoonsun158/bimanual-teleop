@@ -1,0 +1,25 @@
+# 数据读取配置片段，不是完整的 Diffusion Policy 训练配置。
+# 合并到训练配置根节点；训练环境需安装官方 diffusion_policy 与本项目。
+# 主相机 depth 可随数据保存，但这里不将 depth 自动选为模型输入。
+# 臂和手的关节角度单位 rad；所有双侧字段按左、右顺序排列。
+shape_meta:
+  obs:
+    camera_0: {shape: [3, 480, 640], type: rgb}
+    camera_1: {shape: [3, 480, 640], type: rgb}
+    camera_2: {shape: [3, 480, 640], type: rgb}
+    robot_joint: {shape: [14], type: low_dim}
+    hand_joint: {shape: [40], type: low_dim}
+    wrench: {shape: [12], type: low_dim}
+  # 左臂7关节目标、右臂7关节目标、左手20关节目标、右手20关节目标。
+  action: {shape: [54]}
+
+dataset:
+  _target_: bimanual_teleop.recording.dataset.BimanualImageDataset
+  dataset_path: datasets/episodes_joint.zarr
+  shape_meta: ${shape_meta}
+  horizon: 16
+  n_obs_steps: 2
+  pad_before: 1
+  pad_after: 7
+  val_ratio: 0.1
+  seed: 42

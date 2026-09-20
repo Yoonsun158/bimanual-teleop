@@ -103,11 +103,11 @@ class MotionEntryTests(unittest.TestCase):
 
     def test_all_command_help_omits_removed_options(self):
         from bimanual_teleop.cli import calibrate_wuji_glove, view_quest, view_wuji_glove
-        from scripts import read_tianji_right_force
+        from scripts import read_tianji_force, read_tianji_right_force
 
         entries = (lambda args: ready.parser().parse_args(args), quest.main, hands.main,
                    jog.main, home.main, calibrate_wuji_glove.main, view_quest.main,
-                   view_wuji_glove.main, read_tianji_right_force.main)
+                   view_wuji_glove.main, read_tianji_force.main, read_tianji_right_force.main)
         removed = ("--enable-motion", "--execute", "--user-id", "--sdk-user-id")
         for entry in entries:
             with self.subTest(entry=entry), redirect_stdout(io.StringIO()) as output:
