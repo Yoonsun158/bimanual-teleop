@@ -12,7 +12,7 @@ controls:
   # 暂停后按此键清错并回到下方 ready_pose；完成后保持暂停，不自动接合。
   ready_pose_key: "h"
   # 手势控制总开关（仅联合模式）；false 关闭所有手势接合、暂停和回位，键盘控制仍可用。
-  gesture_engagement_enabled: true
+  gesture_engagement_enabled: false
 
 # Quest 手柄的位置和朝向采用哪种参考系。
 quest:
