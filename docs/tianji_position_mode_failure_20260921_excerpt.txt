@@ -1,0 +1,9 @@
+55474: [INFO][22:04:42              3439445][PSI]OnProcessParam: (m_CmdState = ARM_STATE_IDLE)Reset Arm0 ...
+55475: [INFO][22:04:42              3439466][PSI]OnProcessParam: Reset Arm0 finish
+55476: [INFO][22:04:42              3439466][SI]_FX_RunError: arm0 has reset error, transfer to ARM_STATE_IDLE
+55477: [INFO][22:04:43              3439708][PSI]Arm0: Request a transfer to POSITION
+55478: [INFO][22:04:43              3439714][PSI]OnProcessParam: Failed to set FX_INT32 param R.A0.L6.BASIC.SensorOffset, invalid param name format
+55479: [INFO][22:04:43              3439708][SI]_FX_UpdateCmd: arm0 receive a request to transfer to POSITION
+55480: [INFO][22:04:43              3439708][SI]_FX_RunIdle: arm0 transfer to ARM_STATE_TRANS_TO_POSITION
+55481: [ERRO][22:04:43              3439709][SI]__FX_RequestTransToPositionMode: arm0: Link0's encoder/extencoder might be error.
+55482: [ERRO][22:04:43              3439709][SI]_FX_RunTransferToPosition: arm0: Transfer to ARM_STATE_ERROR

@@ -553,6 +553,20 @@ class MainTests(unittest.TestCase):
         self.assertEqual(args.robot_ip, "192.0.2.8")
         self.assertEqual(args.coordinate_frame, "world")
 
+    def test_configured_controls_reach_ui_and_help(self):
+        self.settings["controls"] = {"toggle_engagement_key": "t", "ready_pose_key": "r",
+                                     "gesture_engagement_enabled": False}
+        self.config.write_text(yaml.safe_dump(self.settings))
+        with patch.object(cli, "run_loop", return_value={"elapsed_s": .1, "motion_pauses": 0}) as loop:
+            result, _ = self.invoke()
+        self.assertEqual(result, 0)
+        ui = loop.call_args.args[1]
+        self.assertEqual(ui.toggle_engagement_key, "t")
+        self.assertEqual(ui.ready_pose_key, "r")
+        self.assertFalse(ui.gesture_engagement_enabled)
+        self.assertIn("T 接合/脱离", self.stderr.getvalue())
+        self.assertIn("R 暂停后", self.stderr.getvalue())
+
     def test_tianji_config_option_reaches_profile_and_initial_pose_preparation(self):
         self.settings.update(controller_ip="192.0.2.8", quest={"coordinate_frame": "world"})
         self.settings["profile"]["profile_id"] = "custom-tianji"

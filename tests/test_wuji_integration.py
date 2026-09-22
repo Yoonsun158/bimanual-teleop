@@ -604,6 +604,23 @@ class EntryPointTests(unittest.TestCase):
         self.assertEqual({side: read() for side, read in ui.gesture.sources.items()}, samples)
         self.assertNotIn("runtime.engage", self.runtime.calls)
 
+    def test_combined_entry_disables_all_gestures_from_config(self):
+        settings = cli.load_config(cli.DEFAULT_CONFIG)
+        settings["controls"]["gesture_engagement_enabled"] = False
+        with patch.object(cli, "NonblockingTerminal"), \
+             patch.object(cli, "prepare_initial_pose"), \
+             patch.object(cli, "create_runtime", return_value=self.runtime), \
+             patch.object(cli, "load_config", return_value=settings), \
+             patch("bimanual_teleop.control.hand.gesture.GestureCommands") as gestures, \
+             patch.object(cli, "run_loop", return_value={"elapsed_s": .1, "motion_pauses": 0}) as loop, \
+             redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as output:
+            self.assertEqual(cli.main([]), 0)
+        gestures.assert_not_called()
+        self.assertIsNone(loop.call_args.args[1].gesture)
+        self.assertNotIn("比 V", output.getvalue())
+        self.assertNotIn("摇滚", output.getvalue())
+        self.assertNotIn("张开", output.getvalue())
+
     def test_combined_entry_forwards_explicit_config_paths_and_user_name(self):
         settings = cli.load_config(cli.DEFAULT_CONFIG)
         self.runtime.hands = SimpleNamespace(glove_samples=lambda: {side: Mock() for side in ("left", "right")},

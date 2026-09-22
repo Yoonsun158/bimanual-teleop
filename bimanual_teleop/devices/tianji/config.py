@@ -25,6 +25,23 @@ def load_config(path: str | Path = DEFAULT_CONFIG, override: str | None = None) 
     quest = source.setdefault("quest", {})
     if quest.setdefault("coordinate_frame", "headset") not in ("headset", "world"):
         raise ValueError("quest.coordinate_frame must be headset or world")
+    controls = source.setdefault("controls", {})
+    if not isinstance(controls, dict):
+        raise ValueError("Tianji controls must be an object")
+    unknown = controls.keys() - {"toggle_engagement_key", "ready_pose_key", "gesture_engagement_enabled"}
+    if unknown:
+        raise ValueError(f"Unknown Tianji controls: {', '.join(map(str, unknown))}")
+    for name, default in (("toggle_engagement_key", "e"), ("ready_pose_key", "h")):
+        key = controls.setdefault(name, default)
+        if (not isinstance(key, str) or len(key) != 1
+                or key.lower() not in "abcdefghijklmnopqrstuvwxyz0123456789"
+                or key.lower() in "qcsx"):
+            raise ValueError(f"controls.{name} must be one letter or digit, excluding Q/C/S/X")
+        controls[name] = key.lower()
+    if controls["toggle_engagement_key"] == controls["ready_pose_key"]:
+        raise ValueError("controls toggle_engagement_key and ready_pose_key must differ")
+    if not isinstance(controls.setdefault("gesture_engagement_enabled", True), bool):
+        raise ValueError("controls.gesture_engagement_enabled must be true or false")
     if "profile" in source:
         profile = source["profile"]
         if not isinstance(profile, dict):

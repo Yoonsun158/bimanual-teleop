@@ -158,6 +158,7 @@ class Recorder:
         self.state = "idle"
         self.error = None
         self.notices = []
+        self._restart_required = False
 
     @property
     def recording(self):
@@ -166,14 +167,8 @@ class Recorder:
     def _launch(self):
         self.channel.failed.clear()
         self.error = None
-        while True:
-            try:
-                self.channel.queue.get_nowait()
-            except Empty:
-                break
-        for index in range(8):
-            self.channel.sent[index] = self.channel.consumed[index] = 0
-            self.channel.inflight[index] = False
+        # Keep cumulative counts: another process's Queue feeder may still hold
+        # old records. The worker consumes them but writes only its episode.
         while True:
             try:
                 self.channel.errors.get_nowait()
@@ -222,6 +217,11 @@ class Recorder:
         """Called only while the UI has paused motion; joining cannot stall control."""
         self.channel.active.value = False
         self._stop_process()
+        if self._restart_required:
+            self.ready = False
+            self.state = "idle"
+            self.error = "采集进程被强制终止，通信队列可能损坏；请退出并重新启动遥操作"
+            return
         self._launch()
 
     def end(self, *, status="complete", reason=None):
@@ -288,11 +288,14 @@ class Recorder:
                 pass
             self.process.join(3.)
         if self.process.is_alive():
+            self._restart_required = True
             self.process.terminate()
             self.process.join(2.)
         if self.process.is_alive():
             self.process.kill()
             self.process.join(1.)
+        if self.process.exitcode not in (None, 0):
+            self._restart_required = True
         self.connection.close()
         self.process = self.connection = None
 

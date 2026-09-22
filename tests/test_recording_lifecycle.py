@@ -51,6 +51,19 @@ class _Rig:
         self.closed.set()
 
 
+class _DelayedValue:
+    """Hold the real Queue feeder after put_nowait has already returned."""
+
+    def __init__(self, entered, release):
+        self.entered, self.release = entered, release
+
+    def __reduce__(self):
+        self.entered.set()
+        if not self.release.wait(5.):
+            raise RuntimeError("test feeder was not released")
+        return float, (.1,)
+
+
 class RecordingLifecycleTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -58,8 +71,9 @@ class RecordingLifecycleTests(unittest.TestCase):
         self.path = Path(temporary.name) / "episode"
         self.config = RecordingConfig(("main", "left", "right"), main_depth=False)
 
-    def worker(self, *, delay=0., failure=False):
-        channel, rig, parent_alive = _channel(512), _Rig(), threading.Event()
+    def worker(self, *, delay=0., failure=False, channel=None):
+        channel = _channel(512) if channel is None else channel
+        rig, parent_alive = _Rig(), threading.Event()
         parent_alive.set()
         channel.active.value = False
         connection, child = mp.Pipe()
@@ -191,9 +205,46 @@ class RecordingLifecycleTests(unittest.TestCase):
         recorder = Recorder.__new__(Recorder)
         recorder.channel, recorder.connection, recorder.process = _channel(), Mock(), Mock()
         recorder.process.is_alive.return_value = True
+        recorder.process.exitcode = 0
         recorder.state, recorder.error, recorder.ready = "recording", None, True
         recorder.notices, recorder.session = [], self.path
+        recorder._restart_required = False
         return recorder
+
+    def test_restart_keeps_counts_until_old_feeder_data_arrives_and_new_episode_saves(self):
+        recorder = Recorder(self.config)
+        channel = recorder.channel
+        entered, release = threading.Event(), threading.Event()
+        def cleanup_channels():
+            release.set()
+            for queue in (channel.queue, channel.errors):
+                queue.close()
+                queue.join_thread()
+        self.addCleanup(cleanup_channels)
+        old = Record("hands/left", 1001, 99, {"joint_pos": (_DelayedValue(entered, release),) * 20})
+        index = (STATE_STREAMS + COMMAND_STREAMS).index(old.stream)
+        channel.sent[index], channel.consumed[index] = 4, 3
+        channel.queue.put_nowait((6, old))
+        self.assertTrue(entered.wait(2.), "Queue feeder did not reach its delay")
+        with patch.object(recorder.context, "Process", return_value=Mock()):
+            recorder._launch()  # A replacement worker starts before the old feeder sends.
+        recorder.connection.close()
+        self.assertEqual((channel.sent[index], channel.consumed[index]), (4, 3))
+        channel.generation.value = 7
+        channel, connection, _, _, rig, _ = self.worker(channel=channel)
+        self.seed(channel, rig)
+        connection.send(("stop", 2000, "complete", None))
+        rig.frame_set(3000)
+        try:
+            self.assertFalse(connection.poll(.2), "saved before the feeder delivered its tail")
+        finally:
+            release.set()
+        self.assertEqual(self.receive(connection), ("saved", (str(self.path), "complete")))
+        self.assertEqual(list(channel.sent), list(channel.consumed))
+        self.assertEqual(channel.consumed[index], 5)
+        raw = zarr.open_group(str(self.path / "raw.zarr"), mode="r")
+        self.assertEqual(raw["hands/left/sequence"][:].tolist(), [0])
+        self.assertEqual(json.loads((self.path / "episode.json").read_text())["status"], "complete")
 
     def test_late_recording_ack_does_not_cancel_saving_and_end_waits_for_saved_ack(self):
         recorder = self.coordinator()
@@ -249,3 +300,30 @@ class RecordingLifecycleTests(unittest.TestCase):
         process.kill.assert_called_once()
         self.assertIsNone(recorder.process)
         self.assertIsNone(recorder.connection)
+        self.assertTrue(recorder._restart_required)
+
+    def test_forced_or_abnormal_exit_refuses_channel_reuse_and_leaves_motion_paused(self):
+        for abnormal_exit in (False, True):
+            with self.subTest(abnormal_exit=abnormal_exit):
+                recorder = self.coordinator()
+                recorder.error = "writer unavailable"
+                if abnormal_exit:
+                    recorder.process.is_alive.return_value = False
+                    recorder.process.exitcode = -9
+                recorder._launch = Mock()
+                channel = recorder.channel
+                runtime = SimpleNamespace(state=SystemState.ENGAGED, last_error=None)
+                runtime.pause = lambda reason: setattr(runtime, "state", SystemState.PAUSED)
+                messages = []
+                ui = RecordingUI(runtime, None, recorder=recorder, emit=messages.append)
+                ui.handle("c")
+                self.assertEqual(runtime.state, SystemState.PAUSED)
+                self.assertFalse(channel.active.value)
+                self.assertTrue(recorder._restart_required)
+                self.assertIn("重新启动遥操作", recorder.error)
+                self.assertFalse(recorder.ready)
+                self.assertIsNone(recorder.process)
+                self.assertIn(recorder.error, messages)
+                recorder._launch.assert_not_called()
+                recorder.recover()  # Repeated recovery cannot accidentally reuse the channel.
+                recorder._launch.assert_not_called()

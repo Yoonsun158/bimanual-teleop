@@ -17,7 +17,7 @@ class RecordingUI(TeleopUI):
             if self.recorder.error:
                 self.abort(self.recorder.error)
                 self.recorder.recover()
-                self.say("正在恢复采集；相机就绪后重新接合，再按 C。")
+                self.say(self.recorder.error or "正在恢复采集；相机就绪后重新接合，再按 C。")
                 return
             if getattr(self.runtime.state, "value", self.runtime.state) != "engaged":
                 self.say("请先接合遥操作，再按 C 开始录制。", "warning")
@@ -30,11 +30,13 @@ class RecordingUI(TeleopUI):
         if key in ("s", "x"):
             self.recorder.end(status="complete" if key == "s" else "discarded")
             return
-        if key in (" ", "q", "\x04"):
+        if self.is_pause_key(key) or key in ("q", "\x04", "\x03"):
             self.recorder.end()
         super().handle(key)
 
     def handle_gesture(self, command):
+        if not self.gesture_engagement_enabled:
+            return "ignored"
         if command == "pause":
             self.recorder.end()
         return super().handle_gesture(command)

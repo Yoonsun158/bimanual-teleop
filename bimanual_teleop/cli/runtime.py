@@ -41,7 +41,8 @@ class TeleopUI:
 
     def __init__(self, runtime, profile, *, emit=None,
                  background_engage=False, following_message="已接合，双臂正在跟随手柄。", gesture=None,
-                 verbose=False, home_enabled=False):
+                 verbose=False, home_enabled=False, toggle_engagement_key=None,
+                 ready_pose_key="h", gesture_engagement_enabled=True):
         self.runtime, self.profile = runtime, profile
         self.emit = emit
         self.verbose = verbose
@@ -60,13 +61,41 @@ class TeleopUI:
         self.home_enabled = home_enabled
         self._operation = "engage"
         self._operation_cancel = threading.Event()
-        self.gesture = gesture
+        self.gesture = gesture if gesture_engagement_enabled else None
+        self.toggle_engagement_key = toggle_engagement_key
+        self.ready_pose_key = ready_pose_key
+        self.gesture_engagement_enabled = gesture_engagement_enabled
         self.loop_timing = {}
         self._reset_tracking_notice()
 
     @property
     def start_hint(self):
-        return "按 Enter 或双手重新比 V" if self.gesture is not None else "按 Enter"
+        hint = "按 Enter"
+        if self.toggle_engagement_key is not None:
+            hint += f" / {self.toggle_engagement_key.upper()}"
+        if self.gesture is not None and self.gesture_engagement_enabled:
+            hint += " 或双手重新比 V"
+        return hint
+
+    @property
+    def help_text(self):
+        text = HELP
+        if self.toggle_engagement_key is not None:
+            text += f" · {self.toggle_engagement_key.upper()} 接合/脱离（操作中取消）"
+        if self.home_enabled:
+            text += f" · {self.ready_pose_key.upper()} 暂停后清错并回位"
+        if self.gesture is not None:
+            text += "\n双手同时比 V 保持 0.3 秒：开始/恢复"
+            text += "\n任一手摇滚保持 0.3 秒：暂停"
+            if self.home_enabled:
+                text += " · 暂停后双手张开保持 1 秒：清错并回位；请先释放实体急停"
+        return text
+
+    def is_pause_key(self, key):
+        state = getattr(self.runtime, "state", None)
+        return key == " " or (key == self.toggle_engagement_key and (
+            getattr(state, "value", state) in ("engaged", "homing")
+            or self.engage_pending or self._operation_thread is not None))
 
     def say(self, message, level="info"):
         if message == self._last_message:
@@ -121,11 +150,11 @@ class TeleopUI:
                 self.engage_pending = False
                 self._operation_cancelled = True
                 self.quit = True
-            elif key == " ":
+            elif self.is_pause_key(key):
                 self.abort(f"键盘暂停；恢复须{self.start_hint}重新接合")
-            elif key in ("\n", "\r"):
+            elif key in ("\n", "\r") or key == self.toggle_engagement_key:
                 self.request_engage(wait_until_ready=True)
-            elif key == "h" and self.home_enabled:
+            elif key == self.ready_pose_key and self.home_enabled:
                 self.request_home()
         except (OSError, RuntimeError, ValueError) as error:
             self.last_motion_error = str(error)
@@ -154,12 +183,16 @@ class TeleopUI:
             return False
         state = getattr(self.runtime.state, "value", self.runtime.state)
         if state != "paused":
-            self.say("请先暂停遥操作，再按 H 或双手张开保持 1 秒回位。", "warning")
+            home_hint = f"按 {self.ready_pose_key.upper()}"
+            if self.gesture is not None:
+                home_hint += " 或双手张开保持 1 秒"
+            self.say(f"请先暂停遥操作，再{home_hint}回位。", "warning")
             return False
         self.engage_pending = False
         if self.gesture is not None:
             self.gesture.inhibit()
-        self.say("正在清错并回位；Space / 摇滚手势可中止，Q 退出。")
+        cancel_hint = "Space" + (" / 摇滚手势" if self.gesture is not None else "")
+        self.say(f"正在清错并回位；{cancel_hint}可中止，Q 退出。")
         self._start_operation("home")
         return True
 
@@ -173,6 +206,8 @@ class TeleopUI:
         self._operation_thread.start()
 
     def handle_gesture(self, command):
+        if not self.gesture_engagement_enabled:
+            return "ignored"
         if command == "home":
             return "home" if self.request_home() else "ignored"
         if command == "pause":
@@ -324,7 +359,7 @@ def run_loop(runtime, ui, terminal, *, period_ns=PERIOD_NS):
             try:
                 ui.poll_operation()
                 ui.report_runtime_pause()
-                gesture = (ui.gesture.poll(start_ready=runtime.health().ready,
+                gesture = (ui.gesture.poll(start_ready=ui.gesture_engagement_enabled and runtime.health().ready,
                            home_ready=ui.home_enabled and ui._operation_thread is None
                            and getattr(runtime.state, "value", runtime.state) == "paused")
                            if ui.gesture is not None else None)

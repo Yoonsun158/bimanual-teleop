@@ -13,11 +13,8 @@ from bimanual_teleop.common.terminal import NonblockingTerminal, confirm_motion
 from bimanual_teleop.devices.tianji.config import DEFAULT_CONFIG, load_config, select_profile_side
 from bimanual_teleop.devices.wuji.config import DEFAULT_CONFIG as DEFAULT_WUJI_CONFIG
 from bimanual_teleop.control.arm import preparation
-from bimanual_teleop.cli.runtime import HELP, TeleopUI, run_loop
+from bimanual_teleop.cli.runtime import TeleopUI, run_loop
 
-ARM_HELP = HELP + " · H 暂停后清错并回位"
-GESTURE_HELP = ("Enter 或双手同时比 V 保持 0.3 秒：开始/恢复 · 任一手摇滚保持 0.3 秒：暂停 · "
-                "Space 暂停/取消 · Q 退出\n暂停后 H 或双手张开保持 1 秒：清错并回位；请先释放实体急停")
 MAPPING_HELP = "左手柄控制右臂，右手柄控制左臂；坐标系由配置 quest.coordinate_frame 选择，默认 headset。"
 
 
@@ -118,8 +115,6 @@ def main(argv=None):
                 preview.start()
             prepare_initial_pose(args, terminal)
             runtime = create_runtime(args, profile, recorder.sink if recorder else None)
-            help_text = GESTURE_HELP if combined else ARM_HELP
-            print_message("实机遥操作\n" + help_text)
             ui_type = TeleopUI
             ui_options = {}
             if recorder is not None:
@@ -128,17 +123,18 @@ def main(argv=None):
                 print_message(RECORDING_HELP)
             runtime.start()
             gesture = None
-            if combined:
+            if combined and settings["controls"]["gesture_engagement_enabled"]:
                 from bimanual_teleop.control.hand.gesture import GestureCommands
                 gesture = GestureCommands({side: lambda side=side: runtime.hands.glove_samples()[side]
                     for side in ("left", "right")},
                     timeout_s=runtime.hands.glove_timeout_ns / 1e9)
-            ui = ui_type(runtime, profile, gesture=gesture, **ui_options,
+            ui = ui_type(runtime, profile, gesture=gesture, **ui_options, **settings["controls"],
                             home_enabled=True,
                             verbose=args.verbose,
                             background_engage=combined,
                             following_message="已接合，双臂与双手正在跟随。" if combined else
                                               f"已接合，{'双臂' if args.side == 'both' else '左臂' if args.side == 'left' else '右臂'}正在跟随手柄。")
+            print_message("实机遥操作\n" + ui.help_text)
             timing = run_loop(runtime, ui, terminal)
     except KeyboardInterrupt:
         pass
