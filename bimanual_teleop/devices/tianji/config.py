@@ -31,12 +31,16 @@ def load_config(path: str | Path = DEFAULT_CONFIG, override: str | None = None) 
     unknown = controls.keys() - {"toggle_engagement_key", "ready_pose_key", "gesture_engagement_enabled"}
     if unknown:
         raise ValueError(f"Unknown Tianji controls: {', '.join(map(str, unknown))}")
-    for name, default in (("toggle_engagement_key", "e"), ("ready_pose_key", "h")):
+    for name, default in (("toggle_engagement_key", "enter"), ("ready_pose_key", "h")):
         key = controls.setdefault(name, default)
+        if name == "toggle_engagement_key" and isinstance(key, str) and key.lower() == "enter":
+            controls[name] = "enter"
+            continue
         if (not isinstance(key, str) or len(key) != 1
                 or key.lower() not in "abcdefghijklmnopqrstuvwxyz0123456789"
                 or key.lower() in "qcsx"):
-            raise ValueError(f"controls.{name} must be one letter or digit, excluding Q/C/S/X")
+            choices = "enter or one letter or digit" if name == "toggle_engagement_key" else "one letter or digit"
+            raise ValueError(f"controls.{name} must be {choices}, excluding Q/C/S/X")
         controls[name] = key.lower()
     if controls["toggle_engagement_key"] == controls["ready_pose_key"]:
         raise ValueError("controls toggle_engagement_key and ready_pose_key must differ")

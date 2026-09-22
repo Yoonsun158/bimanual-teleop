@@ -60,7 +60,7 @@ class QuestTianjiWujiTeleop:
 
     def home(self, cancel):
         with self._lock:
-            if self.state != SystemState.PAUSED or self._home_cancel is not None:
+            if self.state not in (SystemState.READY, SystemState.PAUSED) or self._home_cancel is not None:
                 raise RuntimeError("请先暂停遥操作再回位")
             self._home_cancel = cancel
             self._state = SystemState.HOMING

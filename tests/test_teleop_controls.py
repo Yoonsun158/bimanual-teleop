@@ -46,6 +46,7 @@ class ControlsTests(unittest.TestCase):
         self.runtime.engage.assert_called_once()
 
     def test_toggle_cancels_background_engagement(self):
+        self.ui.toggle_engagement_key = "enter"
         entered, release = threading.Event(), threading.Event()
         self.addCleanup(release.set)
         def engage(_):
@@ -53,9 +54,9 @@ class ControlsTests(unittest.TestCase):
             release.wait(1.)
         self.runtime.engage.side_effect = engage
         self.ui.background_engage = True
-        self.ui.handle("t")
+        self.ui.handle("\n")
         self.assertTrue(entered.wait(.5))
-        self.ui.handle("t")
+        self.ui.handle("\r")
         self.assertTrue(self.ui._operation_cancel.is_set())
         self.runtime.pause.assert_called_once()
         release.set()
@@ -63,21 +64,56 @@ class ControlsTests(unittest.TestCase):
         self.ui.poll_operation()
         self.assertEqual(self.runtime.state, SystemState.PAUSED)
 
-    def test_custom_home_key_requires_pause_and_does_not_resume(self):
-        self.ui.handle("r")
-        self.runtime.home.assert_not_called()
-        self.assertIn("按 R", self.messages[-1])
-        self.ui.handle(" ")
+    def test_custom_home_key_stops_following_and_does_not_resume(self):
+        self.runtime.state = SystemState.ENGAGED
         self.ui.handle("h")
         self.runtime.home.assert_not_called()
         self.ui.handle("R")
         self.ui._operation_thread.join(1.)
         self.ui.poll_operation()
         self.runtime.home.assert_called_once()
+        self.runtime.pause.assert_called_once()
+        self.runtime.engage.assert_not_called()
+        self.assertEqual(self.runtime.state, SystemState.PAUSED)
+
+    def test_failed_stop_does_not_start_homing(self):
+        self.runtime.state = SystemState.ENGAGED
+        self.runtime.pause.side_effect = [RuntimeError("stop failed"), None]
+        self.ui.handle("r")
+        self.runtime.home.assert_not_called()
+        self.assertIsNone(self.ui._operation_thread)
+        self.assertEqual(self.ui.last_motion_error, "stop failed")
+
+    def test_home_gesture_still_requires_detached_state(self):
+        self.runtime.state = SystemState.ENGAGED
+        self.ui.gesture_engagement_enabled = True
+        self.assertEqual(self.ui.handle_gesture("home"), "ignored")
+        self.runtime.pause.assert_not_called()
+        self.runtime.home.assert_not_called()
+
+    def test_home_key_finishes_recording_before_stopping_and_moving(self):
+        self.runtime.state = SystemState.ENGAGED
+        recorder = Mock(poll=Mock(return_value=None), notices=[])
+        calls = Mock()
+        calls.attach_mock(recorder.end, "end")
+        calls.attach_mock(self.runtime.pause, "pause")
+        calls.attach_mock(self.runtime.home, "home")
+        ui = RecordingUI(self.runtime, None, recorder=recorder, home_enabled=True,
+                         toggle_engagement_key="enter", emit=lambda _: None)
+        self.addCleanup(ui.close)
+        ui.handle("H")
+        ui._operation_thread.join(1.)
+        ui.poll_operation()
+        names = [call[0] for call in calls.mock_calls]
+        self.assertEqual(names[0], "end")
+        self.assertEqual(calls.mock_calls[0].kwargs, {})
+        self.assertLess(names.index("pause"), names.index("home"))
+        self.runtime.home.assert_called_once()
         self.runtime.engage.assert_not_called()
         self.assertEqual(self.runtime.state, SystemState.PAUSED)
 
     def test_toggle_cancels_running_home(self):
+        self.ui.toggle_engagement_key = "enter"
         entered, release = threading.Event(), threading.Event()
         self.addCleanup(release.set)
         def home(cancel):
@@ -88,7 +124,7 @@ class ControlsTests(unittest.TestCase):
         self.runtime.state = SystemState.PAUSED
         self.ui.handle("r")
         self.assertTrue(entered.wait(.5))
-        self.ui.handle("t")
+        self.ui.handle("\r")
         self.assertTrue(self.runtime.home.call_args.args[0].is_set())
         release.set()
         self.ui._operation_thread.join(1.)
@@ -119,6 +155,58 @@ class ControlsTests(unittest.TestCase):
         self.ui.poll_operation()
         self.runtime.home.assert_called_once()
 
+    def test_enter_variants_toggle_and_do_not_duplicate_help(self):
+        self.ui.toggle_engagement_key = "enter"
+        self.ui.handle("\n")
+        self.assertEqual(self.runtime.state, SystemState.ENGAGED)
+        self.ui.handle("\r")
+        self.assertEqual(self.runtime.state, SystemState.PAUSED)
+        self.ui.handle("\r")
+        self.assertEqual(self.runtime.state, SystemState.ENGAGED)
+        self.ui.handle("\n")
+        self.assertEqual(self.runtime.state, SystemState.PAUSED)
+        self.assertEqual(self.runtime.engage.call_count, 2)
+        self.assertEqual(self.runtime.pause.call_count, 2)
+        self.assertEqual(self.ui.start_hint, "按 Enter")
+        self.assertEqual(self.ui.help_text.count("Enter"), 1)
+        self.assertIn("Enter 接合/脱离", self.ui.help_text)
+
+    def test_second_enter_cancels_wait_and_readiness_does_not_resume(self):
+        self.ui.toggle_engagement_key = "enter"
+        self.runtime.health.return_value = Health(False, 0, "waiting")
+        self.ui.handle("\n")
+        self.assertTrue(self.ui.engage_pending)
+        self.ui.handle("\r")
+        self.assertFalse(self.ui.engage_pending)
+        self.runtime.health.return_value = Health(True, 0)
+        self.runtime.status.return_value = {"state": "paused"}
+        run_loop(self.runtime, self.ui, Mock(read=Mock(return_value="q")))
+        self.runtime.engage.assert_not_called()
+
+    def test_readiness_completes_enter_request_without_toggling_it_off(self):
+        self.ui.toggle_engagement_key = "enter"
+        self.runtime.health.return_value = Health(False, 0, "waiting")
+        self.ui.handle("\r")
+        self.assertTrue(self.ui.engage_pending)
+        self.runtime.health.return_value = Health(True, 0)
+        self.runtime.status.return_value = {"state": "engaged"}
+        run_loop(self.runtime, self.ui, Mock(read=Mock(return_value="q")))
+        self.runtime.engage.assert_called_once()
+        self.runtime.pause.assert_not_called()
+        self.assertFalse(self.ui.engage_pending)
+
+    def test_failed_pending_engagement_retains_error_and_pauses(self):
+        self.ui.toggle_engagement_key = "enter"
+        self.runtime.health.return_value = Health(False, 0, "waiting")
+        self.ui.handle("\n")
+        self.runtime.health.return_value = Health(True, 0)
+        self.runtime.engage.side_effect = RuntimeError("engagement failed")
+        self.runtime.status.return_value = {"state": "paused"}
+        result = run_loop(self.runtime, self.ui, Mock(read=Mock(return_value="q")))
+        self.runtime.pause.assert_called_once_with("engagement failed")
+        self.assertEqual(result["last_motion_error"], "engagement failed")
+        self.assertFalse(self.ui.engage_pending)
+
     def test_disabled_gestures_are_not_polled(self):
         self.runtime.status.return_value = {"state": "ready"}
         run_loop(self.runtime, self.ui, Mock(read=Mock(return_value="q")))
@@ -141,9 +229,9 @@ class ControlsTests(unittest.TestCase):
         calls = Mock()
         calls.attach_mock(recorder.end, "end")
         calls.attach_mock(self.runtime.pause, "pause")
-        ui = RecordingUI(self.runtime, None, recorder=recorder, toggle_engagement_key="t",
+        ui = RecordingUI(self.runtime, None, recorder=recorder, toggle_engagement_key="enter",
                          emit=lambda _: None)
-        ui.handle("T")
+        ui.handle("\r")
         self.assertEqual(calls.mock_calls[0][0], "end")
         self.assertEqual(calls.mock_calls[0].kwargs, {})
         self.assertEqual(calls.mock_calls[-1][0], "pause")

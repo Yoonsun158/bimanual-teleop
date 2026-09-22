@@ -3,12 +3,15 @@
 from copy import deepcopy
 from contextlib import redirect_stderr
 import io
+import os
+import pty
 import threading
 import time
 import unittest
 from unittest.mock import Mock, patch
 
 from bimanual_teleop.cli.runtime import TeleopUI
+from bimanual_teleop.common.terminal import NonblockingTerminal
 from bimanual_teleop.control.arm.preparation import load_targets, ready_profile, move_to_ready_pose
 from bimanual_teleop.control.combined import QuestTianjiWujiTeleop
 from bimanual_teleop.devices.tianji.config import load_config
@@ -135,12 +138,69 @@ class ReadyPoseOperationTests(unittest.TestCase):
         hands.begin_follow.assert_not_called()
         self.assertEqual(runtime.state, SystemState.PAUSED)
 
+    def test_h_alone_from_real_terminal_moves_to_ready_pose_and_stays_detached(self):
+        for state in (SystemState.READY, SystemState.PAUSED, SystemState.ENGAGED):
+            for combined in (False, True):
+                with self.subTest(state=state, combined=combined):
+                    fx = RuntimeFixture()
+                    fx.runtime.profile = self.profile
+                    fx.runtime.ready_pose = self.settings["ready_pose"]
+                    if state == SystemState.PAUSED:
+                        fx.runtime.pause("test")
+                    elif state == SystemState.ENGAGED:
+                        with patch("bimanual_teleop.control.arm.cartesian.time.monotonic_ns", side_effect=fx.clock):
+                            fx.runtime.engage()
+                        fx.driver.calls.clear()
+                    fx.driver.clear_errors = Mock()
+                    fx.driver.move_joints = Mock()
+                    hands = Mock()
+                    runtime = QuestTianjiWujiTeleop(fx.runtime, hands) if combined else fx.runtime
+                    if combined:
+                        runtime._state = state
+                    def assert_stopped_before_homing(*args, **kwargs):
+                        self.assertFalse(fx.driver.engaged)
+                        if state == SystemState.ENGAGED:
+                            self.assertTrue(fx.driver.holds)
+                        if combined:
+                            hands.pause.assert_called()
+                    fx.driver.clear_errors.side_effect = assert_stopped_before_homing
+                    messages = []
+                    ui = TeleopUI(runtime, self.profile, home_enabled=True,
+                                  toggle_engagement_key="enter", emit=messages.append)
+                    master, slave = pty.openpty()
+                    try:
+                        with os.fdopen(slave, "r") as stream, NonblockingTerminal(stream) as terminal, \
+                                redirect_stderr(io.StringIO()):
+                            os.write(master, b"h")
+                            key = terminal.read(.5)
+                            self.assertEqual(key, "h", "H must arrive without a newline")
+                            ui.handle(key)
+                            self.assertIsNotNone(ui._operation_thread)
+                            ui._operation_thread.join(1.)
+                            self.assertFalse(ui._operation_thread.is_alive())
+                            ui.poll_operation()
+                        self.assertIsNone(ui.last_motion_error)
+                        self.assertIn("已到达 ready pose，保持脱离", messages[-1])
+                        self.assertIn("仅继续遥操作时", messages[-1])
+                        self.assertFalse(ui.engage_pending)
+                        self.assertEqual(runtime.state, SystemState.PAUSED)
+                        self.assertEqual(fx.runtime.state, SystemState.PAUSED)
+                        self.assertNotIn("engage", fx.driver.calls)
+                        self.assertEqual([call.args for call in fx.driver.move_joints.call_args_list],
+                                         list(self.targets.items()))
+                        hands.prepare_engage.assert_not_called()
+                        hands.begin_follow.assert_not_called()
+                    finally:
+                        os.close(master)
+                        ui.close()
+
 
 class HomeKeyboardTests(unittest.TestCase):
     def setUp(self):
         self.entered, self.release = threading.Event(), threading.Event()
         self.runtime = Mock(state=SystemState.PAUSED, last_error=None)
         self.runtime.health.return_value = Health(True, 0)
+        self.runtime.pause.side_effect = lambda _: setattr(self.runtime, "state", SystemState.PAUSED)
         self.ui = TeleopUI(self.runtime, None, home_enabled=True, emit=lambda _: None)
         self.addCleanup(self.ui.close)
         self.addCleanup(self.release.set)
@@ -152,13 +212,11 @@ class HomeKeyboardTests(unittest.TestCase):
             self.runtime.state = SystemState.PAUSED
         self.runtime.home.side_effect = home
 
-    def test_home_is_paused_only_and_mutually_exclusive_with_engage(self):
+    def test_home_stops_engaged_following_and_is_mutually_exclusive_with_engage(self):
         self.runtime.state = SystemState.ENGAGED
         self.ui.handle("h")
-        self.runtime.home.assert_not_called()
-        self.runtime.state = SystemState.PAUSED
-        self.ui.handle("h")
         self.assertTrue(self.entered.wait(.5))
+        self.runtime.pause.assert_called_once()
         self.ui.handle("h")
         self.ui.handle("\n")
         self.runtime.home.assert_called_once()

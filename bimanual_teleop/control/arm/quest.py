@@ -454,7 +454,7 @@ class QuestTianjiTeleop:
         """Use this session's connection; hands/Quest are not motion inputs here."""
         from .preparation import load_targets, ready_profile, move_to_ready_pose
 
-        if (self.state != SystemState.PAUSED or self._home_cancel is not None
+        if (self.state not in (SystemState.READY, SystemState.PAUSED) or self._home_cancel is not None
                 or self.ready_pose is None):
             raise RuntimeError("请先暂停遥操作再回位")
         source, order, targets = load_targets(self.ready_pose, self.side)

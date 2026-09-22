@@ -30,7 +30,9 @@ class RecordingUI(TeleopUI):
         if key in ("s", "x"):
             self.recorder.end(status="complete" if key == "s" else "discarded")
             return
-        if self.is_pause_key(key) or key in ("q", "\x04", "\x03"):
+        if (self.is_pause_key(key) or key in ("q", "\x04", "\x03")
+                or (key == self.ready_pose_key and self.home_enabled
+                    and self._operation_thread is None and not self.quit)):
             self.recorder.end()
         super().handle(key)
 

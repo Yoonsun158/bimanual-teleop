@@ -46,17 +46,19 @@ class TianjiConfigTests(unittest.TestCase):
             def load(controls):
                 path.write_text(yaml.safe_dump({"controller_ip": "192.0.2.8", "controls": controls}))
                 return load_config(path)["controls"]
-            self.assertEqual(load({}), {"toggle_engagement_key": "e", "ready_pose_key": "h",
+            self.assertEqual(load({}), {"toggle_engagement_key": "enter", "ready_pose_key": "h",
                                         "gesture_engagement_enabled": True})
+            for key in ("enter", "Enter", "ENTER"):
+                self.assertEqual(load({"toggle_engagement_key": key})["toggle_engagement_key"], "enter")
             self.assertEqual(load({"toggle_engagement_key": "T", "ready_pose_key": "R",
                                    "gesture_engagement_enabled": False}),
                              {"toggle_engagement_key": "t", "ready_pose_key": "r",
                               "gesture_engagement_enabled": False})
             invalid = [None, [], {"gesture_enabled": False}, {"gesture_engagement_enabled": "false"},
                        {"gesture_engagement_enabled": 0},
-                       {"toggle_engagement_key": "H"}]
+                       {"toggle_engagement_key": "H"}, {"ready_pose_key": "enter"}]
             for name in ("toggle_engagement_key", "ready_pose_key"):
-                invalid.extend({name: key} for key in (None, True, 1, "", "enter", " ", "\n", "é", "Q", "c", "s", "x"))
+                invalid.extend({name: key} for key in (None, True, 1, "", "return", " ", "\n", "é", "Q", "c", "s", "x"))
             for controls in invalid:
                 with self.subTest(controls=controls), self.assertRaisesRegex(ValueError, "controls"):
                     load(controls)

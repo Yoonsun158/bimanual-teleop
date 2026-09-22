@@ -398,7 +398,7 @@ class GestureControlTests(unittest.TestCase):
         ready, now, reads = False, 1_000_000_000, 0
         self.runtime.health = lambda: Health(ready, now, "tracking unavailable")
         ui = runtime_ui.TeleopUI(self.runtime, None, gesture=Mock(poll=Mock(return_value=None)),
-                          emit=lambda _: None)
+                          toggle_engagement_key="enter", emit=lambda _: None)
 
         def read(timeout):
             nonlocal ready, now, reads
@@ -582,12 +582,14 @@ class EntryPointTests(unittest.TestCase):
         self.assertIn("wuji_sdk", output.getvalue())
 
     def test_default_combined_entry_prepares_and_waits_for_gesture_or_enter(self):
+        settings = cli.load_config(cli.DEFAULT_CONFIG)
+        settings["controls"]["gesture_engagement_enabled"] = True
         samples = {side: Mock() for side in ("left", "right")}
         self.runtime.hands = SimpleNamespace(glove_samples=lambda: samples, glove_timeout_ns=250_000_000)
         with patch.object(cli, "NonblockingTerminal"), \
              patch.object(cli, "prepare_initial_pose") as prepare, \
              patch.object(cli, "create_runtime", return_value=self.runtime) as create, \
-             patch.object(cli, "load_config", wraps=cli.load_config) as tianji_load, \
+             patch.object(cli, "load_config", return_value=settings) as tianji_load, \
              patch.object(cli, "run_loop", return_value={"elapsed_s": .1, "motion_pauses": 0}) as loop, \
              redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             code = cli.main([])

@@ -71,7 +71,7 @@ class TeleopUI:
     @property
     def start_hint(self):
         hint = "按 Enter"
-        if self.toggle_engagement_key is not None:
+        if self.toggle_engagement_key not in (None, "enter"):
             hint += f" / {self.toggle_engagement_key.upper()}"
         if self.gesture is not None and self.gesture_engagement_enabled:
             hint += " 或双手重新比 V"
@@ -80,10 +80,12 @@ class TeleopUI:
     @property
     def help_text(self):
         text = HELP
-        if self.toggle_engagement_key is not None:
+        if self.toggle_engagement_key == "enter":
+            text = "Enter 接合/脱离（操作中取消） · Space 暂停/取消 · Q 退出"
+        elif self.toggle_engagement_key is not None:
             text += f" · {self.toggle_engagement_key.upper()} 接合/脱离（操作中取消）"
         if self.home_enabled:
-            text += f" · {self.ready_pose_key.upper()} 暂停后清错并回位"
+            text += f" · {self.ready_pose_key.upper()} 停止跟随并回位，到位后脱离"
         if self.gesture is not None:
             text += "\n双手同时比 V 保持 0.3 秒：开始/恢复"
             text += "\n任一手摇滚保持 0.3 秒：暂停"
@@ -91,9 +93,14 @@ class TeleopUI:
                 text += " · 暂停后双手张开保持 1 秒：清错并回位；请先释放实体急停"
         return text
 
+    def is_toggle_key(self, key):
+        if self.toggle_engagement_key == "enter":
+            return key in ("\n", "\r")
+        return key == self.toggle_engagement_key
+
     def is_pause_key(self, key):
         state = getattr(self.runtime, "state", None)
-        return key == " " or (key == self.toggle_engagement_key and (
+        return key == " " or (self.is_toggle_key(key) and (
             getattr(state, "value", state) in ("engaged", "homing")
             or self.engage_pending or self._operation_thread is not None))
 
@@ -152,10 +159,10 @@ class TeleopUI:
                 self.quit = True
             elif self.is_pause_key(key):
                 self.abort(f"键盘暂停；恢复须{self.start_hint}重新接合")
-            elif key in ("\n", "\r") or key == self.toggle_engagement_key:
+            elif key in ("\n", "\r") or self.is_toggle_key(key):
                 self.request_engage(wait_until_ready=True)
             elif key == self.ready_pose_key and self.home_enabled:
-                self.request_home()
+                self.request_home(stop_follow=True)
         except (OSError, RuntimeError, ValueError) as error:
             self.last_motion_error = str(error)
             self.abort(str(error))
@@ -178,11 +185,16 @@ class TeleopUI:
             self._engaged()
         return True
 
-    def request_home(self):
+    def request_home(self, *, stop_follow=False):
         if not self.home_enabled or self._operation_thread is not None or self.quit:
             return False
         state = getattr(self.runtime.state, "value", self.runtime.state)
-        if state != "paused":
+        if state == "engaged" and stop_follow:
+            # Stop both runtimes before starting any ready-pose movement.
+            # If stopping fails, propagate the error without launching homing.
+            self.abort("键盘请求回位，已停止遥操作跟随")
+            state = getattr(self.runtime.state, "value", self.runtime.state)
+        if state not in ("ready", "paused"):
             home_hint = f"按 {self.ready_pose_key.upper()}"
             if self.gesture is not None:
                 home_hint += " 或双手张开保持 1 秒"
@@ -192,7 +204,7 @@ class TeleopUI:
         if self.gesture is not None:
             self.gesture.inhibit()
         cancel_hint = "Space" + (" / 摇滚手势" if self.gesture is not None else "")
-        self.say(f"正在清错并回位；{cancel_hint}可中止，Q 退出。")
+        self.say(f"正在清错并回位，无需再次按回车；{cancel_hint}可中止，Q 退出。")
         self._start_operation("home")
         return True
 
@@ -251,7 +263,7 @@ class TeleopUI:
             if self.gesture is not None:
                 self.gesture.inhibit()
             self._last_error = None
-            self.say(f"回位完成，保持暂停；{self.start_hint}恢复。", "ready")
+            self.say(f"已到达 ready pose，保持脱离；仅继续遥操作时才需{self.start_hint}接合。", "ready")
         else:
             self._engaged()
 
@@ -367,12 +379,14 @@ def run_loop(runtime, ui, terminal, *, period_ns=PERIOD_NS):
                     command, _sides = gesture
                     ui.handle_gesture(command)
                 if ui.engage_pending and runtime.health().ready:
-                    ui.handle("\n")
+                    # Readiness completes the request; it is not another toggle keypress.
+                    ui.request_engage(wait_until_ready=True)
                 ui.loop_timing["pre_tick_ns"] = time.monotonic_ns() - now
                 tick_started = time.monotonic_ns()
                 runtime.tick(now)
                 ui.loop_timing["runtime_tick_ns"] = time.monotonic_ns() - tick_started
-            except (RuntimeError, ValueError) as error:
+            except (OSError, RuntimeError, ValueError) as error:
+                ui.last_motion_error = str(error)
                 ui.abort(str(error))
             ui.report_runtime_pause()
             ui.report_tracking()
