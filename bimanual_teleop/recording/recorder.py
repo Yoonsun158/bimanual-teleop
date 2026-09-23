@@ -5,36 +5,12 @@ from datetime import datetime
 import multiprocessing as mp
 from pathlib import Path
 from queue import Empty
+import signal
+import threading
 import time
 from uuid import uuid4
 
 from .sink import CaptureChannel, RecorderSink, STATE_STREAMS, COMMAND_STREAMS
-
-
-class _Preview:
-    def __init__(self):
-        import matplotlib.pyplot as plt
-        import numpy as np
-        if plt.get_backend().lower() == "agg":
-            raise RuntimeError("录制预览需要桌面图形环境")
-        self.plt = plt
-        self.figure, axes = plt.subplots(1, 3, figsize=(15, 4))
-        self.artists = {}
-        for index, axis in enumerate(axes):
-            axis.set_title(f"camera_{index}")
-            axis.set_axis_off()
-            self.artists[f"camera_{index}"] = axis.imshow(np.zeros((480, 640, 3), dtype="u1"))
-        plt.show(block=False)
-        self.next_update = 0.
-
-    def update(self, frames):
-        if not self.plt.fignum_exists(self.figure.number) or time.monotonic() < self.next_update:
-            return
-        for camera, image in frames.items():
-            self.artists[camera].set_data(image)
-        self.figure.canvas.draw_idle()
-        self.plt.pause(.001)
-        self.next_update = time.monotonic() + .1
 
 
 def _worker(config, sdk_root, metadata, channel, connection, viewer):
@@ -42,8 +18,14 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
     from .camera import CameraRig
     from .storage import EpisodeWriter
 
+    # Terminal SIGINT belongs to the coordinator, which pauses motion and sends
+    # bounded shutdown requests. Do not interrupt a child midway through I/O.
+    if threading.current_thread() is threading.main_thread():
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
     rig = CameraRig(config)
     writer = None
+    preview = None
+    failure = "录制未正常完成"
     generation = 0
     ending = None
     latest_images = {}
@@ -53,7 +35,9 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
         required_cameras.append("cameras/camera_0/depth")
     try:
         kinematics = TianjiKinematics(sdk_root)
-        preview = _Preview() if viewer else None
+        if viewer:
+            from .preview import RecordingPreview
+            preview = RecordingPreview()
         rig.start()
         metadata = {**metadata, "recording": asdict(config), "cameras": rig.metadata,
                     "model_sha256": kinematics.model.digest,
@@ -130,15 +114,18 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer):
                 connection.send(("saved", (path, status)))
             time.sleep(.001)
     except BaseException as error:
-        channel.fail(f"录制进程失败：{error}")
+        failure = f"录制进程失败：{error}"
+        channel.fail(failure)
     finally:
         channel.active.value = False
+        rig.close()
         if writer is not None:
             try:
-                writer.close(time.monotonic_ns(), "failed", "录制未正常完成")
+                writer.close(time.monotonic_ns(), "failed", failure)
             except Exception:
                 pass  # Disk failure leaves the manifest incomplete, never complete.
-        rig.close()
+        if preview is not None:
+            preview.close()
         connection.close()
 
 

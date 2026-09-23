@@ -54,6 +54,7 @@ class RecordingUI(TeleopUI):
         if error and error != self._reported_recording_error:
             self._reported_recording_error = error
             self.abort(error)
+            self.say("采集已停止，当前条不完整。排除原因后按 C 恢复采集；相机就绪后重新接合，再按 C 开新条。", "warning")
         elif not error:
             self._reported_recording_error = None
         while self.recorder.notices:

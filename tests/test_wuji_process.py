@@ -3,6 +3,7 @@
 from dataclasses import asdict
 import multiprocessing as mp
 import os
+import signal
 import threading
 import time
 import unittest
@@ -318,6 +319,7 @@ class WujiProcessTests(unittest.TestCase):
             time.sleep(.02)
         self.assertFalse(runtime.health().ready)
         self.assertIn("stale", runtime.health().detail)
+        self.assertIn("glove", runtime.health().detail)
 
     def test_original_diagnostics_expiry_is_not_extended_by_fresh_joint_samples(self):
         runtime = self.runtime({"fixed_diagnostics": True, "hand_timeout_s": .12})
@@ -328,6 +330,7 @@ class WujiProcessTests(unittest.TestCase):
             time.sleep(.02)
         self.assertFalse(runtime.health().ready)
         self.assertIn("stale", runtime.health().detail)
+        self.assertIn("hand diagnostics", runtime.health().detail)
 
     def test_worker_stall_is_unhealthy_even_with_fresh_devices_and_snapshots(self):
         runtime = self.runtime({"fixed_worker": True, "hand_timeout_s": .12})
@@ -340,6 +343,20 @@ class WujiProcessTests(unittest.TestCase):
             time.sleep(.02)
         self.assertFalse(runtime.health().ready)
         self.assertIn("stale", runtime.health().detail)
+        self.assertIn("control worker", runtime.health().detail)
+
+    def test_terminal_interrupt_leaves_child_available_for_coordinated_close(self):
+        events = self.context.Queue()
+        runtime = self.runtime({"events": events})
+        runtime.start()
+        os.kill(runtime._process.pid, signal.SIGINT)
+        runtime.prepare_engage()
+        runtime.begin_follow()
+        self.assertTrue(runtime.health().ready)
+        runtime.close()
+        self.event(events, "closed")
+        self.assertEqual(runtime._process.exitcode, 0)
+        events.close()
 
     def test_child_exit_is_unhealthy(self):
         runtime = self.runtime()

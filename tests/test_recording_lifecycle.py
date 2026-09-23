@@ -189,7 +189,10 @@ class RecordingLifecycleTests(unittest.TestCase):
                 self.assertTrue(channel.failed.is_set())
                 self.assertFalse(channel.active.value)
                 self.assertTrue(rig.closed.is_set())
-                self.assertEqual(json.loads((self.path / "episode.json").read_text())["status"], "failed")
+                document = json.loads((self.path / "episode.json").read_text())
+                self.assertEqual(document["status"], "failed")
+                self.assertIn("simulated disk failure" if failure else "遥操作主进程已退出",
+                              document["reason"])
 
     def test_missing_camera_tail_is_bounded_and_marks_episode_failed(self):
         channel, connection, _, _, rig, _ = self.worker()
@@ -301,6 +304,18 @@ class RecordingLifecycleTests(unittest.TestCase):
         self.assertIsNone(recorder.process)
         self.assertIsNone(recorder.connection)
         self.assertTrue(recorder._restart_required)
+
+    def test_recording_failure_explains_recovery_once(self):
+        recorder = self.coordinator()
+        recorder.poll = Mock(return_value="Camera recording queue is full")
+        runtime = SimpleNamespace(state=SystemState.ENGAGED, last_error=None)
+        runtime.pause = lambda reason: setattr(runtime, "state", SystemState.PAUSED)
+        messages = []
+        ui = RecordingUI(runtime, None, recorder=recorder, emit=messages.append)
+        ui.poll_operation()
+        ui.poll_operation()
+        self.assertEqual(sum("按 C 恢复采集" in message for message in messages), 1)
+        self.assertEqual(runtime.state, SystemState.PAUSED)
 
     def test_forced_or_abnormal_exit_refuses_channel_reuse_and_leaves_motion_paused(self):
         for abnormal_exit in (False, True):

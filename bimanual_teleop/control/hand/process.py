@@ -8,10 +8,11 @@ joint commands.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import multiprocessing as mp
 import pickle
 import select
+import signal
 import socket
 import threading
 import time
@@ -32,6 +33,7 @@ class _Snapshot:
     valid_until_ns: int
     status: dict
     gloves: dict
+    deadlines: dict = field(default_factory=dict)
 
 
 def _send(channel, message):
@@ -54,6 +56,9 @@ def _create_runtime(config, *, verbose=False, record_sink=None):
 
 
 def _serve(config, control, observations, heartbeat, runtime_factory, verbose, record_sink=None):
+    # The coordinator handles terminal Ctrl+C, pauses both domains, then asks
+    # this child to close. SIGTERM remains available for bounded escalation.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     runtime = None
     sequence = command_id = 0
     operation = None
@@ -67,22 +72,21 @@ def _serve(config, control, observations, heartbeat, runtime_factory, verbose, r
         now = time.monotonic_ns()
         gloves = runtime.glove_samples()
         status = runtime.status(include_target=False)
-        deadlines = [now + timeout_ns]
+        deadlines = {"process snapshot": now + timeout_ns}
         if runtime.threaded and (runtime.state == SystemState.ENGAGED or status.get("mode") == "hold"):
             completed = status.get("worker_completed_monotonic_ns")
-            deadlines.append(completed + timeout_ns if completed is not None else now)
+            deadlines["control worker"] = completed + timeout_ns if completed is not None else now
         for side in runtime.sides:
             glove, hand = gloves.get(side), runtime.hands[side].get_latest()
             diagnostics = runtime.hands[side].get_latest_stream("diagnostics")
-            deadlines.extend((glove.header.received_monotonic_ns + runtime.glove_timeout_ns
-                              if glove else now,
-                              hand.header.received_monotonic_ns + runtime.hand_timeout_ns
-                              if hand else now,
-                              diagnostics.header.received_monotonic_ns + runtime.hand_timeout_ns
-                              if diagnostics else now))
+            for name, sample, timeout in (("glove", glove, runtime.glove_timeout_ns),
+                                          ("hand joints", hand, runtime.hand_timeout_ns),
+                                          ("hand diagnostics", diagnostics, runtime.hand_timeout_ns)):
+                deadlines[f"{side} {name}"] = (sample.header.received_monotonic_ns + timeout
+                                                if sample else now)
         sequence += 1
-        return _Snapshot(sequence, command_id, now, min(deadlines),
-                         status, gloves)
+        return _Snapshot(sequence, command_id, now, min(deadlines.values()),
+                         status, gloves, deadlines)
 
     def reply(request_id, error=None):
         _send(control, (request_id, error, snapshot() if runtime is not None else None))
@@ -331,7 +335,12 @@ class WujiProcess:
         if self._failure:
             return Health(False, now, self._failure)
         if self._latest is None or now >= self._latest.valid_until_ns:
-            return Health(False, now, "Wuji process observation is missing or stale")
+            detail = "Wuji process observation is missing or stale"
+            if self._latest is not None:
+                expired = [name for name, deadline in self._latest.deadlines.items() if now >= deadline]
+                if expired:
+                    detail += ": " + ", ".join(expired)
+            return Health(False, now, detail)
         health = self._latest.status["health"]
         return Health(bool(health["ready"]), now, health.get("detail"))
 

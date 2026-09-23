@@ -150,10 +150,9 @@ class CameraRig:
         domain = frame.get_frame_timestamp_domain()
         if domain != self.rs.timestamp_domain.global_time:
             with self._lock:
-                warmed = self._warm.get(key, 0) >= 3
                 self._warm[key] = 0
                 self._last.pop(key, None)
-            if warmed or self._active.is_set():
+            if self._active.is_set():
                 raise RuntimeError(f"{name}/{kind}: timestamp domain left GLOBAL_TIME")
             return
         source_ms = float(frame.get_timestamp())
@@ -163,8 +162,16 @@ class CameraRig:
             previous = self._last.get(key)
             if previous is not None:
                 if source_ms < previous[0] or sequence < previous[1]:
-                    raise RuntimeError(f"{name}/{kind}: frame time or sequence moved backwards")
-                if sequence == previous[1]:
+                    if self._active.is_set():
+                        raise RuntimeError(
+                            f"{name}/{kind}: frame time or sequence moved backwards "
+                            f"(time_ms {previous[0]:.6f} -> {source_ms:.6f}, "
+                            f"sequence {previous[1]} -> {sequence})")
+                    # A sensor may restart while the other pipelines are still
+                    # starting. No frames have been published yet: require a
+                    # fresh warmup run instead of failing the whole preflight.
+                    self._warm[key] = 0
+                elif sequence == previous[1]:
                     return
             self._last[key] = (source_ms, sequence, stamp)
             self._warm[key] = self._warm.get(key, 0) + 1

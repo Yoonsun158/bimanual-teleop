@@ -196,6 +196,42 @@ class CameraTests(unittest.TestCase):
         self.assertTrue(all(p.stopped for p in rs.pipelines))
         self.assertFalse(rig.ready)
 
+    def test_startup_rollback_restarts_warmup_without_publishing_frames(self):
+        for kind in ("rgb", "depth"):
+            for rollback in ("sequence", "time"):
+                with self.subTest(kind=kind, rollback=rollback):
+                    rig, _rs, clock = self.prepared(depth=True)
+                    rig._active.clear()
+                    key = ("camera_0", kind)
+                    sequence = 1 if rollback == "sequence" else 4
+                    age_ns = 0 if rollback == "sequence" else 2_000_000
+                    rig._accept(*key, Frame(clock, sequence, age_ns=age_ns))
+                    self.assertEqual(rig._warm[key], 1)
+                    self.assertFalse(rig.ready)
+                    for step in (1, 2):
+                        clock.now += 33_000_000
+                        rig._accept(*key, Frame(clock, sequence + step))
+                        self.assertEqual(rig.ready, step == 2)
+                    self.assertTrue(rig._queue.empty())
+                    rig._active.set()
+                    clock.now += 33_000_000
+                    rig._accept(*key, Frame(clock, sequence + 3))
+                    self.assertEqual([item[3].sequence for item in rig.poll()], [sequence + 3])
+                    with self.assertRaisesRegex(RuntimeError, "backwards.*sequence"):
+                        rig._accept(*key, Frame(clock, 1))
+
+    def test_domain_change_after_individual_warmup_can_retry_before_rig_is_active(self):
+        rig, _rs, clock = self.prepared(depth=True)
+        rig._active.clear()
+        rig._accept("camera_0", "depth", Frame(clock, 4, domain="hardware"))
+        self.assertFalse(rig.ready)
+        self.assertNotIn(("camera_0", "depth"), rig._last)
+        for sequence in (1, 2, 3):
+            clock.now += 33_000_000
+            rig._accept("camera_0", "depth", Frame(clock, sequence))
+        self.assertTrue(rig.ready)
+        self.assertTrue(rig._queue.empty())
+
     def test_pipeline_start_failure_still_releases_the_pipeline(self):
         rig, rs, _clock = self.rig()
         original_factory = rs.pipeline
