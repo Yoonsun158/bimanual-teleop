@@ -1,0 +1,20 @@
+{
+  "arm_step_mm": 200.0,
+  "near_step_mm": 10.0,
+  "translation_min_mm": 10.0,
+  "rotation_step_deg": 1.0,
+  "translation_speed_mm_s": 5.0,
+  "rotation_speed_deg_s": 2.0,
+  "hand_step_deg": 1.0,
+  "hand_transition_s": 0.3,
+  "current_stop_a": 0.4,
+  "current_stop_s": 0.2,
+  "hand_error_deg": 5.0,
+  "lift_step_mm": 10.0,
+  "lift_total_mm": 20.0,
+  "lift_mismatch_mm": 1.0,
+  "lift_rotation_deg": 0.5,
+  "lift_violation_s": 0.1,
+  "observation_max_age_s": 60.0,
+  "session_travel_budget_mm": 500.0
+}
