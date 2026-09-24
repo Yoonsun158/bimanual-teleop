@@ -176,7 +176,7 @@ class WujiProcessTests(unittest.TestCase):
         self.assertTrue(runtime.health().ready)
         status = runtime.status(include_target=False)
         self.assertIsNone(status["hands"]["left"]["last_target"])
-        self.assertIn("thread_schedstat", status["process"])
+        self.assertNotIn("process", status)
         self.assertIn("send_drops", status["observation_transport"])
         self.assertIn("sequence_gaps", status["observation_transport_parent"])
 

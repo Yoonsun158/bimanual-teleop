@@ -24,20 +24,8 @@ def _lower_priority(increment):
         pass
 
 
-def _record_timing(timings, name, started_ns, *, items=0):
-    elapsed = time.monotonic_ns() - started_ns
-    values = timings.setdefault(name, {"count": 0, "items": 0, "total_ns": 0,
-                                       "last_ns": 0, "max_ns": 0})
-    values["count"] += 1
-    values["items"] += items
-    values["total_ns"] += elapsed
-    values["last_ns"] = elapsed
-    values["max_ns"] = max(values["max_ns"], elapsed)
-
-
 def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increment=5):
     from bimanual_teleop.common.affinity import apply_recording_affinity
-    from bimanual_teleop.common.runlog import process_snapshot
     from bimanual_teleop.devices.tianji.model import TianjiKinematics
     from .camera import CameraRig
     from .spool import RawEpisodeWriter
@@ -56,10 +44,6 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
     ending = None
     latest_images = {}
     camera_seen = {}
-    timings = {name: {"count": 0, "items": 0, "total_ns": 0,
-                      "last_ns": 0, "max_ns": 0}
-               for name in ("commands", "camera", "numeric", "preview", "loop_work")}
-    loop_count = 0
     required_cameras = [f"cameras/camera_{i}/rgb" for i in range(3)]
     if config.main_depth:
         required_cameras.append("cameras/camera_0/depth")
@@ -89,16 +73,12 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
         connection.send(("ready", None))
         running = True
         while running:
-            loop_started = time.monotonic_ns()
-            command_started = time.monotonic_ns()
-            command_count = 0
             parent = mp.parent_process()
             if parent is not None and not parent.is_alive():
                 raise RuntimeError("遥操作主进程已退出")
             while connection.poll():
                 message = connection.recv()
                 operation = message[0]
-                command_count += 1
                 if operation == "start":
                     if writer is not None:
                         raise RuntimeError("Previous episode has not finished")
@@ -123,25 +103,10 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                     ending = (end_ns, status, reason, time.monotonic() + .15)
                 elif operation == "close":
                     running = False
-                elif operation == "status":
-                    rig_status = rig.status() if hasattr(rig, "status") else None
-                    writer_status = (writer.status() if writer is not None
-                                     and hasattr(writer, "status") else None)
-                    connection.send(("worker_status", {
-                        "process": process_snapshot(),
-                        "loop_count": loop_count,
-                        "timing": {name: dict(values) for name, values in timings.items()},
-                        "camera": rig_status,
-                        "writer": writer_status,
-                    }))
-            _record_timing(timings, "commands", command_started, items=command_count)
             # Camera input has the smaller fixed queue and cannot be replayed.
             # Service it before numeric streams so a Zarr flush cannot leave
             # all four 30 Hz image streams waiting behind a large state batch.
-            camera_started = time.monotonic_ns()
-            camera_count = 0
             for camera, kind, image, record in rig.poll():
-                camera_count += 1
                 camera_seen[record.stream] = record.time_ns
                 if kind == "rgb":
                     latest_images[camera] = image
@@ -150,24 +115,17 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                         writer.write_rgb(camera, image, record)
                     else:
                         writer.append(replace(record, values={**record.values, "image": image}))
-            _record_timing(timings, "camera", camera_started, items=camera_count)
-            numeric_started = time.monotonic_ns()
-            numeric_count = 0
             for _ in range(128):
                 try:
                     record_generation, record = channel.queue.get_nowait()
                 except Empty:
                     break
-                numeric_count += 1
                 channel.consumed[(STATE_STREAMS + COMMAND_STREAMS).index(record.stream)] += 1
                 if writer is not None and record_generation == generation and (
                         ending is None or record.time_ns <= ending[0]):
                     writer.append(record)
-            _record_timing(timings, "numeric", numeric_started, items=numeric_count)
-            preview_started = time.monotonic_ns()
             if preview is not None:
                 preview.update(latest_images)
-            _record_timing(timings, "preview", preview_started)
             drained = (not any(channel.inflight) and list(channel.sent) == list(channel.consumed))
             past_end = ending is not None and all(camera_seen.get(s, 0) >= ending[0]
                                                    for s in required_cameras)
@@ -194,8 +152,6 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                 ending = None
                 channel.active.value = False
                 connection.send(("saved", (path, status)))
-            loop_count += 1
-            _record_timing(timings, "loop_work", loop_started)
             time.sleep(.001)
     except BaseException as error:
         failure = f"录制进程失败：{error}"
@@ -230,9 +186,6 @@ class Recorder:
         self.error = None
         self.notices = []
         self._restart_required = False
-        self._worker_status = None
-        self._status_request_pending = False
-        self._next_status_request_ns = 0
         self._nvenc_checked = False
 
     @property
@@ -252,7 +205,6 @@ class Recorder:
             "sent": list(self.channel.sent), "consumed": list(self.channel.consumed),
             "inflight": list(self.channel.inflight),
             "numeric_occupancy": self.channel.occupancy(),
-            "worker": getattr(self, "_worker_status", None),
         }
 
     def _launch(self):
@@ -274,9 +226,6 @@ class Recorder:
         child.close()
         self.ready = False
         self.state = "idle"
-        self._worker_status = None
-        self._status_request_pending = False
-        self._next_status_request_ns = 0
 
     def start(self):
         """Camera preflight before teleoperation is engaged."""
@@ -357,21 +306,8 @@ class Recorder:
                         label = {"captured": "已采集，等待离线整理",
                                  "complete": "已保存", "discarded": "已作废"}.get(status, "不完整")
                         self.notices.append(f"录制{label}：{path}")
-                    elif kind == "worker_status":
-                        self._worker_status = value
-                        self._status_request_pending = False
             except (EOFError, OSError):
                 pass
-            now = time.monotonic_ns()
-            if (not getattr(self, "_status_request_pending", False)
-                    and now >= getattr(self, "_next_status_request_ns", 0)
-                    and self.process is not None and self.process.is_alive()):
-                try:
-                    self.connection.send(("status",))
-                    self._status_request_pending = True
-                    self._next_status_request_ns = now + 1_000_000_000
-                except (EOFError, OSError):
-                    pass
         while True:
             try:
                 self.error = self.channel.errors.get_nowait()

@@ -87,12 +87,14 @@ def main(argv=None):
     error = None
     timing = None
     runtime_log = None
+    phase = "日志初始化"
     try:
         log_path = args.log_file or default_run_log_path()
         runtime_log = configure_runtime_logging(
             wuji=combined, verbose=args.verbose, log_file=log_path)
         runtime_log.start(command="teleop_quest_tianji", arguments=vars(args))
         print_message(f"详细运行日志：{runtime_log.path}")
+        phase = "加载配置"
         settings = load_config(args.config, args.robot_ip)
         args.robot_ip = settings["controller_ip"]
         args.coordinate_frame = settings["quest"]["coordinate_frame"]
@@ -107,45 +109,34 @@ def main(argv=None):
                 from bimanual_teleop.devices.wuji.config import sdk_user_name
                 args.wuji_settings["sdk_user_name"] = sdk_user_name({}, user_name=args.user_name)
             preflight()
-        runtime_log.event("configuration_loaded", tianji=settings,
-                          wuji=args.wuji_settings if combined else None,
-                          record=args.record, viewer=args.viewer)
         if args.record:
-            from bimanual_teleop.common.affinity import apply_recording_affinity
+            phase = "启动采集进程"
             from bimanual_teleop.recording.config import load_config as load_recording_config, DEFAULT_CONFIG as RECORDING_CONFIG
             from bimanual_teleop.recording.recorder import Recorder
             recorder = Recorder(load_recording_config(args.recording_config or RECORDING_CONFIG),
                 sdk_root=args.sdk_root, viewer=args.viewer,
                 metadata={"tianji_config": settings, "wuji_config": args.wuji_settings})
-            runtime_log.event("recorder_starting", recorder=recorder.status())
             recorder.start()
-            runtime_log.event("recorder_started", recorder=recorder.status())
-            control_cpus = apply_recording_affinity("control")
-            runtime_log.event("recording_cpu_affinity", control_cpus=control_cpus,
-                              process=process_snapshot())
+        phase = "等待运动确认"
         with NonblockingTerminal() as terminal:
             if not confirm_motion(terminal, "开始初始回位，完成后等待遥操作接合"):
-                runtime_log.event("motion_confirmation_cancelled")
                 return 0
-            runtime_log.event("motion_confirmation_accepted")
             if args.viewer and not args.record:
                 from bimanual_teleop.visualization.realsense import RealSensePreview
                 preview = RealSensePreview()
                 preview.start()
-            runtime_log.event("initial_pose_starting")
+            phase = "初始回位"
             prepare_initial_pose(args, terminal)
-            runtime_log.event("initial_pose_completed")
+            phase = "创建设备运行时"
             runtime = create_runtime(args, profile, recorder.sink if recorder else None)
-            runtime_log.event("runtime_created", combined=combined)
             ui_type = TeleopUI
             ui_options = {}
             if recorder is not None:
                 from bimanual_teleop.recording.ui import RecordingUI, HELP as RECORDING_HELP
                 ui_type, ui_options = RecordingUI, {"recorder": recorder}
                 print_message(RECORDING_HELP)
+            phase = "启动设备运行时"
             runtime.start()
-            runtime_log.event("runtime_started", status=(
-                runtime.status(include_target=False) if hasattr(runtime, "status") else {}))
             gesture = None
             if combined and settings["controls"]["gesture_engagement_enabled"]:
                 from bimanual_teleop.control.hand.gesture import GestureCommands
@@ -160,16 +151,14 @@ def main(argv=None):
                             following_message="已接合，双臂与双手正在跟随。" if combined else
                                               f"已接合，{'双臂' if args.side == 'both' else '左臂' if args.side == 'left' else '右臂'}正在跟随手柄。")
             print_message("实机遥操作\n" + ui.help_text)
-            runtime_log.event("control_loop_starting")
+            phase = "遥操作控制循环"
             timing = run_loop(runtime, ui, terminal)
-            runtime_log.event("control_loop_completed", timing=timing)
     except KeyboardInterrupt:
-        if runtime_log is not None:
-            runtime_log.event("keyboard_interrupt")
+        pass
     except (OSError, RuntimeError, ValueError, TypeError, ImportError, subprocess.SubprocessError) as problem:
         error = str(problem)
         if runtime_log is not None:
-            runtime_log.event("unhandled_runtime_error", error=error,
+            runtime_log.event("unhandled_runtime_error", phase=phase, error=error,
                               process=process_snapshot())
     finally:
         if ui is not None:
@@ -201,7 +190,7 @@ def main(argv=None):
                 if runtime_log is not None:
                     runtime_log.event("recorder_close_failed", error=str(problem))
         if runtime_log is not None:
-            runtime_log.close(error=error, timing=timing)
+            runtime_log.close(error=error, timing=timing, final_phase=phase)
     if error:
         print_message(runtime_message(error, verbose=args.verbose), "error")
     else:

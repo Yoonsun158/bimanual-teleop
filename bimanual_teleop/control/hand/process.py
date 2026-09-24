@@ -56,8 +56,6 @@ def _create_runtime(config, *, verbose=False, record_sink=None):
 
 
 def _serve(config, control, observations, heartbeat, runtime_factory, verbose, record_sink=None):
-    from bimanual_teleop.common.runlog import process_snapshot
-
     # The coordinator handles terminal Ctrl+C, pauses both domains, then asks
     # this child to close. SIGTERM remains available for bounded escalation.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -68,19 +66,13 @@ def _serve(config, control, observations, heartbeat, runtime_factory, verbose, r
     closing = False
     coordinator_expired = False
     timeout_ns = round(config.get("hand_timeout_s", .5) * 1e9)
-    process_status = None
-    next_process_status_ns = 0
     observation_send_attempts = observation_send_successes = observation_send_drops = 0
 
     def snapshot():
-        nonlocal sequence, process_status, next_process_status_ns
+        nonlocal sequence
         now = time.monotonic_ns()
         gloves = runtime.glove_samples()
         status = dict(runtime.status(include_target=False))
-        if now >= next_process_status_ns:
-            process_status = process_snapshot()
-            next_process_status_ns = now + 1_000_000_000
-        status["process"] = process_status
         status["observation_transport"] = {
             "send_attempts": observation_send_attempts,
             "send_successes": observation_send_successes,

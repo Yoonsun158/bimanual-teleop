@@ -822,10 +822,11 @@ class TianjiDriver:
                 latest = self.get_latest()
                 if all(self._advanced.get(side, 0) >= now and self._in_control_mode(latest.payload.arms[side])
                        for side in self.profile.active_arms):
-                    # Only the measured seed has a startup grace period. Once
-                    # the mode is ready, a fresh target is due within watchdog_s.
+                    # The measured seed holds the current pose, so retain the
+                    # startup grace period until the first planned target is
+                    # accepted.  Starting the runtime watchdog here made one
+                    # dual-arm IK cycle consume most or all of its budget.
                     confirmed_ns = time.monotonic_ns()
-                    self._deadline_ns = min(self._deadline_ns, confirmed_ns + self.watchdog_ns)
                     self._mode_confirmed = True
                     self._event("tianji.engagement_mode_reported", {"packet_index": latest.payload.packet_index,
                                                                  "command_id": command.command_id,
@@ -877,13 +878,16 @@ class TianjiDriver:
         self._connected()
         self._motion_sides.update(profile.active_arms)
         submitted = self._invoke(operation, self._mask(profile.active_arms), q, expires, token=token)
+        accepted_ns = time.monotonic_ns()
         if operation == "submit":
             self._event("tianji_command_submitted", {"command": command}, submitted)
-        # A seed target may hold still while the servo enables, but must still
-        # be submitted within watchdog_s. Runtime targets keep the shorter limit.
+        # Target freshness is enforced above and by the deadline passed to the
+        # native SDK.  Once that fresh target is accepted, the host liveness
+        # watchdog gets its full interval; IK time must not shorten the interval
+        # in which the next target is allowed to arrive.
         self._deadline_ns = (min(command.expires_monotonic_ns, now + self.engagement_timeout_ns)
-                             if operation == "engage" else expires)
-        self._last_target_ns = now
+                             if operation == "engage" else accepted_ns + self.watchdog_ns)
+        self._last_target_ns = accepted_ns
         self._last_command_id = command.command_id
         return Submission(command.command_id, True)
 

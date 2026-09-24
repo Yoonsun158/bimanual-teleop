@@ -178,9 +178,9 @@ class RuntimeLog:
                    cpu_count=os.cpu_count(), cwd=str(Path.cwd()),
                    process=process_snapshot(), **details)
 
-    def attach_python_logging(self, logger):
+    def attach_python_logging(self, logger, *, level=logging.WARNING):
         self._handler = _RuntimeLogHandler(self)
-        self._handler.setLevel(logging.DEBUG)
+        self._handler.setLevel(level)
         logger.addHandler(self._handler)
 
     def close(self, **details):

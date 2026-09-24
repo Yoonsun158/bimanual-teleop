@@ -1,4 +1,4 @@
-"""Best-effort physical-core partitioning for recording and control processes."""
+"""Best-effort CPU containment for background recording processes."""
 
 import os
 from pathlib import Path
@@ -18,11 +18,12 @@ def _physical_groups(allowed):
 
 
 def recording_cpu_sets():
-    """Return disjoint control/background logical CPUs or ``None``.
+    """Return background logical CPUs without restricting motion control.
 
-    The split is enabled only when at least four physical cores are available.
-    This prevents a container CPU mask or an unusual topology from being
-    interpreted as the development workstation's 4-core/8-thread layout.
+    Motion control keeps the complete scheduler affinity.  On a four-core
+    workstation, cutting it down to two physical cores made the host watchdog
+    miss otherwise valid targets.  Only the lower-priority recording workers
+    are contained on the latter half of the available physical cores.
     """
     if not hasattr(os, "sched_getaffinity"):
         return None
@@ -33,12 +34,9 @@ def recording_cpu_sets():
     groups = _physical_groups(allowed)
     if len(groups) < 4:
         return None
-    control_groups = groups[:2]
-    background_groups = groups[2:]
-    return {
-        "control": frozenset(cpu for group in control_groups for cpu in group),
-        "background": frozenset(cpu for group in background_groups for cpu in group),
-    }
+    background_groups = groups[len(groups) // 2:]
+    return {"background": frozenset(
+        cpu for group in background_groups for cpu in group)}
 
 
 def apply_recording_affinity(role):

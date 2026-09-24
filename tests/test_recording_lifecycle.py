@@ -130,16 +130,9 @@ class RecordingLifecycleTests(unittest.TestCase):
                    side_effect=OSError("unsupported")):
             _lower_priority(5)
 
-    def test_worker_status_is_requested_and_contains_stage_diagnostics(self):
+    def test_worker_does_not_emit_periodic_diagnostics(self):
         _channel_value, connection, _thread, _parent_alive, _rig, _seen = self.worker()
-        connection.send(("status",))
-        kind, status = self.receive(connection)
-        self.assertEqual(kind, "worker_status")
-        self.assertEqual(status["process"]["pid"], os.getpid())
-        self.assertIn("loop_work", status["timing"])
-        self.assertIn("camera", status["timing"])
-        self.assertIsNotNone(status["writer"])
-        self.assertIn("videos", status["writer"])
+        self.assertFalse(connection.poll(.05))
 
     def record(self, stamp, sequence=1, stream="hands/left"):
         arm = stream.startswith(("arms/", "arm_commands/"))
@@ -280,7 +273,6 @@ class RecordingLifecycleTests(unittest.TestCase):
         child.send(("recording", str(self.path)))
         recorder.poll()
         self.assertEqual(recorder.state, "saving")
-        self.assertEqual(self.receive(child), ("status",))
         child.send(("saved", (str(self.path), "complete")))
         recorder.poll()
         self.assertEqual(recorder.state, "idle")

@@ -1,6 +1,5 @@
 """Recording keys added to the existing terminal UI, not a second control loop."""
 
-from bimanual_teleop.common.runlog import process_snapshot
 from bimanual_teleop.cli.runtime import TeleopUI
 
 HELP = "C 开始录制 · S 保存 · X 作废当前条（录制要求双臂双手已接合）"
@@ -15,8 +14,6 @@ class RecordingUI(TeleopUI):
     def handle(self, key):
         key = key.lower()
         if key == "c":
-            if self.runtime_log is not None:
-                self.runtime_log.event("record_key", key="c", recorder=self.recorder.status())
             if self.recorder.error:
                 if getattr(self.runtime.state, "value", self.runtime.state) == "engaged":
                     self.say("采集已停止，但遥操作仍在继续。请先主动脱离，再按 C 恢复采集。", "warning")
@@ -33,8 +30,6 @@ class RecordingUI(TeleopUI):
                 self.say(str(error), "warning")
             return
         if key in ("s", "x"):
-            if self.runtime_log is not None:
-                self.runtime_log.event("record_key", key=key, recorder=self.recorder.status())
             self.recorder.end(status="complete" if key == "s" else "discarded")
             return
         if (self.is_pause_key(key) or key in ("q", "\x04", "\x03")
@@ -61,6 +56,9 @@ class RecordingUI(TeleopUI):
         if error and error != self._reported_recording_error:
             self._reported_recording_error = error
             self.recorder.end(status="failed", reason=error)
+            if self.runtime_log is not None:
+                self.runtime_log.event("recording_failure", error=error,
+                                       recorder=self.recorder.status())
             self.say("采集已停止，当前条不完整；遥操作继续。请先主动脱离，排除原因后按 C 恢复采集，再重新接合并按 C 开新条。", "warning")
         elif not error:
             self._reported_recording_error = None
@@ -69,12 +67,7 @@ class RecordingUI(TeleopUI):
         super().poll_operation()
 
     def log_runtime_status(self, status):
-        if self.runtime_log is not None:
-            self.runtime_log.event("runtime_status", status=status,
-                                   host_loop=dict(self.loop_timing),
-                                   retained_cycles=len(self._cycle_history),
-                                   recorder=self.recorder.status(),
-                                   process=process_snapshot())
+        return None
 
     def report_runtime_pause(self):
         if getattr(self.runtime.state, "value", self.runtime.state) == "paused":
