@@ -25,6 +25,7 @@ class RecordingConfig:
     state_hz: float = 200.
     output_dir: str = "recordings"
     start_delay_s: float = 0.
+    frame_capacity: int = 256
     save_key: str = "s"
     discard_key: str = "x"
     quit_key: str = "q"
@@ -43,6 +44,9 @@ class RecordingConfig:
         if (isinstance(self.start_delay_s, bool) or not isinstance(self.start_delay_s, (int, float))
                 or not math.isfinite(self.start_delay_s) or not 0 <= self.start_delay_s <= 60):
             raise ValueError("recording.start_delay_s must be in [0, 60]")
+        if (isinstance(self.frame_capacity, bool) or not isinstance(self.frame_capacity, int)
+                or not 16 <= self.frame_capacity <= 2048):
+            raise ValueError("recording.frame_capacity must be an integer in [16, 2048]")
         keys = [self.save_key, self.discard_key, self.quit_key, self.recover_key]
         if any(not isinstance(key, str) or len(key) != 1 or key in (" ", "\n", "\r") for key in keys):
             raise ValueError("recording control keys must be one character each")
@@ -55,7 +59,9 @@ def load_config(path=DEFAULT_CONFIG):
     controls = values.pop("controls", {})
     if not isinstance(controls, dict):
         raise ValueError("recording.controls must be a mapping")
-    unknown = set(values) - {"cameras", "main_depth", "state_hz", "output_dir", "start_delay_s"}
+    unknown = set(values) - {
+        "cameras", "main_depth", "state_hz", "output_dir", "start_delay_s", "frame_capacity",
+    }
     if unknown:
         raise ValueError(f"Unknown recording settings: {sorted(unknown)}")
     unknown_controls = set(controls) - set(_CONTROL_KEYS)

@@ -76,7 +76,8 @@ class RecordingLifecycleTests(unittest.TestCase):
         channel.active.value = False
         connection, child = mp.Pipe()
         seen = Queue()
-        def factory(*args):
+        def factory(*args, **kwargs):
+            del kwargs
             writer = EpisodeWriter(*args)
             append = writer.append
             close = writer.close
@@ -232,11 +233,15 @@ class RecordingLifecycleTests(unittest.TestCase):
         self.assertEqual((config.save_key, config.discard_key, config.quit_key, config.recover_key),
                          ("s", "x", "q", "c"))
         self.assertEqual(config.start_delay_s, 0)
+        self.assertEqual(config.frame_capacity, 256)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "recording.yaml"
             path.write_text("cameras: [a, b, c]\ncontrols: {save_key: s, discard_key: s}\n",
                             encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "distinct"):
+                load_config(path)
+            path.write_text("cameras: [a, b, c]\nframe_capacity: 8\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "frame_capacity"):
                 load_config(path)
 
     def test_slow_writer_cannot_ack_complete_while_valid_tail_records_are_lost(self):

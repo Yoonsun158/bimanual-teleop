@@ -12,7 +12,7 @@ nvidia-smi -L
 
 如果该命令失败，`--record` 会在机械臂运动前退出，不会自动改用三路 CPU 编码。
 
-相机序列号、深度开关和输出目录位于 `configs/recording.yaml`。还应检查 `recordings/` 所在磁盘具有足够空间。
+相机序列号、深度开关、输出目录和帧池长度 `frame_capacity` 位于 `configs/recording.yaml`。`frame_capacity` 按主机内存选择，CPU 核数不用另配；改法见该文件注释和 [README 的配置说明](../README.md#配置)。还应检查 `recordings/` 所在磁盘具有足够空间。
 
 ## 2. 启动
 

@@ -108,7 +108,8 @@ def _worker(config, sdk_root, metadata, channel, connection, viewer, nice_increm
                     # but do not buffer frames that cannot belong to it.
                     rig.suspend_delivery()
                     try:
-                        writer = RawEpisodeWriter(path, start_ns, metadata, kinematics)
+                        writer = RawEpisodeWriter(path, start_ns, metadata, kinematics,
+                                                  frame_capacity=config.frame_capacity)
                         writer.prepare_rgb(rig.metadata)
                     finally:
                         rig.resume_delivery()
