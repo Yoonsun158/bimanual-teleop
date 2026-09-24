@@ -9,3 +9,11 @@ main_depth: true
 state_hz: 200
 # 每条演示的输出位置；相对路径以启动命令的目录为准。
 output_dir: recordings
+# 接合成功后再等多久开始或继续本条。0 表示一接合就录。
+start_delay_s: 0.0
+# 录制按键。脱离（Enter / Space / 故障 / 回位）只暂停本条，不在这里配置。
+controls:
+  save_key: s # 保存并结束当前条，遥操作继续
+  discard_key: x # 作废并结束当前条
+  quit_key: q # 保存当前条并退出
+  recover_key: c # 采集进程失败后，先脱离再按此键恢复进程

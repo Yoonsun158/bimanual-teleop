@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import zarr
 
-from bimanual_teleop.recording.config import RecordingConfig
+from bimanual_teleop.recording.config import RecordingConfig, load_config
 from bimanual_teleop.recording.convert import _read_stream
 from bimanual_teleop.recording.recorder import Recorder, _lower_priority, _worker
 from bimanual_teleop.recording.sink import COMMAND_STREAMS, STATE_STREAMS, Record
@@ -178,6 +178,67 @@ class RecordingLifecycleTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         self.assertTrue(rig.closed.is_set())
 
+    def test_pause_resume_continues_episode_time_from_the_pause(self):
+        channel, connection, _, _, rig, seen = self.worker()
+        self.seed(channel, rig)
+        self.enqueue(channel, self.record(2_000, 1))
+        while seen.get(timeout=2.).time_ns != 2_000:
+            pass
+        connection.send(("pause", 2_500))
+        self.assertEqual(self.receive(connection)[0], "paused")
+        self.enqueue(channel, self.record(8_000, 2))
+        connection.send(("resume", 9_000))
+        self.assertEqual(self.receive(connection)[0], "resumed")
+        self.enqueue(channel, self.record(9_100, 3))
+        mapped = None
+        while mapped is None:
+            item = seen.get(timeout=2.)
+            if item.sequence == 3:
+                mapped = item
+            self.assertNotEqual(item.time_ns, 8_000)
+        self.assertEqual(mapped.time_ns, 2_600)
+
+    def test_engagement_starts_after_delay_and_reengagement_resumes(self):
+        recorder = self.coordinator()
+        recorder.poll = Mock(return_value=None)
+        recorder.notices = []
+        recorder.config = RecordingConfig(("a", "b", "c"), start_delay_s=5)
+        recorder.state = "idle"
+        recorder.begin = Mock(side_effect=lambda: setattr(recorder, "state", "starting"))
+        recorder.pause = Mock(side_effect=lambda: setattr(recorder, "state", "paused"))
+        recorder.resume = Mock(side_effect=lambda: setattr(recorder, "state", "resuming"))
+        runtime = SimpleNamespace(state=SystemState.ENGAGED, last_error=None)
+        clock = {"now": 0.}
+        with patch("bimanual_teleop.recording.ui.time.monotonic", side_effect=lambda: clock["now"]):
+            ui = RecordingUI(runtime, None, recorder=recorder, emit=lambda _: None)
+            ui.poll_operation()
+            recorder.begin.assert_not_called()
+            clock["now"] = 5
+            ui.poll_operation()
+            recorder.begin.assert_called_once()
+            runtime.state = SystemState.PAUSED
+            ui.poll_operation()
+            recorder.pause.assert_called_once()
+            runtime.state = SystemState.ENGAGED
+            ui.poll_operation()
+            recorder.resume.assert_not_called()
+            clock["now"] = 10
+            ui.poll_operation()
+            recorder.resume.assert_called_once()
+        recorder.begin.assert_called_once()
+
+    def test_recording_config_reads_keys_and_rejects_duplicates(self):
+        config = load_config()
+        self.assertEqual((config.save_key, config.discard_key, config.quit_key, config.recover_key),
+                         ("s", "x", "q", "c"))
+        self.assertEqual(config.start_delay_s, 0)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "recording.yaml"
+            path.write_text("cameras: [a, b, c]\ncontrols: {save_key: s, discard_key: s}\n",
+                            encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "distinct"):
+                load_config(path)
+
     def test_slow_writer_cannot_ack_complete_while_valid_tail_records_are_lost(self):
         channel, connection, _, _, rig, _ = self.worker(delay=.002)
         self.seed(channel, rig, exclude=("hands/left",))
@@ -277,7 +338,7 @@ class RecordingLifecycleTests(unittest.TestCase):
         recorder.poll()
         self.assertEqual(recorder.state, "idle")
 
-    def test_manual_pause_saves_fault_pause_fails_and_recovery_requires_disengagement(self):
+    def test_disengagement_pauses_the_episode_and_recovery_requires_disengagement(self):
         for mode in ("keyboard", "gesture", "fault", "recover", "broken_pipe"):
             with self.subTest(mode=mode):
                 recorder, runtime = self.coordinator(), SimpleNamespace(state=SystemState.ENGAGED, last_error=None)
@@ -303,8 +364,10 @@ class RecordingLifecycleTests(unittest.TestCase):
                     recorder.recover.assert_called_once()
                     self.assertEqual(runtime.state, SystemState.READY)
                     continue
-                sent, = recorder.connection.send.call_args_list
-                self.assertEqual(sent.args[0][2], "complete" if mode in ("keyboard", "gesture") else "failed")
+                self.assertEqual(recorder.connection.send.call_args.args[0][0], "pause")
+                self.assertFalse(any(
+                    call.args and call.args[0][0] == "stop"
+                    for call in recorder.connection.send.call_args_list))
 
     def test_stuck_process_shutdown_has_bounded_join_escalation(self):
         recorder = self.coordinator()

@@ -68,7 +68,8 @@ def main(argv=None):
     parser.add_argument("--user-name", help="联合控制使用的已有 Wuji SDK 用户名；默认从配置文件读取")
     parser.add_argument("--arms-only", action="store_true", help="只控制机械臂，不连接 Wuji 手套和灵巧手")
     parser.add_argument("--viewer", action="store_true", help="显示已连接 RealSense 的彩色图像；默认关闭")
-    parser.add_argument("--record", action="store_true", help="启用原始采集；C 开始、S 保存、X 作废")
+    parser.add_argument("--record", action="store_true",
+                        help="启用原始采集；接合后自动开始，S 保存、X 作废、Q 保存并退出")
     parser.add_argument("--recording-config", type=Path,
                         help="采集配置 YAML；默认 configs/recording.yaml")
     parser.add_argument("--log-file", type=Path,
@@ -132,9 +133,9 @@ def main(argv=None):
             ui_type = TeleopUI
             ui_options = {}
             if recorder is not None:
-                from bimanual_teleop.recording.ui import RecordingUI, HELP as RECORDING_HELP
+                from bimanual_teleop.recording.ui import RecordingUI, recording_help
                 ui_type, ui_options = RecordingUI, {"recorder": recorder}
-                print_message(RECORDING_HELP)
+                print_message(recording_help(recorder.config))
             phase = "启动设备运行时"
             runtime.start()
             gesture = None
