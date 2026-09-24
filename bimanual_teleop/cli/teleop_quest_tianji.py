@@ -111,6 +111,7 @@ def main(argv=None):
                           wuji=args.wuji_settings if combined else None,
                           record=args.record, viewer=args.viewer)
         if args.record:
+            from bimanual_teleop.common.affinity import apply_recording_affinity
             from bimanual_teleop.recording.config import load_config as load_recording_config, DEFAULT_CONFIG as RECORDING_CONFIG
             from bimanual_teleop.recording.recorder import Recorder
             recorder = Recorder(load_recording_config(args.recording_config or RECORDING_CONFIG),
@@ -119,6 +120,9 @@ def main(argv=None):
             runtime_log.event("recorder_starting", recorder=recorder.status())
             recorder.start()
             runtime_log.event("recorder_started", recorder=recorder.status())
+            control_cpus = apply_recording_affinity("control")
+            runtime_log.event("recording_cpu_affinity", control_cpus=control_cpus,
+                              process=process_snapshot())
         with NonblockingTerminal() as terminal:
             if not confirm_motion(terminal, "开始初始回位，完成后等待遥操作接合"):
                 runtime_log.event("motion_confirmation_cancelled")

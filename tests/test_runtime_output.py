@@ -70,6 +70,11 @@ class ConsoleBehaviorTests(unittest.TestCase):
             run_log.close(result="ok")
             rows = [json.loads(line) for line in path.read_text().splitlines()]
         self.assertEqual(rows[0]["event"], "session_start")
+        self.assertIn("thread_schedstat", rows[0]["process"])
+        self.assertIn("cpu_pressure", rows[0]["process"])
+        self.assertIn("io_pressure", rows[0]["process"])
+        self.assertIn("process_io", rows[0]["process"])
+        self.assertIn("cgroup_cpu", rows[0]["process"])
         self.assertTrue(any(row["event"] == "python_log" and
                             row["message"] == "周期细节" for row in rows))
         self.assertTrue(any(row["event"] == "runtime_status" and

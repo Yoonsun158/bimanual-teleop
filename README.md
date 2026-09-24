@@ -114,18 +114,23 @@ Hand2 双侧回零按先左后右执行，每侧到位并去使能后继续，�
 
 ## 数据采集
 
+快速操作、离线整理和故障恢复见[数据采集快速使用说明](docs/recording_quickstart.md)。完整字段与时间语义见[数据采集指南](docs/data_collection.md)。
+
 ```bash
 # 双臂双手遥操作，同时启用原始数据采集和共享相机预览
 python scripts/teleop_quest_tianji.py --record --viewer
 
-# 采集后分别导出两种动作空间；输出路径不得已存在
+# 退出采集后先整理原始会话
+python scripts/finalize_recording.py --input recordings/<session>
+
+# 再分别导出两种动作空间；输出路径不得已存在
 python scripts/convert_recording.py --input recordings/<session> --output datasets/episodes_eef.zarr --action-space eef
 python scripts/convert_recording.py --input recordings/<session> --output datasets/episodes_joint.zarr --action-space joint
 ```
 
-接合后按 **C** 开始、**S** 保存、**X** 作废当前条；手动暂停保存，故障暂停标记不完整。三路 RGB 为 640×480、30 Hz，只有主 D435 默认采深度；低维状态默认记录 200 Hz，控制目标沿用机械臂 200 Hz、手部 120 Hz。相机序列号及输出位置见 [采集配置](configs/recording.yaml)。
+接合后按 **C** 开始、**S** 保存、**X** 作废当前条。S 保存的是待离线整理的原始条目；采集故障作废当前条但不自动停止遥操作，设备安全故障仍会停止运动。三路 RGB 为 640×480、30 Hz，只有主 D435 默认采深度；低维状态默认记录 200 Hz。相机序列号及输出位置见[采集配置](configs/recording.yaml)。
 
-原始数据保持各流真实时间戳，离线统一到主 RGB 帧时间，导出 DP Zarr。字段、时间语义、恢复操作和训练接口见[数据采集指南](docs/data_collection.md)。已有环境补装依赖：`PIP_USER=false python -m pip install -e '.[recording]'`。
+原始数据保持各流真实时间戳；整理完成后再统一到主 RGB 帧时间并导出 DP Zarr。已有环境补装依赖：`PIP_USER=false python -m pip install -e '.[recording]'`。
 
 ## 手套标定
 
