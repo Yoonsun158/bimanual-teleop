@@ -16,7 +16,12 @@ from .sink import Record, STREAM_FIELDS
 from .storage import write_json
 
 
-FRAME_CAPACITY = 16
+# One slot across the three RGB rings and the depth ring is 3,379,200 bytes
+# (480×640×3 × 3 + 480×640×2). RawArray zeroes that storage when an episode
+# starts, so the whole capacity stays resident. 256 frames is 825 MiB and
+# 8.5 s at 30 Hz. This machine has 16 GiB and no swap; staying under 1 GiB
+# leaves the rest for the control processes and the page cache.
+FRAME_CAPACITY = 256
 CAMERA_META = struct.Struct("<qqd")
 NUMERIC_STRUCTS = {
     stream: struct.Struct("<qq" + "d" * sum(size for _name, size in fields))
@@ -27,7 +32,9 @@ NUMERIC_STRUCTS = {
 class SharedFrameRing:
     """Single-producer/single-consumer image queue in shared memory."""
 
-    def __init__(self, context, shape, dtype, capacity=FRAME_CAPACITY):
+    def __init__(self, context, shape, dtype, capacity=None):
+        if capacity is None:
+            capacity = FRAME_CAPACITY
         import numpy as np
         self.shape = tuple(shape)
         self.dtype = np.dtype(dtype).str
@@ -147,11 +154,19 @@ class NVENCVideo:
 
 def _ignore_interrupt():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    try:
-        from bimanual_teleop.common.affinity import apply_recording_affinity
-        apply_recording_affinity("background")
-    except Exception:
-        pass
+    from bimanual_teleop.common.affinity import apply_recording_affinity
+    apply_recording_affinity("background")
+
+
+def _release(ring):
+    """Copy one frame out and free its slot before the slow write."""
+    item = ring.peek()
+    if item is None:
+        return None
+    position, generation, image, record = item
+    owned = image.copy()
+    ring.acknowledge(position)
+    return generation, owned, record
 
 
 def _rgb_worker(ring, path, metadata_path):
@@ -162,16 +177,15 @@ def _rgb_worker(ring, path, metadata_path):
         metadata = Path(metadata_path).open("wb", buffering=1024 * 1024)
         ring.ready.set()
         while not ring.closing.is_set() or ring.size():
-            item = ring.peek()
-            if item is None:
+            released = _release(ring)
+            if released is None:
                 ring.wake.wait(.02)
                 ring.wake.clear()
                 continue
-            position, _generation, image, record = item
+            _generation, image, record = released
             encoder.write(image)
             metadata.write(CAMERA_META.pack(
                 record.time_ns, record.sequence, record.values["source_time_ms"]))
-            ring.acknowledge(position)
     except BaseException as error:
         ring.fail(f"RGB 编码失败：{error}")
     finally:
@@ -197,16 +211,15 @@ def _depth_worker(ring, image_path, metadata_path):
         metadata = Path(metadata_path).open("wb", buffering=1024 * 1024)
         ring.ready.set()
         while not ring.closing.is_set() or ring.size():
-            item = ring.peek()
-            if item is None:
+            released = _release(ring)
+            if released is None:
                 ring.wake.wait(.02)
                 ring.wake.clear()
                 continue
-            position, _generation, image, record = item
+            _generation, image, record = released
             image_file.write(image.tobytes(order="C"))
             metadata.write(CAMERA_META.pack(
                 record.time_ns, record.sequence, record.values["source_time_ms"]))
-            ring.acknowledge(position)
     except BaseException as error:
         ring.fail(f"深度写入失败：{error}")
     finally:
@@ -284,7 +297,8 @@ def preflight_nvenc(count=3, timeout_s=15.):
 class RawEpisodeWriter:
     """Online writer with no FK, Zarr compression or cross-camera serialization."""
 
-    def __init__(self, path, start_ns, metadata, _kinematics=None, *, context=None):
+    def __init__(self, path, start_ns, metadata, _kinematics=None, *, context=None,
+                 frame_capacity=None):
         self.path = Path(path)
         self.path.mkdir(parents=True, exist_ok=False)
         self.raw = self.path / "raw_spool"
@@ -294,6 +308,7 @@ class RawEpisodeWriter:
                              end_ns=None, metadata=metadata)
         write_json(self.path / "episode.json", self.document)
         self.context = context or mp.get_context("spawn")
+        self.frame_capacity = FRAME_CAPACITY if frame_capacity is None else frame_capacity
         self.generation = None
         self.rings = {}
         self.processes = {}
@@ -313,7 +328,7 @@ class RawEpisodeWriter:
 
     def prepare_rgb(self, cameras):
         for camera in cameras:
-            ring = SharedFrameRing(self.context, (480, 640, 3), "u1")
+            ring = SharedFrameRing(self.context, (480, 640, 3), "u1", self.frame_capacity)
             metadata = self.raw / "cameras" / f"{camera}_rgb.bin"
             process = self.context.Process(target=_rgb_worker,
                 args=(ring, str(self.path / f"{camera}.mp4"), str(metadata)),
@@ -323,7 +338,7 @@ class RawEpisodeWriter:
             self.processes[f"cameras/{camera}/rgb"] = process
         if self.document["metadata"]["recording"]["main_depth"]:
             stream = "cameras/camera_0/depth"
-            ring = SharedFrameRing(self.context, (480, 640), "u2")
+            ring = SharedFrameRing(self.context, (480, 640), "u2", self.frame_capacity)
             process = self.context.Process(target=_depth_worker, args=(ring,
                 str(self.raw / "cameras" / "camera_0_depth.raw"),
                 str(self.raw / "cameras" / "camera_0_depth.bin")),

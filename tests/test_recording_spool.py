@@ -13,7 +13,8 @@ import zarr
 
 from bimanual_teleop.recording.finalize import finalize_episode
 from bimanual_teleop.recording.sink import Record
-from bimanual_teleop.recording.spool import NVENCVideo, RawEpisodeWriter, SharedFrameRing, preflight_nvenc
+from bimanual_teleop.recording.spool import (
+    NVENCVideo, RawEpisodeWriter, SharedFrameRing, _release, preflight_nvenc)
 from bimanual_teleop.recording.storage import RGBVideo
 from tests.test_recording_storage import _Kinematics
 
@@ -46,6 +47,19 @@ class RecordingSpoolTests(unittest.TestCase):
         self.assertEqual(ring.size(), 0)
         ring.close_queues()
 
+    def test_release_keeps_a_private_copy_and_frees_the_only_slot(self):
+        ring = SharedFrameRing(mp.get_context("spawn"), (2, 2, 3), "u1", capacity=1)
+        first = np.zeros((2, 2, 3), dtype="u1")
+        second = np.full((2, 2, 3), 9, dtype="u1")
+        record = Record("cameras/camera_0/rgb", self.start, 7, {"source_time_ms": 1.})
+        ring.put_nowait(1, first, record)
+        _generation, owned, restored = _release(ring)
+        self.assertEqual(restored.sequence, 7)
+        ring.put_nowait(1, second, record)
+        np.testing.assert_array_equal(owned, first)
+        self.assertEqual(ring.processed.value, 1)
+        ring.close_queues()
+
     def test_online_encoder_is_nvenc_and_driver_failure_has_no_cpu_fallback(self):
         container = Mock()
         stream = container.add_stream.return_value
@@ -63,7 +77,7 @@ class RecordingSpoolTests(unittest.TestCase):
         context = mp.get_context("fork")
         with patch("bimanual_teleop.recording.spool.NVENCVideo", RGBVideo):
             writer = RawEpisodeWriter(self.episode, self.start, self.metadata,
-                                      context=context)
+                                      context=context, frame_capacity=2)
             writer.prepare_rgb({f"camera_{index}": {} for index in range(3)})
             for camera_index in range(3):
                 camera = f"camera_{camera_index}"

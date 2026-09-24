@@ -184,7 +184,7 @@ class TianjiDriver:
     """
 
     def __init__(self, controller_ip: str, sdk_root: str | Path | None = None,
-                 *, model_path: str | Path | None = None, watchdog_s: float = 0.05,
+                 *, model_path: str | Path | None = None, watchdog_s: float = 0.08,
                  engagement_timeout_s: float = 1.0, record_force: bool = False):
         if not math.isfinite(watchdog_s) or watchdog_s <= 0:
             raise ValueError("watchdog_s must be positive and finite")
@@ -194,6 +194,8 @@ class TianjiDriver:
         self.sdk_root = resolve_sdk_root(sdk_root)
         self.model_path = model_path
         self.record_force = record_force
+        # 80 ms is one extra slow control cycle over the previous 50 ms budget.
+        # The same interval bounds feedback-counter stalls.
         self.watchdog_ns = int(watchdog_s * 1e9)
         self.engagement_timeout_ns = int(engagement_timeout_s * 1e9)
         self.profile: MotionProfile | None = None

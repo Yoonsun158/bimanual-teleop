@@ -15,7 +15,12 @@ from .sink import CaptureChannel, RecorderSink, STATE_STREAMS, COMMAND_STREAMS
 
 
 def _lower_priority(increment):
-    """Let motion/control processes win CPU contention without requiring privileges."""
+    """Let motion/control processes win CPU contention without requiring privileges.
+
+    Do not also pin this process to a CPU subset. Encoder workers are spawned
+    afterward and inherit this niceness, while still being allowed to run on
+    idle cores. Motion control keeps the full affinity.
+    """
     if not increment:
         return
     try:
